@@ -130,10 +130,10 @@ async function handlePreview(req: Request): Promise<Response> {
 
 // Webhook handler - verifies signature and sends email
 async function handleWebhook(req: Request): Promise<Response> {
-  const apiKey = Deno.env.get('LOVABLE_API_KEY')
+  const hookSecret = Deno.env.get('SEND_EMAIL_HOOK_SECRET')
 
-  if (!apiKey) {
-    console.error('LOVABLE_API_KEY not configured')
+  if (!hookSecret) {
+    console.error('SEND_EMAIL_HOOK_SECRET not configured')
     return new Response(
       JSON.stringify({ error: 'Server configuration error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -146,7 +146,7 @@ async function handleWebhook(req: Request): Promise<Response> {
   try {
     const verified = await verifyWebhookRequest({
       req,
-      secret: apiKey,
+      secret: hookSecret,
       parser: parseEmailWebhookPayload,
     })
     payload = verified.payload
@@ -241,6 +241,15 @@ async function handleWebhook(req: Request): Promise<Response> {
     console.error('No callback_url in payload', { run_id })
     return new Response(JSON.stringify({ error: 'Missing callback_url in payload' }), {
       status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
+
+  const apiKey = Deno.env.get('LOVABLE_API_KEY')
+  if (!apiKey) {
+    console.error('LOVABLE_API_KEY not configured for sending', { run_id })
+    return new Response(JSON.stringify({ error: 'Email sending not configured' }), {
+      status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   }
