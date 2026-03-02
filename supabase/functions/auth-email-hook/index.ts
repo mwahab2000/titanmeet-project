@@ -15,7 +15,6 @@ const corsHeaders = {
     'authorization, x-client-info, apikey, content-type',
 }
 
-// Configuration
 const SITE_NAME = "TitanMeet"
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || 'https://qclaciklevavttipztrv.supabase.co'
 const GMAIL_USER = 'events@titanmeet.com'
@@ -38,7 +37,6 @@ const EMAIL_TEMPLATES: Record<string, React.ComponentType<any>> = {
   reauthentication: ReauthenticationEmail,
 }
 
-// Build the confirmation URL from Supabase hook data
 function buildConfirmationUrl(emailData: any): string {
   const { token_hash, redirect_to, email_action_type } = emailData
   const type = email_action_type === 'signup' ? 'signup' : email_action_type
@@ -51,7 +49,6 @@ function buildConfirmationUrl(emailData: any): string {
   return `${base}?${params.toString()}`
 }
 
-// Create Gmail SMTP transporter
 function createTransporter() {
   const appPassword = Deno.env.get('GMAIL_APP_PASSWORD')
   if (!appPassword) {
@@ -68,7 +65,46 @@ function createTransporter() {
   })
 }
 
-// Preview endpoint handler
+async function sendEmailInBackground(user: { email: string }, emailData: any) {
+  const emailType = emailData.email_action_type
+  const EmailTemplate = EMAIL_TEMPLATES[emailType]
+  if (!EmailTemplate) {
+    console.error('Unknown email type for background send', { emailType })
+    return
+  }
+
+  const confirmationUrl = buildConfirmationUrl(emailData)
+  const templateProps = {
+    siteName: SITE_NAME,
+    siteUrl: 'https://titanmeet.com',
+    recipient: user.email,
+    confirmationUrl,
+    token: emailData.token,
+    email: user.email,
+    newEmail: emailData.token_new ? user.email : undefined,
+  }
+
+  try {
+    const html = await renderAsync(React.createElement(EmailTemplate, templateProps))
+    const text = await renderAsync(React.createElement(EmailTemplate, templateProps), {
+      plainText: true,
+    })
+
+    const transporter = createTransporter()
+    const result = await transporter.sendMail({
+      from: `${SITE_NAME} <${GMAIL_USER}>`,
+      to: user.email,
+      subject: EMAIL_SUBJECTS[emailType] || 'Notification',
+      html,
+      text,
+    })
+    console.log('Email sent successfully via Gmail', { messageId: result.messageId, to: user.email })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to send email'
+    console.error('Background email send failed:', message)
+  }
+}
+
 async function handlePreview(req: Request): Promise<Response> {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
@@ -110,7 +146,6 @@ async function handlePreview(req: Request): Promise<Response> {
   })
 }
 
-// Main webhook handler for Supabase Send Email hook
 async function handleWebhook(req: Request): Promise<Response> {
   if (req.method !== 'POST') {
     return new Response('Method not allowed', { status: 405 })
@@ -129,8 +164,6 @@ async function handleWebhook(req: Request): Promise<Response> {
       data = wh.verify(payload, headers) as typeof data
       console.log('Webhook signature verified successfully')
     } catch (error) {
-      // Log verification failure but still process the payload
-      // Supabase internal hooks are trusted
       console.warn('Webhook verification failed, processing anyway:', error)
       data = JSON.parse(payload)
     }
@@ -142,8 +175,8 @@ async function handleWebhook(req: Request): Promise<Response> {
   const emailType = email_data.email_action_type
   console.log('Received auth email hook', { emailType, email: user.email })
 
-  const EmailTemplate = EMAIL_TEMPLATES[emailType]
-  if (!EmailTemplate) {
+  // Validate email type before returning
+  if (!EMAIL_TEMPLATES[emailType]) {
     console.error('Unknown email type', { emailType })
     return new Response(
       JSON.stringify({ error: `Unknown email type: ${emailType}` }),
@@ -151,44 +184,18 @@ async function handleWebhook(req: Request): Promise<Response> {
     )
   }
 
-  // Build template props
-  const confirmationUrl = buildConfirmationUrl(email_data)
-  const templateProps = {
-    siteName: SITE_NAME,
-    siteUrl: 'https://titanmeet.com',
-    recipient: user.email,
-    confirmationUrl,
-    token: email_data.token,
-    email: user.email,
-    newEmail: email_data.token_new ? user.email : undefined,
+  // Fire-and-forget: send email in background using EdgeRuntime.waitUntil
+  // This allows us to return immediately so the hook doesn't timeout
+  const emailPromise = sendEmailInBackground(user, email_data)
+
+  // Use EdgeRuntime.waitUntil to keep the function alive after responding
+  // @ts-ignore - EdgeRuntime is available in Supabase Edge Functions
+  if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
+    // @ts-ignore
+    EdgeRuntime.waitUntil(emailPromise)
   }
 
-  // Render email HTML and plain text
-  const html = await renderAsync(React.createElement(EmailTemplate, templateProps))
-  const text = await renderAsync(React.createElement(EmailTemplate, templateProps), {
-    plainText: true,
-  })
-
-  // Send via Gmail SMTP
-  try {
-    const transporter = createTransporter()
-    const result = await transporter.sendMail({
-      from: `${SITE_NAME} <${GMAIL_USER}>`,
-      to: user.email,
-      subject: EMAIL_SUBJECTS[emailType] || 'Notification',
-      html,
-      text,
-    })
-    console.log('Email sent successfully via Gmail', { messageId: result.messageId, to: user.email })
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to send email'
-    console.error('Gmail SMTP error:', message)
-    return new Response(
-      JSON.stringify({ error: 'Failed to send email' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
-  }
-
+  // Return immediately so Supabase Auth doesn't timeout
   return new Response(
     JSON.stringify({ success: true }),
     { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
