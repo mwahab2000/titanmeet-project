@@ -1,41 +1,22 @@
 
 
-## Problem
+## Customize Signup Confirmation Email
 
-All tables in the `public` schema lack GRANT permissions for the `authenticated` and `anon` database roles. This means Supabase API calls (which use these roles) get "permission denied" errors regardless of RLS policies. This happened because the tables were created during the Lovable Cloud migration without the standard Supabase GRANT statements.
+Three changes needed:
 
-## Solution
-
-Run a single migration that grants the necessary privileges on **all public tables** to both `authenticated` and `anon` roles, plus sets default privileges for any future tables.
-
-### Migration SQL
-
-```sql
--- Grant usage on public schema
-GRANT USAGE ON SCHEMA public TO authenticated;
-GRANT USAGE ON SCHEMA public TO anon;
-
--- Grant all DML privileges on all existing tables
-GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO authenticated;
-GRANT SELECT ON ALL TABLES IN SCHEMA public TO anon;
-
--- Grant usage on all sequences (needed for serial/default columns)
-GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO authenticated;
-GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO anon;
-
--- Set default privileges for future tables
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO authenticated;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO anon;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE ON SEQUENCES TO authenticated;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE ON SEQUENCES TO anon;
+### 1. Change sender address
+In `project/supabase/functions/auth-email-hook/index.ts`, line ~203, change `from` field:
 ```
+from: `${SITE_NAME} <events@${FROM_DOMAIN}>`
+```
+(Currently `noreply@titanmeet.com` → becomes `events@titanmeet.com`)
 
-### What this does
-- `authenticated` role gets SELECT, INSERT, UPDATE, DELETE on all tables (RLS still controls row-level access)
-- `anon` role gets SELECT only (for public-facing pages like event pages)
-- Default privileges ensure any new tables automatically get the same grants
-- No code changes needed — this is purely a database-level fix
+### 2. Logo already present in templates
+The signup template (`signup.tsx`) already includes the TitanMeet logo via `LOGO_URL` pointing to the Supabase storage bucket. The "Get Started" button also exists. No changes needed here — the logo and button are already in the email.
 
-### Security note
-This does **not** weaken security. RLS policies remain in effect and control which rows each user can access. GRANTs only allow the role to attempt operations; RLS decides if they succeed.
+### 3. Rename button text to "Confirm"
+In `project/supabase/functions/_shared/email-templates/signup.tsx`, change the button text from "Get Started" to "Confirm" to make it clearer this is a confirmation action.
+
+### Deployment
+Redeploy `auth-email-hook` edge function after changes.
 
