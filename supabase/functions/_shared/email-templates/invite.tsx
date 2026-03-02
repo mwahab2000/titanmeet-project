@@ -15,54 +15,45 @@ import {
   Text,
 } from 'npm:@react-email/components@0.0.22'
 
-interface SignupEmailProps {
+interface InviteEmailProps {
   siteName: string
   siteUrl: string
-  recipient: string
   confirmationUrl: string
 }
 
 const LOGO_URL = 'https://agfsnvywlltiiigkatar.supabase.co/storage/v1/object/public/event-assets/logo.png'
 
-export const SignupEmail = ({
+export const InviteEmail = ({
   siteName,
   siteUrl,
-  recipient,
   confirmationUrl,
-}: SignupEmailProps) => (
+}: InviteEmailProps) => (
   <Html lang="en" dir="ltr">
     <Head />
-    <Preview>Welcome to TitanMeet — verify your email</Preview>
+    <Preview>You've been invited to join TitanMeet</Preview>
     <Body style={main}>
       <Container style={container}>
         <Img src={LOGO_URL} alt="TitanMeet" width="140" height="auto" style={logo} />
-        <Heading style={h1}>Welcome aboard!</Heading>
+        <Heading style={h1}>You've been invited</Heading>
         <Text style={text}>
-          Thanks for signing up for{' '}
+          You've been invited to join{' '}
           <Link href={siteUrl} style={link}>
             <strong>TitanMeet</strong>
           </Link>
-          . We're excited to have you.
-        </Text>
-        <Text style={text}>
-          Please verify your email address (
-          <Link href={`mailto:${recipient}`} style={link}>
-            {recipient}
-          </Link>
-          ) to get started:
+          . Click the button below to accept and create your account.
         </Text>
         <Button style={button} href={confirmationUrl}>
-          Confirm
+          Accept Invitation
         </Button>
         <Text style={footer}>
-          If you didn't create an account, you can safely ignore this email.
+          If you weren't expecting this invitation, you can safely ignore this email.
         </Text>
       </Container>
     </Body>
   </Html>
 )
 
-export default SignupEmail
+export default InviteEmail
 
 const main = { backgroundColor: '#ffffff', fontFamily: "'Inter', Arial, sans-serif" }
 const container = { padding: '40px 32px', maxWidth: '560px', margin: '0 auto' }

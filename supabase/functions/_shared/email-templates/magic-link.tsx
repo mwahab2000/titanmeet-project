@@ -10,59 +10,43 @@ import {
   Heading,
   Html,
   Img,
-  Link,
   Preview,
   Text,
 } from 'npm:@react-email/components@0.0.22'
 
-interface SignupEmailProps {
+interface MagicLinkEmailProps {
   siteName: string
-  siteUrl: string
-  recipient: string
   confirmationUrl: string
 }
 
 const LOGO_URL = 'https://agfsnvywlltiiigkatar.supabase.co/storage/v1/object/public/event-assets/logo.png'
 
-export const SignupEmail = ({
+export const MagicLinkEmail = ({
   siteName,
-  siteUrl,
-  recipient,
   confirmationUrl,
-}: SignupEmailProps) => (
+}: MagicLinkEmailProps) => (
   <Html lang="en" dir="ltr">
     <Head />
-    <Preview>Welcome to TitanMeet — verify your email</Preview>
+    <Preview>Your TitanMeet login link</Preview>
     <Body style={main}>
       <Container style={container}>
         <Img src={LOGO_URL} alt="TitanMeet" width="140" height="auto" style={logo} />
-        <Heading style={h1}>Welcome aboard!</Heading>
+        <Heading style={h1}>Your login link</Heading>
         <Text style={text}>
-          Thanks for signing up for{' '}
-          <Link href={siteUrl} style={link}>
-            <strong>TitanMeet</strong>
-          </Link>
-          . We're excited to have you.
-        </Text>
-        <Text style={text}>
-          Please verify your email address (
-          <Link href={`mailto:${recipient}`} style={link}>
-            {recipient}
-          </Link>
-          ) to get started:
+          Click the button below to log in to TitanMeet. This link will expire shortly.
         </Text>
         <Button style={button} href={confirmationUrl}>
-          Confirm
+          Log In
         </Button>
         <Text style={footer}>
-          If you didn't create an account, you can safely ignore this email.
+          If you didn't request this link, you can safely ignore this email.
         </Text>
       </Container>
     </Body>
   </Html>
 )
 
-export default SignupEmail
+export default MagicLinkEmail
 
 const main = { backgroundColor: '#ffffff', fontFamily: "'Inter', Arial, sans-serif" }
 const container = { padding: '40px 32px', maxWidth: '560px', margin: '0 auto' }
@@ -80,7 +64,6 @@ const text = {
   lineHeight: '1.6',
   margin: '0 0 24px',
 }
-const link = { color: 'hsl(210, 70%, 50%)', textDecoration: 'underline' }
 const button = {
   backgroundColor: 'hsl(145, 63%, 42%)',
   color: '#ffffff',
