@@ -15,54 +15,54 @@ import {
   Text,
 } from 'npm:@react-email/components@0.0.22'
 
-interface SignupEmailProps {
+interface EmailChangeEmailProps {
   siteName: string
-  siteUrl: string
-  recipient: string
+  email: string
+  newEmail: string
   confirmationUrl: string
 }
 
 const LOGO_URL = 'https://agfsnvywlltiiigkatar.supabase.co/storage/v1/object/public/event-assets/logo.png'
 
-export const SignupEmail = ({
+export const EmailChangeEmail = ({
   siteName,
-  siteUrl,
-  recipient,
+  email,
+  newEmail,
   confirmationUrl,
-}: SignupEmailProps) => (
+}: EmailChangeEmailProps) => (
   <Html lang="en" dir="ltr">
     <Head />
-    <Preview>Welcome to TitanMeet — verify your email</Preview>
+    <Preview>Confirm your email change for TitanMeet</Preview>
     <Body style={main}>
       <Container style={container}>
         <Img src={LOGO_URL} alt="TitanMeet" width="140" height="auto" style={logo} />
-        <Heading style={h1}>Welcome aboard!</Heading>
+        <Heading style={h1}>Confirm your email change</Heading>
         <Text style={text}>
-          Thanks for signing up for{' '}
-          <Link href={siteUrl} style={link}>
-            <strong>TitanMeet</strong>
+          You requested to change your email address for TitanMeet from{' '}
+          <Link href={`mailto:${email}`} style={link}>
+            {email}
+          </Link>{' '}
+          to{' '}
+          <Link href={`mailto:${newEmail}`} style={link}>
+            {newEmail}
           </Link>
-          . We're excited to have you.
+          .
         </Text>
         <Text style={text}>
-          Please verify your email address (
-          <Link href={`mailto:${recipient}`} style={link}>
-            {recipient}
-          </Link>
-          ) to get started:
+          Click the button below to confirm this change:
         </Text>
         <Button style={button} href={confirmationUrl}>
-          Confirm
+          Confirm Email Change
         </Button>
         <Text style={footer}>
-          If you didn't create an account, you can safely ignore this email.
+          If you didn't request this change, please secure your account immediately.
         </Text>
       </Container>
     </Body>
   </Html>
 )
 
-export default SignupEmail
+export default EmailChangeEmail
 
 const main = { backgroundColor: '#ffffff', fontFamily: "'Inter', Arial, sans-serif" }
 const container = { padding: '40px 32px', maxWidth: '560px', margin: '0 auto' }
