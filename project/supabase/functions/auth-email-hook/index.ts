@@ -1,6 +1,6 @@
 import * as React from 'npm:react@18.3.1'
 import { renderAsync } from 'npm:@react-email/components@0.0.22'
-import { Webhook } from 'https://esm.sh/standardwebhooks@1.0.0'
+import { Webhook } from 'npm:standardwebhooks@1.0.0'
 import nodemailer from 'npm:nodemailer@6.9.10'
 import { SignupEmail } from '../_shared/email-templates/signup.tsx'
 import { InviteEmail } from '../_shared/email-templates/invite.tsx'
@@ -112,14 +112,16 @@ async function handleWebhook(req: Request): Promise<Response> {
     return new Response('Method not allowed', { status: 405 })
   }
 
-  const hookSecret = Deno.env.get('SEND_EMAIL_HOOK_SECRET')
-  if (!hookSecret) {
+  const hookSecretRaw = Deno.env.get('SEND_EMAIL_HOOK_SECRET')
+  if (!hookSecretRaw) {
     console.error('SEND_EMAIL_HOOK_SECRET not configured')
     return new Response(
       JSON.stringify({ error: 'Server configuration error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }
+
+  const hookSecret = hookSecretRaw.startsWith('v1,') ? hookSecretRaw.slice(3) : hookSecretRaw
 
   const payload = await req.text()
   const headers = Object.fromEntries(req.headers)
