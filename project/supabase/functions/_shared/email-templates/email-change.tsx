@@ -22,7 +22,7 @@ interface EmailChangeEmailProps {
   confirmationUrl: string
 }
 
-const LOGO_URL = 'https://agfsnvywlltiiigkatar.supabase.co/storage/v1/object/public/event-assets/logo.png'
+const LOGO_URL = 'https://qclaciklevavttipztrv.supabase.co/storage/v1/object/public/email-assets/TitanMeetLogo.png'
 
 export const EmailChangeEmail = ({
   siteName,
