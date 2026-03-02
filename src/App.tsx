@@ -1,0 +1,89 @@
+import { Toaster } from "@/components/ui/toaster";
+import { Toaster as Sonner } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { ThemeProvider } from "next-themes";
+import { AuthProvider } from "@/contexts/AuthContext";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
+import { EventWorkspaceLayout } from "@/components/dashboard/EventWorkspaceLayout";
+import Index from "./pages/Index";
+import Login from "./pages/Login";
+import Dashboard from "./pages/Dashboard";
+import Events from "./pages/Events";
+import CreateEvent from "./pages/CreateEvent";
+import CreateClient from "./pages/CreateClient";
+import Attendees from "./pages/Attendees";
+import DashboardSettings from "./pages/DashboardSettings";
+
+import NotFound from "./pages/NotFound";
+import HeroSection from "./pages/workspace/HeroSection";
+import EventInfoSection from "./pages/workspace/EventInfoSection";
+import AgendaSection from "./pages/workspace/AgendaSection";
+import OrganizersSection from "./pages/workspace/OrganizersSection";
+import SpeakersSection from "./pages/workspace/SpeakersSection";
+import AttendeesSection from "./pages/workspace/AttendeesSection";
+import GroupsSection from "./pages/workspace/GroupsSection";
+import AssignGroupsSection from "./pages/workspace/AssignGroupsSection";
+import TransportationSection from "./pages/workspace/TransportationSection";
+import VenueSection from "./pages/workspace/VenueSection";
+import AnnouncementsSection from "./pages/workspace/AnnouncementsSection";
+import SurveySection from "./pages/workspace/SurveySection";
+import CommunicationsSection from "./pages/workspace/CommunicationsSection";
+import WebsiteSection from "./pages/workspace/WebsiteSection";
+import DressCodeSection from "./pages/workspace/DressCodeSection";
+import GallerySection from "./pages/workspace/GallerySection";
+import PublicEventPage from "./pages/public/PublicEventPage";
+
+const queryClient = new QueryClient();
+
+const App = () => (
+  <ThemeProvider attribute="class" defaultTheme="dark" storageKey="titanmeet-theme">
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <AuthProvider>
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/dashboard" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
+                <Route index element={<Dashboard />} />
+                <Route path="events" element={<Events />} />
+                <Route path="events/new" element={<CreateEvent />} />
+                <Route path="clients/new" element={<CreateClient />} />
+                <Route path="attendees" element={<Attendees />} />
+                <Route path="settings" element={<DashboardSettings />} />
+                
+                <Route path="events/:id" element={<EventWorkspaceLayout />}>
+                  <Route path="hero" element={<HeroSection />} />
+                  <Route path="info" element={<EventInfoSection />} />
+                  <Route path="agenda" element={<AgendaSection />} />
+                  <Route path="organizers" element={<OrganizersSection />} />
+                  <Route path="speakers" element={<SpeakersSection />} />
+                  <Route path="attendees" element={<AttendeesSection />} />
+                  <Route path="groups" element={<GroupsSection />} />
+                  <Route path="assign-groups" element={<AssignGroupsSection />} />
+                  <Route path="transportation" element={<TransportationSection />} />
+                  <Route path="dress-code" element={<DressCodeSection />} />
+                  <Route path="gallery" element={<GallerySection />} />
+                  <Route path="venue" element={<VenueSection />} />
+                  <Route path="announcements" element={<AnnouncementsSection />} />
+                  <Route path="survey" element={<SurveySection />} />
+                  <Route path="communications" element={<CommunicationsSection />} />
+                  <Route path="website" element={<WebsiteSection />} />
+                </Route>
+              </Route>
+              <Route path="/:clientSlug/:eventSlug" element={<PublicEventPage />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </AuthProvider>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  </ThemeProvider>
+);
+
+export default App;

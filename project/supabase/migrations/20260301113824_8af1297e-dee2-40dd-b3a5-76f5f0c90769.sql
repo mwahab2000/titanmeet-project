@@ -1,0 +1,1 @@
+ALTER TABLE public.events ADD COLUMN gallery_images jsonb DEFAULT '[]'::jsonb;
