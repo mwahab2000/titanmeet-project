@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { Calendar, LayoutDashboard, Settings, LogOut, Plus, Building2, Image, Images, Info, ListOrdered, UserCog, UsersRound, Layers, Bus, MapPin, Megaphone, ClipboardList, MessageSquare, Users, Mic, Globe, Shirt, CreditCard } from "lucide-react";
+import { Calendar, LayoutDashboard, Settings, LogOut, Plus, Building2, Image, Images, Info, ListOrdered, UserCog, UsersRound, Layers, Bus, MapPin, Megaphone, ClipboardList, MessageSquare, Users, Mic, Globe, Shirt, CreditCard, LifeBuoy, Shield } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -63,11 +63,24 @@ function computeCompletion(event: any, counts: Record<string, number>): Record<s
 
 export const DashboardSidebar = () => {
   const location = useLocation();
-  const { signOut } = useAuth();
+  const { signOut, user } = useAuth();
   const { currentPlan } = useBilling();
   const [activeEventId, setActiveEventId] = useState<string | null>(null);
   const [activeEventTitle, setActiveEventTitle] = useState<string>("");
   const [localCompletionMap, setLocalCompletionMap] = useState<Record<string, CompletionStatus>>({});
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  // Check admin role
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", user.id)
+      .eq("role", "admin")
+      .maybeSingle()
+      .then(({ data }) => setIsAdmin(!!data));
+  }, [user]);
 
   // Use workspace context when available (inside EventWorkspaceLayout)
   const workspaceCtx = useEventWorkspaceOptional();
@@ -207,6 +220,26 @@ export const DashboardSidebar = () => {
             </Badge>
           )}
         </Link>
+
+        <Link
+          to="/dashboard/support"
+          className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+            location.pathname.startsWith("/dashboard/support") ? "bg-sidebar-accent text-sidebar-primary" : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+          }`}
+        >
+          <LifeBuoy className="h-4 w-4" /> Support
+        </Link>
+
+        {isAdmin && (
+          <Link
+            to="/dashboard/admin/support"
+            className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+              isActive("/dashboard/admin/support") ? "bg-sidebar-accent text-sidebar-primary" : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            }`}
+          >
+            <Shield className="h-4 w-4" /> Manage Tickets
+          </Link>
+        )}
 
         <Link
           to="/dashboard/settings"
