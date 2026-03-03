@@ -7,6 +7,9 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const RATE_LIMIT_WINDOW_MS = 3600000; // 1 hour
+const RATE_LIMIT_MAX_PER_EVENT = 200;
+
 class AppError extends Error {
   status: number;
   constructor(message: string, status = 500) {
@@ -32,18 +35,18 @@ async function sendTwilio(toRaw: string, body: string, isWhatsApp: boolean) {
   const fromRaw = Deno.env.get("TWILIO_PHONE_NUMBER")!;
 
   if (!sid || !token || !fromRaw) {
-    throw new AppError("Twilio credentials are not configured", 500);
+    throw new AppError("Messaging service unavailable", 500);
   }
 
   const to = normalizePhone(toRaw);
   const from = normalizePhone(fromRaw);
 
   if (!isE164(from)) {
-    throw new AppError("TWILIO_PHONE_NUMBER must be in E.164 format (example: +201000079333)", 400);
+    throw new AppError("Messaging service misconfigured", 500);
   }
 
   if (!isE164(to)) {
-    throw new AppError(`Recipient phone must be in E.164 format (example: +201234567890). Received: ${toRaw}`, 400);
+    throw new AppError("Invalid recipient phone number", 400);
   }
 
   const url = `https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`;
@@ -63,7 +66,8 @@ async function sendTwilio(toRaw: string, body: string, isWhatsApp: boolean) {
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new AppError(err.message || `Twilio error ${res.status}`, res.status >= 400 && res.status < 500 ? 400 : 500);
+    console.error("Twilio error:", err);
+    throw new AppError("Failed to send message", res.status >= 400 && res.status < 500 ? 400 : 500);
   }
 
   return await res.json();
@@ -72,7 +76,7 @@ async function sendTwilio(toRaw: string, body: string, isWhatsApp: boolean) {
 async function sendEmail(to: string, subject: string, html: string) {
   const GMAIL_USER = Deno.env.get("GMAIL_USER");
   const GMAIL_APP_PASSWORD = Deno.env.get("GMAIL_APP_PASSWORD");
-  if (!GMAIL_USER || !GMAIL_APP_PASSWORD) throw new AppError("Gmail credentials not configured", 500);
+  if (!GMAIL_USER || !GMAIL_APP_PASSWORD) throw new AppError("Email service unavailable", 500);
 
   const transporter = nodemailer.createTransport({
     host: "smtp.gmail.com",
@@ -98,6 +102,21 @@ async function updateLogStatus(logId: string, patch: { status: "sent" | "failed"
     .from("communications_log")
     .update({ status: patch.status })
     .eq("id", logId);
+}
+
+async function checkRateLimit(eventId: string): Promise<boolean> {
+  const serviceClient = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+  );
+  const oneHourAgo = new Date(Date.now() - RATE_LIMIT_WINDOW_MS).toISOString();
+  const { count } = await serviceClient
+    .from("communications_log")
+    .select("*", { count: "exact", head: true })
+    .eq("event_id", eventId)
+    .gte("created_at", oneHourAgo);
+
+  return count !== null && count >= RATE_LIMIT_MAX_PER_EVENT;
 }
 
 Deno.serve(async (req) => {
@@ -135,16 +154,25 @@ Deno.serve(async (req) => {
       throw new AppError("Forbidden", 403);
     }
 
+    // Rate limiting per event
+    if (await checkRateLimit(event_id)) {
+      throw new AppError("Rate limit exceeded. Try again later.", 429);
+    }
+
     let result: any;
     if (channel === "email") {
-      await sendEmail(to, subject || "(No subject)", `<p>${String(message).replace(/\n/g, "<br>")}</p>`);
+      const safeMessage = String(message)
+        .replace(/<script[\s\S]*?<\/script>/gi, "")
+        .replace(/on\w+\s*=\s*"[^"]*"/gi, "")
+        .replace(/on\w+\s*=\s*'[^']*'/gi, "");
+      await sendEmail(to, subject || "(No subject)", `<p>${safeMessage.replace(/\n/g, "<br>")}</p>`);
       result = { sent: true };
     } else if (channel === "sms") {
       result = await sendTwilio(to, message, false);
     } else if (channel === "whatsapp") {
       result = await sendTwilio(to, message, true);
     } else {
-      throw new AppError(`Unknown channel: ${channel}`, 400);
+      throw new AppError("Invalid channel", 400);
     }
 
     if (log_id) await updateLogStatus(log_id, { status: "sent" });
@@ -159,9 +187,13 @@ Deno.serve(async (req) => {
     }
 
     const status = err instanceof AppError ? err.status : 500;
-    const message = err instanceof Error ? err.message : "Unknown error";
+    // Only return AppError messages (controlled by us); generic message for unexpected errors
+    const clientMessage = err instanceof AppError ? err.message : "An error occurred. Please try again.";
+    if (!(err instanceof AppError)) {
+      console.error("send-communication error:", err);
+    }
 
-    return new Response(JSON.stringify({ error: message }), {
+    return new Response(JSON.stringify({ error: clientMessage }), {
       status,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
