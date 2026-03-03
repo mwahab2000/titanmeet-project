@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react";
 import { Users, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
-import { format } from "date-fns";
 
 const Attendees = () => {
   const [attendees, setAttendees] = useState<any[]>([]);
@@ -12,16 +11,22 @@ const Attendees = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetch = async () => {
+    const fetchAttendees = async () => {
       const { data } = await supabase
-        .from("event_attendees")
+        .from("attendees")
         .select("*, events(title)")
-        .order("registered_at", { ascending: false });
+        .order("name", { ascending: true });
       setAttendees(data || []);
       setLoading(false);
     };
-    fetch();
+    fetchAttendees();
   }, []);
+
+  const filtered = attendees.filter(a =>
+    !search ||
+    a.name?.toLowerCase().includes(search.toLowerCase()) ||
+    a.email?.toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
     <div>
@@ -41,38 +46,35 @@ const Attendees = () => {
             <div className="flex items-center justify-center py-12">
               <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
             </div>
-          ) : attendees.length === 0 ? (
+          ) : filtered.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16">
               <Users className="mb-4 h-12 w-12 text-muted-foreground/50" />
               <p className="text-lg font-medium">No attendees yet</p>
-              <p className="text-sm text-muted-foreground">Attendees will appear here once they register</p>
+              <p className="text-sm text-muted-foreground">Attendees will appear here once they are added</p>
             </div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Email</TableHead>
                   <TableHead>Event</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Ticket #</TableHead>
-                  <TableHead>Registered</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {attendees.map((a) => (
+                {filtered.map((a) => (
                   <TableRow key={a.id}>
-                    <TableCell className="font-medium">{(a.events as any)?.title || "Unknown"}</TableCell>
+                    <TableCell className="font-medium">{a.name}</TableCell>
+                    <TableCell>{a.email}</TableCell>
+                    <TableCell>{(a.events as any)?.title || "Unknown"}</TableCell>
                     <TableCell>
                       <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                        a.status === 'confirmed' ? 'bg-accent text-accent-foreground' :
-                        a.status === 'checked_in' ? 'bg-primary/10 text-primary' :
-                        a.status === 'cancelled' ? 'bg-destructive/10 text-destructive' :
-                        'bg-muted text-muted-foreground'
+                        a.confirmed ? 'bg-accent text-accent-foreground' : 'bg-muted text-muted-foreground'
                       }`}>
-                        {a.status}
+                        {a.confirmed ? "Confirmed" : "Pending"}
                       </span>
                     </TableCell>
-                    <TableCell>{a.ticket_number || "—"}</TableCell>
-                    <TableCell>{format(new Date(a.registered_at), "MMM d, yyyy")}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

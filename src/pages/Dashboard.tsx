@@ -14,7 +14,7 @@ const Dashboard = () => {
       if (!user) return;
       const [eventsRes, attendeesRes] = await Promise.all([
         supabase.from("events").select("*", { count: "exact" }),
-        supabase.from("event_attendees").select("*", { count: "exact" }),
+        supabase.from("attendees").select("*", { count: "exact" }),
       ]);
 
       const events = eventsRes.data || [];
