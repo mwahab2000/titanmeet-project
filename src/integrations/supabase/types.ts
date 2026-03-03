@@ -313,7 +313,7 @@ export type Database = {
           attendee_id: string | null
           channel: string
           created_at: string
-          event_id: string
+          event_id: string | null
           id: string
           message: string
           recipient_info: string | null
@@ -324,7 +324,7 @@ export type Database = {
           attendee_id?: string | null
           channel: string
           created_at?: string
-          event_id: string
+          event_id?: string | null
           id?: string
           message: string
           recipient_info?: string | null
@@ -335,7 +335,7 @@ export type Database = {
           attendee_id?: string | null
           channel?: string
           created_at?: string
-          event_id?: string
+          event_id?: string | null
           id?: string
           message?: string
           recipient_info?: string | null
