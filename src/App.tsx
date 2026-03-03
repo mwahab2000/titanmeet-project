@@ -16,6 +16,8 @@ import CreateEvent from "./pages/CreateEvent";
 import CreateClient from "./pages/CreateClient";
 import Attendees from "./pages/Attendees";
 import DashboardSettings from "./pages/DashboardSettings";
+import BillingPage from "./pages/BillingPage";
+import AdminBillingPage from "./pages/AdminBillingPage";
 
 import NotFound from "./pages/NotFound";
 import HeroSection from "./pages/workspace/HeroSection";
@@ -57,6 +59,8 @@ const App = () => (
                 <Route path="clients/new" element={<CreateClient />} />
                 <Route path="attendees" element={<Attendees />} />
                 <Route path="settings" element={<DashboardSettings />} />
+                <Route path="billing" element={<BillingPage />} />
+                <Route path="admin/billing" element={<AdminBillingPage />} />
                 
                 <Route path="events/:id" element={<EventWorkspaceLayout />}>
                   <Route path="hero" element={<HeroSection />} />

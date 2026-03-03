@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { Calendar, LayoutDashboard, Settings, LogOut, Plus, Building2, Image, Images, Info, ListOrdered, UserCog, UsersRound, Layers, Bus, MapPin, Megaphone, ClipboardList, MessageSquare, Users, Mic, Globe, Shirt } from "lucide-react";
+import { Calendar, LayoutDashboard, Settings, LogOut, Plus, Building2, Image, Images, Info, ListOrdered, UserCog, UsersRound, Layers, Bus, MapPin, Megaphone, ClipboardList, MessageSquare, Users, Mic, Globe, Shirt, CreditCard } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -190,6 +190,15 @@ export const DashboardSidebar = () => {
             })}
           </div>
         )}
+
+        <Link
+          to="/dashboard/billing"
+          className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+            isActive("/dashboard/billing") ? "bg-sidebar-accent text-sidebar-primary" : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+          }`}
+        >
+          <CreditCard className="h-4 w-4" /> Billing
+        </Link>
 
         <Link
           to="/dashboard/settings"
