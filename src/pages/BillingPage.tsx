@@ -14,20 +14,21 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { useSearchParams } from "react-router-dom";
 
-const STATUS_LABELS: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
-  pending: { label: "Awaiting Payment", variant: "outline" },
-  processing: { label: "Payment Detected", variant: "secondary" },
-  confirmed: { label: "Confirmed", variant: "default" },
-  expired: { label: "Expired", variant: "destructive" },
-  cancelled: { label: "Cancelled", variant: "destructive" },
-  failed: { label: "Failed", variant: "destructive" },
-  underpaid: { label: "Underpaid", variant: "secondary" },
+// Aligned with CHECK constraint: pending | awaiting_payment | paid | confirmed | expired | failed | cancelled
+const STATUS_LABELS: Record<string, { label: string; icon: React.ReactNode; variant: "default" | "secondary" | "destructive" | "outline" }> = {
+  pending: { label: "Pending", icon: <Clock className="h-3 w-3" />, variant: "outline" },
+  awaiting_payment: { label: "Awaiting Payment", icon: <Clock className="h-3 w-3" />, variant: "secondary" },
+  paid: { label: "Paid", icon: <CheckCircle className="h-3 w-3" />, variant: "default" },
+  confirmed: { label: "Confirmed", icon: <CheckCircle className="h-3 w-3" />, variant: "default" },
+  expired: { label: "Expired", icon: <XCircle className="h-3 w-3" />, variant: "destructive" },
+  failed: { label: "Failed", icon: <XCircle className="h-3 w-3" />, variant: "destructive" },
+  cancelled: { label: "Cancelled", icon: <XCircle className="h-3 w-3" />, variant: "destructive" },
 };
 
 const BillingPage = () => {
   const { user } = useAuth();
   const { plans, subscription, currentPlan, usage, loading } = useBilling();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [paymentIntents, setPaymentIntents] = useState<any[]>([]);
   const [creatingPayment, setCreatingPayment] = useState<string | null>(null);
   const [loadingPayments, setLoadingPayments] = useState(true);
@@ -47,14 +48,33 @@ const BillingPage = () => {
     loadPaymentIntents();
   }, [loadPaymentIntents]);
 
+  // Handle redirect from Triple-A checkout
   useEffect(() => {
     const paymentStatus = searchParams.get("payment");
     if (paymentStatus === "success") {
-      toast.success("Payment submitted! Your subscription will activate once confirmed.");
+      toast.success("Payment submitted! Your subscription will activate once the blockchain confirms it.");
+      // Clear the query param
+      searchParams.delete("payment");
+      setSearchParams(searchParams, { replace: true });
+      // Refresh payment list after a short delay
+      setTimeout(loadPaymentIntents, 2000);
     } else if (paymentStatus === "cancelled") {
-      toast.info("Payment cancelled.");
+      toast.info("Payment was cancelled. You can try again anytime.");
+      searchParams.delete("payment");
+      setSearchParams(searchParams, { replace: true });
     }
-  }, [searchParams]);
+  }, [searchParams, setSearchParams, loadPaymentIntents]);
+
+  // Poll for payment status updates when there are active payments
+  useEffect(() => {
+    const hasActivePayments = paymentIntents.some(
+      (pi) => pi.status === "pending" || pi.status === "awaiting_payment"
+    );
+    if (!hasActivePayments) return;
+
+    const interval = setInterval(loadPaymentIntents, 15000); // Poll every 15s
+    return () => clearInterval(interval);
+  }, [paymentIntents, loadPaymentIntents]);
 
   const handleCryptoPayment = async (planId: string) => {
     if (!user) return;
@@ -66,9 +86,9 @@ const BillingPage = () => {
       if (error) throw error;
       if (data?.checkout_url) {
         window.open(data.checkout_url, "_blank");
-        toast.success("Checkout opened in a new tab. Complete your crypto payment there.");
+        toast.success(`Checkout opened for ${data.plan_name}. Complete your crypto payment in the new tab.`);
       } else {
-        toast.info("Payment created. Check your payment history for details.");
+        toast.info("Payment created but no checkout URL was returned. Check payment history.");
       }
       await loadPaymentIntents();
     } catch (err: any) {
@@ -110,9 +130,9 @@ const BillingPage = () => {
 
   const warnings = usageMetrics.filter((m) => usagePercent(m.used, m.limit) >= 80);
 
-  // Check for any pending payments for a plan
+  // Check for pending/awaiting payments for a given plan
   const hasPendingPayment = (planId: string) =>
-    paymentIntents.some((pi) => pi.plan_id === planId && (pi.status === "pending" || pi.status === "processing"));
+    paymentIntents.some((pi) => pi.plan_id === planId && (pi.status === "pending" || pi.status === "awaiting_payment"));
 
   return (
     <div className="max-w-5xl space-y-6">
@@ -268,7 +288,7 @@ const BillingPage = () => {
                       size="sm"
                       className="w-full gap-1"
                       onClick={() => handleCryptoPayment(plan.id)}
-                      disabled={creatingPayment === plan.id}
+                      disabled={!!creatingPayment}
                     >
                       {creatingPayment === plan.id ? (
                         <><RefreshCw className="h-3 w-3 animate-spin" /> Creating...</>
@@ -278,7 +298,7 @@ const BillingPage = () => {
                     </Button>
                   )}
                   {pending && (
-                    <p className="text-xs text-center text-muted-foreground">Payment pending confirmation</p>
+                    <p className="text-xs text-center text-muted-foreground">Payment pending blockchain confirmation</p>
                   )}
                 </div>
               );
@@ -308,7 +328,7 @@ const BillingPage = () => {
               <div className="animate-spin h-6 w-6 border-4 border-primary border-t-transparent rounded-full" />
             </div>
           ) : paymentIntents.length === 0 ? (
-            <p className="text-center text-muted-foreground py-8">No payments yet.</p>
+            <p className="text-center text-muted-foreground py-8">No payments yet. Select a plan above to get started.</p>
           ) : (
             <div className="overflow-x-auto">
               <Table>
@@ -324,8 +344,9 @@ const BillingPage = () => {
                 </TableHeader>
                 <TableBody>
                   {paymentIntents.map((pi: any) => {
-                    const statusInfo = STATUS_LABELS[pi.status] || { label: pi.status, variant: "outline" as const };
+                    const statusInfo = STATUS_LABELS[pi.status] || { label: pi.status, icon: null, variant: "outline" as const };
                     const isRetryable = pi.status === "expired" || pi.status === "failed" || pi.status === "cancelled";
+                    const isPayable = pi.checkout_url && (pi.status === "pending" || pi.status === "awaiting_payment");
                     return (
                       <TableRow key={pi.id}>
                         <TableCell className="text-xs text-muted-foreground">
@@ -334,12 +355,20 @@ const BillingPage = () => {
                         <TableCell className="font-medium capitalize">{pi.plan_id}</TableCell>
                         <TableCell>{formatCents(pi.amount_usd_cents)}</TableCell>
                         <TableCell>
-                          <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>
+                          <Badge variant={statusInfo.variant} className="gap-1">
+                            {statusInfo.icon}
+                            {statusInfo.label}
+                          </Badge>
+                          {pi.paid_at && (
+                            <span className="block text-[10px] text-muted-foreground mt-0.5">
+                              Paid {new Date(pi.paid_at).toLocaleDateString()}
+                            </span>
+                          )}
                         </TableCell>
                         <TableCell className="text-xs font-mono text-muted-foreground">{pi.internal_order_id}</TableCell>
                         <TableCell>
                           <div className="flex gap-1">
-                            {pi.checkout_url && pi.status === "pending" && (
+                            {isPayable && (
                               <Button size="sm" variant="outline" asChild>
                                 <a href={pi.checkout_url} target="_blank" rel="noopener noreferrer">
                                   <ExternalLink className="h-3 w-3 mr-1" /> Pay
@@ -351,7 +380,7 @@ const BillingPage = () => {
                                 size="sm"
                                 variant="outline"
                                 onClick={() => handleCryptoPayment(pi.plan_id)}
-                                disabled={creatingPayment === pi.plan_id}
+                                disabled={!!creatingPayment}
                               >
                                 <RefreshCw className="h-3 w-3 mr-1" /> Retry
                               </Button>
