@@ -566,6 +566,45 @@ export type Database = {
         }
         Relationships: []
       }
+      notifications: {
+        Row: {
+          created_at: string
+          id: string
+          link: string | null
+          message: string
+          metadata: Json | null
+          read: boolean
+          read_at: string | null
+          title: string
+          type: Database["public"]["Enums"]["notification_type"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          link?: string | null
+          message: string
+          metadata?: Json | null
+          read?: boolean
+          read_at?: string | null
+          title: string
+          type: Database["public"]["Enums"]["notification_type"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          link?: string | null
+          message?: string
+          metadata?: Json | null
+          read?: boolean
+          read_at?: string | null
+          title?: string
+          type?: Database["public"]["Enums"]["notification_type"]
+          user_id?: string
+        }
+        Relationships: []
+      }
       organizers: {
         Row: {
           email: string | null
@@ -1394,6 +1433,17 @@ export type Database = {
       }
     }
     Functions: {
+      create_notification: {
+        Args: {
+          _link?: string
+          _message: string
+          _metadata?: Json
+          _title: string
+          _type: Database["public"]["Enums"]["notification_type"]
+          _user_id: string
+        }
+        Returns: string
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -1422,6 +1472,17 @@ export type Database = {
         | "completed"
         | "cancelled"
         | "archived"
+      notification_type:
+        | "support_reply"
+        | "support_status_changed"
+        | "payment_confirmed"
+        | "payment_failed"
+        | "payment_expired"
+        | "subscription_upgraded"
+        | "usage_warning"
+        | "event_published"
+        | "invitation_sent"
+        | "invitation_failed"
       ticket_author_role: "user" | "support" | "admin"
       ticket_category:
         | "billing"
@@ -1574,6 +1635,18 @@ export const Constants = {
         "completed",
         "cancelled",
         "archived",
+      ],
+      notification_type: [
+        "support_reply",
+        "support_status_changed",
+        "payment_confirmed",
+        "payment_failed",
+        "payment_expired",
+        "subscription_upgraded",
+        "usage_warning",
+        "event_published",
+        "invitation_sent",
+        "invitation_failed",
       ],
       ticket_author_role: ["user", "support", "admin"],
       ticket_category: [

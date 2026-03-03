@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Save, Loader2, Check, AlertCircle, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { PUBLISH_CHECKS } from "@/pages/workspace/WebsiteSection";
 
@@ -16,13 +17,13 @@ const sectionLabels: Record<string, string> = {
 
 const WorkspaceHeader = () => {
   const { event, saveStatus, manualSave, setEvent, isArchived } = useEventWorkspace();
+  const { user } = useAuth();
   const location = useLocation();
   const sectionSlug = location.pathname.split("/").pop() || "";
   const sectionName = sectionLabels[sectionSlug] || sectionSlug;
   if (!event) return null;
 
   const handlePublish = async () => {
-    // Run all publish-readiness checks
     const failures = PUBLISH_CHECKS.filter(c => !c.check(event));
     if (failures.length > 0) {
       toast.error(`Cannot publish. Missing: ${failures.map(f => f.label).join(", ")}`);
@@ -32,6 +33,18 @@ const WorkspaceHeader = () => {
     if (error) { toast.error(error.message); return; }
     setEvent(prev => prev ? { ...prev, status: "published" } : prev);
     toast.success("Event published!");
+
+    // Create notification
+    if (user) {
+      await supabase.from("notifications" as any).insert({
+        user_id: user.id,
+        type: "event_published",
+        title: "Event published",
+        message: `Your event "${event.title}" is now live.`,
+        link: `/dashboard/events/${event.id}/website`,
+        metadata: { event_id: event.id },
+      });
+    }
   };
 
   const handleArchive = async () => {
