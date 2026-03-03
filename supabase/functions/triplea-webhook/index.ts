@@ -171,6 +171,41 @@ Deno.serve(async (req) => {
       });
 
       console.log("Subscription activated successfully");
+
+      // Notify user: subscription upgraded
+      await serviceClient.rpc("create_notification", {
+        _user_id: paymentIntent.user_id,
+        _type: "subscription_upgraded",
+        _title: "Subscription upgraded",
+        _message: `Your subscription has been upgraded to the ${paymentIntent.plan_id} plan.`,
+        _link: "/dashboard/billing",
+        _metadata: JSON.stringify({ plan_id: paymentIntent.plan_id }),
+      });
+
+      // Notify user: payment confirmed
+      await serviceClient.rpc("create_notification", {
+        _user_id: paymentIntent.user_id,
+        _type: "payment_confirmed",
+        _title: "Payment confirmed",
+        _message: `Your crypto payment of $${(paymentIntent.amount_usd_cents / 100).toFixed(2)} has been confirmed.`,
+        _link: "/dashboard/billing",
+        _metadata: JSON.stringify({ order_id: paymentIntent.internal_order_id }),
+      });
+    }
+
+    // Notify on failed/expired/cancelled
+    if (["expired", "failed", "cancelled"].includes(internalStatus)) {
+      const notifType = internalStatus === "expired" ? "payment_expired" : "payment_failed";
+      await serviceClient.rpc("create_notification", {
+        _user_id: paymentIntent.user_id,
+        _type: notifType,
+        _title: internalStatus === "expired" ? "Payment expired" : "Payment failed",
+        _message: internalStatus === "expired"
+          ? `Your payment for the ${paymentIntent.plan_id} plan has expired. Please try again.`
+          : `Your payment for the ${paymentIntent.plan_id} plan has ${internalStatus}. Please try again.`,
+        _link: "/dashboard/billing",
+        _metadata: JSON.stringify({ order_id: paymentIntent.internal_order_id }),
+      });
     }
 
     return new Response(JSON.stringify({ success: true }), {

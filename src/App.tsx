@@ -22,6 +22,7 @@ import SupportPage from "./pages/SupportPage";
 import SupportTicketDetail from "./pages/SupportTicketDetail";
 import AdminSupportPage from "./pages/AdminSupportPage";
 import NotFound from "./pages/NotFound";
+import NotificationsPage from "./pages/NotificationsPage";
 import HeroSection from "./pages/workspace/HeroSection";
 import EventInfoSection from "./pages/workspace/EventInfoSection";
 import AgendaSection from "./pages/workspace/AgendaSection";
@@ -62,6 +63,7 @@ const App = () => (
                 <Route path="attendees" element={<Attendees />} />
                 <Route path="settings" element={<DashboardSettings />} />
                 <Route path="billing" element={<BillingPage />} />
+                <Route path="notifications" element={<NotificationsPage />} />
                 <Route path="support" element={<SupportPage />} />
                 <Route path="support/:ticketId" element={<SupportTicketDetail />} />
                 <Route path="admin/billing" element={<AdminBillingPage />} />

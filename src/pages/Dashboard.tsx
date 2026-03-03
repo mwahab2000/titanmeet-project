@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Link } from "react-router-dom";
 import { Calendar, Users, TrendingUp, Clock, AlertTriangle, ArrowUpRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -56,6 +56,22 @@ const Dashboard = () => {
   ] : [];
 
   const warnings = usageMetrics.filter((m) => usagePercent(m.used, m.limit) >= 80);
+
+  // Send a usage_warning notification once per session when thresholds are hit
+  const usageNotifSent = useRef(false);
+  useEffect(() => {
+    if (!user || usageNotifSent.current || warnings.length === 0) return;
+    usageNotifSent.current = true;
+    const topWarning = warnings[0];
+    supabase.from("notifications" as any).insert({
+      user_id: user.id,
+      type: "usage_warning",
+      title: "Plan usage alert",
+      message: `You've used ${usagePercent(topWarning.used, topWarning.limit)}% of your ${topWarning.label.toLowerCase()} limit.`,
+      link: "/dashboard/billing",
+      metadata: { warnings: warnings.map(w => w.label) },
+    });
+  }, [warnings, user]);
 
   return (
     <div>
