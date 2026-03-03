@@ -1,9 +1,10 @@
 import { useEventWorkspace } from "@/contexts/EventWorkspaceContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Check, X, ExternalLink, Globe } from "lucide-react";
+import { Check, X, ExternalLink, Globe, Eye } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
 
 const themes = [
   { id: "corporate", name: "Corporate Clean", desc: "Structured, business-focused", color: "bg-[hsl(210,20%,95%)]" },
@@ -12,9 +13,20 @@ const themes = [
   { id: "bold", name: "Bold Immersive", desc: "Dark, dramatic gradients", color: "bg-[hsl(260,30%,15%)]" },
 ];
 
+export const PUBLISH_CHECKS = [
+  { key: "client", label: "Client selected", check: (e: any) => !!e.client_id },
+  { key: "title", label: "Event title", check: (e: any) => !!e.title?.trim() },
+  { key: "slug", label: "Event slug", check: (e: any) => !!e.slug?.trim() },
+  { key: "date", label: "Event date", check: (e: any) => !!e.event_date },
+  { key: "description", label: "Description", check: (e: any) => !!e.description?.trim() },
+  { key: "hero", label: "Hero image", check: (e: any) => Array.isArray(e.hero_images) && e.hero_images.length > 0 },
+  { key: "venue", label: "Venue or location", check: (e: any) => !!(e.venue_name?.trim() || e.venue?.trim() || e.location?.trim()) },
+];
+
 const WebsiteSection = () => {
-  const { event, autosave, completionMap, isArchived } = useEventWorkspace();
+  const { event, autosave, isArchived } = useEventWorkspace();
   const [clientSlug, setClientSlug] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (!event?.client_id) return;
@@ -27,13 +39,7 @@ const WebsiteSection = () => {
 
   const themeId = (event as any).theme_id ?? "corporate";
 
-  const checks = [
-    { label: "Client selected", ok: !!event.client_id },
-    { label: "Event title", ok: !!event.title?.trim() },
-    { label: "Event slug", ok: !!event.slug?.trim() },
-    { label: "Event date", ok: !!event.event_date },
-    { label: "Content sections", ok: Object.entries(completionMap).some(([k, v]) => k !== "communications" && k !== "website" && v !== "empty") },
-  ];
+  const checks = PUBLISH_CHECKS.map(c => ({ label: c.label, ok: c.check(event) }));
   const allPass = checks.every((c) => c.ok);
 
   const publicUrl = event.slug && clientSlug ? `/${clientSlug}/${event.slug}` : null;
@@ -41,6 +47,22 @@ const WebsiteSection = () => {
   return (
     <div className="space-y-6 max-w-3xl">
       <h2 className="text-2xl font-bold font-display">Public Website</h2>
+
+      {/* Preview button - always available for owners */}
+      <Card>
+        <CardContent className="pt-6 flex items-center gap-3">
+          <Button variant="outline" className="gap-2" onClick={() => navigate(`/dashboard/events/${event.id}/preview`)}>
+            <Eye className="h-4 w-4" /> Preview Public Page
+          </Button>
+          {event.status === "published" && publicUrl && (
+            <Button variant="outline" className="gap-2" asChild>
+              <a href={publicUrl} target="_blank" rel="noopener noreferrer">
+                <Globe className="h-4 w-4" /> View Live <ExternalLink className="h-3 w-3" />
+              </a>
+            </Button>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader><CardTitle className="text-lg">Website Theme</CardTitle></CardHeader>
@@ -63,7 +85,7 @@ const WebsiteSection = () => {
       </Card>
 
       <Card>
-        <CardHeader><CardTitle className="text-lg">Publish Checklist</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="text-lg">Publish Readiness Checklist</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           {checks.map((c) => (
             <div key={c.label} className="flex items-center gap-3 text-sm">
@@ -78,18 +100,6 @@ const WebsiteSection = () => {
           </div>
         </CardContent>
       </Card>
-
-      {event.status === "published" && publicUrl && (
-        <Card>
-          <CardContent className="pt-6">
-            <Button variant="outline" className="gap-2" asChild>
-              <a href={publicUrl} target="_blank" rel="noopener noreferrer">
-                <Globe className="h-4 w-4" /> Preview Public Website <ExternalLink className="h-3 w-3" />
-              </a>
-            </Button>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 };
