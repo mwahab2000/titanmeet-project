@@ -80,7 +80,6 @@ const App = () => (
               <Route path="/dashboard/events/:id/preview" element={<ProtectedRoute><PreviewEventPage /></ProtectedRoute>} />
               <Route path="/:clientSlug/:eventSlug" element={<PublicEventPage />} />
               <Route path="*" element={<NotFound />} />
-              <Route path="*" element={<NotFound />} />
             </Routes>
           </AuthProvider>
         </BrowserRouter>
