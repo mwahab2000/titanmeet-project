@@ -7,6 +7,19 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MAX_SUBJECT_LENGTH = 200;
+const MAX_HTML_LENGTH = 50000;
+const RATE_LIMIT_WINDOW_MS = 3600000; // 1 hour
+const RATE_LIMIT_MAX = 100;
+
+function sanitizeHtml(html: string): string {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/on\w+\s*=\s*"[^"]*"/gi, "")
+    .replace(/on\w+\s*=\s*'[^']*'/gi, "");
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -44,11 +57,54 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Validate email format (single recipient only)
+    if (typeof to !== "string" || to.includes(",") || !EMAIL_REGEX.test(to.trim())) {
+      return new Response(JSON.stringify({ error: "Invalid email address" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Validate subject length
+    if (typeof subject !== "string" || subject.length > MAX_SUBJECT_LENGTH) {
+      return new Response(JSON.stringify({ error: "Subject too long" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Validate HTML length
+    if (typeof html !== "string" || html.length > MAX_HTML_LENGTH) {
+      return new Response(JSON.stringify({ error: "Message body too large" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Rate limiting: check recent sends by this user
+    const serviceClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+    const oneHourAgo = new Date(Date.now() - RATE_LIMIT_WINDOW_MS).toISOString();
+    const { count } = await serviceClient
+      .from("communications_log")
+      .select("*", { count: "exact", head: true })
+      .gte("created_at", oneHourAgo);
+
+    if (count !== null && count >= RATE_LIMIT_MAX) {
+      return new Response(JSON.stringify({ error: "Rate limit exceeded. Try again later." }), {
+        status: 429,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const GMAIL_USER = Deno.env.get("GMAIL_USER");
     const GMAIL_APP_PASSWORD = Deno.env.get("GMAIL_APP_PASSWORD");
 
     if (!GMAIL_USER || !GMAIL_APP_PASSWORD) {
-      return new Response(JSON.stringify({ error: "Gmail credentials not configured" }), {
+      console.error("Gmail credentials not configured");
+      return new Response(JSON.stringify({ error: "Email service unavailable" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -64,11 +120,13 @@ Deno.serve(async (req) => {
       },
     });
 
+    const sanitizedHtml = sanitizeHtml(html);
+
     const info = await transporter.sendMail({
       from: `TitanMeet <${GMAIL_USER}>`,
-      to,
-      subject,
-      html,
+      to: to.trim(),
+      subject: subject.slice(0, MAX_SUBJECT_LENGTH),
+      html: sanitizedHtml,
     });
 
     return new Response(JSON.stringify({ success: true, id: info.messageId }), {
@@ -76,7 +134,8 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
-    return new Response(JSON.stringify({ error: err.message }), {
+    console.error("send-email error:", err);
+    return new Response(JSON.stringify({ error: "An error occurred. Please try again." }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
