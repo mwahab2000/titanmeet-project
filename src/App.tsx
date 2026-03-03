@@ -34,6 +34,7 @@ import CommunicationsSection from "./pages/workspace/CommunicationsSection";
 import WebsiteSection from "./pages/workspace/WebsiteSection";
 import DressCodeSection from "./pages/workspace/DressCodeSection";
 import GallerySection from "./pages/workspace/GallerySection";
+import PreviewEventPage from "./pages/workspace/PreviewEventPage";
 import PublicEventPage from "./pages/public/PublicEventPage";
 
 const queryClient = new QueryClient();
@@ -76,7 +77,9 @@ const App = () => (
                   <Route path="website" element={<WebsiteSection />} />
                 </Route>
               </Route>
+              <Route path="/dashboard/events/:id/preview" element={<ProtectedRoute><PreviewEventPage /></ProtectedRoute>} />
               <Route path="/:clientSlug/:eventSlug" element={<PublicEventPage />} />
+              <Route path="*" element={<NotFound />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </AuthProvider>

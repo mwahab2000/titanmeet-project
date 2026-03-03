@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Save, Loader2, Check, AlertCircle, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { PUBLISH_CHECKS } from "@/pages/workspace/WebsiteSection";
 
 const sectionLabels: Record<string, string> = {
   hero: "Hero", info: "Event Info", agenda: "Agenda", organizers: "Organizers", speakers: "Speakers",
@@ -21,8 +22,10 @@ const WorkspaceHeader = () => {
   if (!event) return null;
 
   const handlePublish = async () => {
-    if (!event.client_id || !event.slug || !event.title || !event.event_date) {
-      toast.error("Publishing requires: client, slug, title, and event date");
+    // Run all publish-readiness checks
+    const failures = PUBLISH_CHECKS.filter(c => !c.check(event));
+    if (failures.length > 0) {
+      toast.error(`Cannot publish. Missing: ${failures.map(f => f.label).join(", ")}`);
       return;
     }
     const { error } = await supabase.from("events").update({ status: "published" } as any).eq("id", event.id);

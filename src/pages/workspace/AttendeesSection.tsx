@@ -3,10 +3,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useEventWorkspace } from "@/contexts/EventWorkspaceContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Trash2, Upload, Mail, Bell, Users2 } from "lucide-react";
+import { Trash2, Upload, Mail, Bell, Users2, Download, FileDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Attendee {
@@ -33,7 +34,9 @@ function validateField(field: Field, value: string): string | null {
   return null;
 }
 
-// ── Email templates (kept from original) ──
+type StatusFilter = "all" | "confirmed" | "pending" | "invited" | "not_invited";
+
+// ── Email templates ──
 
 const buildInvitationHtml = (eventTitle: string, rsvpUrl: string) => `
 <!DOCTYPE html>
@@ -85,6 +88,84 @@ const buildReminderHtml = (eventTitle: string, rsvpUrl: string) => `
 </td></tr></table>
 </body></html>`;
 
+// ── CSV Helpers ──
+
+const CSV_TEMPLATE = "name,email,mobile\n";
+
+function downloadCsvTemplate() {
+  const blob = new Blob([CSV_TEMPLATE], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "attendees-template.csv";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function exportAttendeesCsv(attendees: Attendee[], eventTitle: string) {
+  const header = "name,email,mobile,invitation_sent,confirmed\n";
+  const rows = attendees
+    .filter(a => !a._isNew && !a.id.startsWith("temp-"))
+    .map(a => {
+      const escapeCsv = (v: string) => v.includes(",") || v.includes('"') ? `"${v.replace(/"/g, '""')}"` : v;
+      return `${escapeCsv(a.name)},${escapeCsv(a.email)},${escapeCsv(a.mobile || "")},${a.invitation_sent ? "Yes" : "No"},${a.confirmed ? "Yes" : "No"}`;
+    })
+    .join("\n");
+  const blob = new Blob([header + rows], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `attendees-${eventTitle?.replace(/\s+/g, "-").toLowerCase() || "export"}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+interface CsvImportResult {
+  valid: Array<{ name: string; email: string; mobile: string | null }>;
+  duplicates: string[];
+  invalid: Array<{ line: number; reason: string; raw: string }>;
+}
+
+function parseCsvFile(text: string, existingEmails: Set<string>): CsvImportResult {
+  const lines = text.split(/\r?\n/);
+  const result: CsvImportResult = { valid: [], duplicates: [], invalid: [] };
+  const seenEmails = new Set<string>();
+
+  // Detect header
+  const firstLine = lines[0]?.toLowerCase().trim();
+  const startIdx = (firstLine?.includes("name") && firstLine?.includes("email")) ? 1 : 0;
+
+  for (let i = startIdx; i < lines.length; i++) {
+    const raw = lines[i].trim();
+    if (!raw) continue;
+    const parts = raw.split(",").map(s => s.trim().replace(/^"|"$/g, ""));
+    const [name, email, mobile] = parts;
+    const lineNum = i + 1;
+
+    if (!name) {
+      result.invalid.push({ line: lineNum, reason: "Missing name", raw });
+      continue;
+    }
+    if (!email || !EMAIL_RE.test(email)) {
+      result.invalid.push({ line: lineNum, reason: email ? "Invalid email format" : "Missing email", raw });
+      continue;
+    }
+    const emailLower = email.toLowerCase();
+    if (existingEmails.has(emailLower)) {
+      result.duplicates.push(email);
+      continue;
+    }
+    if (seenEmails.has(emailLower)) {
+      result.duplicates.push(email);
+      continue;
+    }
+    seenEmails.add(emailLower);
+    result.valid.push({ name, email, mobile: mobile || null });
+  }
+
+  return result;
+}
+
 // ── Component ──
 
 const AttendeesSection = () => {
@@ -93,6 +174,8 @@ const AttendeesSection = () => {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [sendingId, setSendingId] = useState<string | null>(null);
   const [bulkSending, setBulkSending] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [importSummary, setImportSummary] = useState<CsvImportResult | null>(null);
   const timersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const cellRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const itemsRef = useRef<Attendee[]>([]);
@@ -121,7 +204,6 @@ const AttendeesSection = () => {
 
   const persistRow = async (attendee: Attendee) => {
     if (!event) return null;
-    // Validate before persisting
     const emailErr = validateField("email", attendee.email);
     if (emailErr && attendee.email) { toast.error("Fix email format before saving"); return null; }
 
@@ -136,19 +218,25 @@ const AttendeesSection = () => {
 
   const saveField = async (id: string, field: Field, value: string) => {
     const err = validateField(field, value);
-    if (err) return; // Don't save invalid values
+    if (err) return;
     await supabase.from("attendees").update({ [field]: value || null } as any).eq("id", id);
   };
 
   const handleChange = (rowIndex: number, field: Field, value: string) => {
+    // rowIndex is relative to filtered list — map back to real items
+    const realItems = getFilteredItems();
+    const item = realItems[rowIndex];
+    if (!item) return;
+    const realIndex = items.findIndex(i => i.id === item.id);
+    if (realIndex < 0) return;
+
     setItems(prev => {
       const updated = [...prev];
-      updated[rowIndex] = { ...updated[rowIndex], [field]: value };
+      updated[realIndex] = { ...updated[realIndex], [field]: value };
       return updated;
     });
 
-    // Validate and set/clear error
-    const errKey = `${items[rowIndex].id}-${field}`;
+    const errKey = `${item.id}-${field}`;
     const err = validateField(field, value);
     setErrors(prev => {
       const next = { ...prev };
@@ -156,8 +244,6 @@ const AttendeesSection = () => {
       return next;
     });
 
-    const item = items[rowIndex];
-    if (!item) return;
     const rowId = item.id;
     const timerKey = `${rowId}-${field}`;
     if (timersRef.current[timerKey]) clearTimeout(timersRef.current[timerKey]);
@@ -169,7 +255,6 @@ const AttendeesSection = () => {
       if (!current) return;
 
       if (current._isNew || current.id.startsWith("temp-")) {
-        // Guard: only one INSERT in-flight per temp row id
         if (persistingRef.current.has(rowId)) return;
         const updatedItem = { ...current, [field]: value };
         if (isRowEmpty(updatedItem)) return;
@@ -194,7 +279,8 @@ const AttendeesSection = () => {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent, rowIndex: number, colIndex: number) => {
-    const totalRows = items.length;
+    const filtered = getFilteredItems();
+    const totalRows = filtered.length;
     const totalCols = FIELDS.length;
     if (e.key === "Tab") {
       e.preventDefault();
@@ -215,35 +301,46 @@ const AttendeesSection = () => {
     cellRefs.current[`${row}-${col}`]?.focus();
   };
 
-  const remove = async (id: string, rowIndex: number) => {
+  const remove = async (id: string) => {
     if (id.startsWith("temp-")) {
-      setItems(prev => prev.filter((_, i) => i !== rowIndex));
+      setItems(prev => prev.filter(i => i.id !== id));
       return;
     }
     await supabase.from("attendees").delete().eq("id", id);
     setItems(prev => {
-      const next = prev.filter((_, i) => i !== rowIndex);
+      const next = prev.filter(i => i.id !== id);
       const last = next[next.length - 1];
       if (!last?._isNew && !last?.id.startsWith("temp-")) next.push(createEmptyRow());
       return next;
     });
   };
 
+  // ── CSV Import (hardened) ──
   const handleCSV = async (file: File) => {
+    if (!event) return;
     const text = await file.text();
-    const lines = text.split("\n").slice(1).filter(l => l.trim());
-    const rows = lines.map(l => {
-      const [name, email, mobile] = l.split(",").map(s => s.trim());
-      return { event_id: event!.id, name: name || "", email: email || "", mobile: mobile || null };
-    });
-    if (rows.length) {
-      const { error } = await supabase.from("attendees").insert(rows as any);
-      if (error) toast.error(error.message);
-      else { toast.success(`${rows.length} attendees imported`); load(); }
+    const existingEmails = new Set(
+      items.filter(a => !a._isNew && !a.id.startsWith("temp-")).map(a => a.email.toLowerCase())
+    );
+    const result = parseCsvFile(text, existingEmails);
+    setImportSummary(result);
+
+    if (result.valid.length === 0) {
+      toast.error("No valid rows to import.");
+      return;
+    }
+
+    const rows = result.valid.map(r => ({ event_id: event.id, name: r.name, email: r.email, mobile: r.mobile }));
+    const { error } = await supabase.from("attendees").insert(rows as any);
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success(`${result.valid.length} attendees imported${result.duplicates.length ? `, ${result.duplicates.length} duplicates skipped` : ""}${result.invalid.length ? `, ${result.invalid.length} invalid rows skipped` : ""}`);
+      load();
     }
   };
 
-  // ── Email helpers (unchanged) ──
+  // ── Email helpers ──
 
   const sendRealEmail = async (to: string, subject: string, html: string): Promise<boolean> => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -324,127 +421,212 @@ const AttendeesSection = () => {
     setBulkSending(false);
   };
 
+  // ── Filtering ──
+  const getFilteredItems = useCallback(() => {
+    return items.filter(a => {
+      if (a._isNew || a.id.startsWith("temp-")) return true; // always show empty row
+      switch (statusFilter) {
+        case "confirmed": return a.confirmed;
+        case "pending": return !a.confirmed;
+        case "invited": return a.invitation_sent;
+        case "not_invited": return !a.invitation_sent && !a.confirmed;
+        default: return true;
+      }
+    });
+  }, [items, statusFilter]);
+
+  // ── Stats ──
+  const realItems = items.filter(a => !a._isNew && !a.id.startsWith("temp-"));
+  const stats = {
+    total: realItems.length,
+    confirmed: realItems.filter(a => a.confirmed).length,
+    invited: realItems.filter(a => a.invitation_sent && !a.confirmed).length,
+    pending: realItems.filter(a => !a.invitation_sent && !a.confirmed).length,
+  };
+
   if (!event) return null;
 
+  const filteredItems = getFilteredItems();
+
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle className="font-display flex items-center gap-2">
-          <Users2 className="h-5 w-5" /> Attendees
-        </CardTitle>
-        <div className="flex items-center gap-3">
-          <span className="text-xs text-muted-foreground">
-            {items.filter(a => !a._isNew && !a.id.startsWith("temp-")).length} attendee(s)
-          </span>
-          {!isArchived && (
-            <>
-              <Button size="sm" variant="default" className="gap-1 text-xs" disabled={bulkSending} onClick={sendAllInvitations}>
-                <Mail className="h-3.5 w-3.5" /> {bulkSending ? "Sending…" : "Send All Invitations"}
-              </Button>
-              <Button size="sm" variant="outline" className="gap-1 text-xs" onClick={() => document.getElementById("csv-upload")?.click()}>
-                <Upload className="h-3.5 w-3.5" /> CSV
-              </Button>
-              <input id="csv-upload" type="file" accept=".csv" className="hidden" onChange={e => e.target.files?.[0] && handleCSV(e.target.files[0])} />
-            </>
+    <div className="space-y-4">
+      {/* Stats bar */}
+      <div className="flex flex-wrap gap-3">
+        <div className="rounded-lg border border-border bg-card px-4 py-2 text-center">
+          <div className="text-lg font-bold">{stats.total}</div>
+          <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Total</div>
+        </div>
+        <div className="rounded-lg border border-border bg-card px-4 py-2 text-center">
+          <div className="text-lg font-bold text-primary">{stats.confirmed}</div>
+          <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Confirmed</div>
+        </div>
+        <div className="rounded-lg border border-border bg-card px-4 py-2 text-center">
+          <div className="text-lg font-bold">{stats.invited}</div>
+          <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Invited</div>
+        </div>
+        <div className="rounded-lg border border-border bg-card px-4 py-2 text-center">
+          <div className="text-lg font-bold">{stats.pending}</div>
+          <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Not Invited</div>
+        </div>
+      </div>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-2">
+          <CardTitle className="font-display flex items-center gap-2">
+            <Users2 className="h-5 w-5" /> Attendees
+          </CardTitle>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
+              <SelectTrigger className="w-[140px] h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="confirmed">Confirmed</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="invited">Invited</SelectItem>
+                <SelectItem value="not_invited">Not Invited</SelectItem>
+              </SelectContent>
+            </Select>
+            {!isArchived && (
+              <>
+                <Button size="sm" variant="default" className="gap-1 text-xs" disabled={bulkSending} onClick={sendAllInvitations}>
+                  <Mail className="h-3.5 w-3.5" /> {bulkSending ? "Sending…" : "Send All Invitations"}
+                </Button>
+                <Button size="sm" variant="outline" className="gap-1 text-xs" onClick={downloadCsvTemplate}>
+                  <FileDown className="h-3.5 w-3.5" /> Template
+                </Button>
+                <Button size="sm" variant="outline" className="gap-1 text-xs" onClick={() => document.getElementById("csv-upload")?.click()}>
+                  <Upload className="h-3.5 w-3.5" /> Import CSV
+                </Button>
+                <input id="csv-upload" type="file" accept=".csv" className="hidden" onChange={e => { e.target.files?.[0] && handleCSV(e.target.files[0]); e.target.value = ""; }} />
+              </>
+            )}
+            <Button size="sm" variant="outline" className="gap-1 text-xs" onClick={() => exportAttendeesCsv(items, event.title)} disabled={realItems.length === 0}>
+              <Download className="h-3.5 w-3.5" /> Export
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          {/* Import summary */}
+          {importSummary && (importSummary.duplicates.length > 0 || importSummary.invalid.length > 0) && (
+            <div className="mx-4 my-2 rounded-md border border-border bg-muted/50 p-3 text-xs space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold">Import Summary</span>
+                <Button variant="ghost" size="sm" className="h-5 text-[10px] px-2" onClick={() => setImportSummary(null)}>Dismiss</Button>
+              </div>
+              {importSummary.valid.length > 0 && <p className="text-primary">✓ {importSummary.valid.length} imported</p>}
+              {importSummary.duplicates.length > 0 && <p className="text-muted-foreground">↳ {importSummary.duplicates.length} duplicate(s) skipped: {importSummary.duplicates.slice(0, 3).join(", ")}{importSummary.duplicates.length > 3 ? "…" : ""}</p>}
+              {importSummary.invalid.length > 0 && (
+                <div>
+                  <p className="text-destructive">✗ {importSummary.invalid.length} invalid row(s):</p>
+                  {importSummary.invalid.slice(0, 5).map((inv, i) => (
+                    <p key={i} className="text-muted-foreground ml-2">Line {inv.line}: {inv.reason}</p>
+                  ))}
+                  {importSummary.invalid.length > 5 && <p className="text-muted-foreground ml-2">…and {importSummary.invalid.length - 5} more</p>}
+                </div>
+              )}
+            </div>
           )}
-        </div>
-      </CardHeader>
-      <CardContent className="p-0">
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/50">
-                <TableHead className="w-[30px] text-center text-xs font-semibold">#</TableHead>
-                <TableHead className="text-xs font-semibold">Name</TableHead>
-                <TableHead className="text-xs font-semibold">Email</TableHead>
-                <TableHead className="text-xs font-semibold">Mobile</TableHead>
-                <TableHead className="text-xs font-semibold w-[80px]">Status</TableHead>
-                <TableHead className="w-[100px]" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {items.map((a, rowIndex) => {
-                const isTemp = a._isNew || a.id.startsWith("temp-");
-                return (
-                  <TableRow key={a.id} className={cn("group transition-colors", isTemp && "bg-muted/20")}>
-                    <TableCell className="text-center text-xs text-muted-foreground font-mono tabular-nums p-1">
-                      {isTemp ? "+" : rowIndex + 1}
-                    </TableCell>
-                    {FIELDS.map((field, colIndex) => {
-                      const errKey = `${a.id}-${field}`;
-                      const error = errors[errKey];
-                      return (
-                        <TableCell key={field} className="p-0">
-                          <div className="relative">
-                            <input
-                              ref={el => { cellRefs.current[`${rowIndex}-${colIndex}`] = el; }}
-                              className={cn(
-                                "w-full bg-transparent px-3 py-2 text-sm outline-none border-0",
-                                "focus:bg-primary/5 focus:ring-1 focus:ring-primary/30 focus:ring-inset",
-                                "transition-colors",
-                                isArchived && "pointer-events-none opacity-60",
-                                field === "name" && "font-medium",
-                                error && "text-destructive bg-destructive/5"
+
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/50">
+                  <TableHead className="w-[30px] text-center text-xs font-semibold">#</TableHead>
+                  <TableHead className="text-xs font-semibold">Name</TableHead>
+                  <TableHead className="text-xs font-semibold">Email</TableHead>
+                  <TableHead className="text-xs font-semibold">Mobile</TableHead>
+                  <TableHead className="text-xs font-semibold w-[80px]">Status</TableHead>
+                  <TableHead className="w-[100px]" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredItems.map((a, rowIndex) => {
+                  const isTemp = a._isNew || a.id.startsWith("temp-");
+                  return (
+                    <TableRow key={a.id} className={cn("group transition-colors", isTemp && "bg-muted/20")}>
+                      <TableCell className="text-center text-xs text-muted-foreground font-mono tabular-nums p-1">
+                        {isTemp ? "+" : rowIndex + 1}
+                      </TableCell>
+                      {FIELDS.map((field, colIndex) => {
+                        const errKey = `${a.id}-${field}`;
+                        const error = errors[errKey];
+                        return (
+                          <TableCell key={field} className="p-0">
+                            <div className="relative">
+                              <input
+                                ref={el => { cellRefs.current[`${rowIndex}-${colIndex}`] = el; }}
+                                className={cn(
+                                  "w-full bg-transparent px-3 py-2 text-sm outline-none border-0",
+                                  "focus:bg-primary/5 focus:ring-1 focus:ring-primary/30 focus:ring-inset",
+                                  "transition-colors",
+                                  isArchived && "pointer-events-none opacity-60",
+                                  field === "name" && "font-medium",
+                                  error && "text-destructive bg-destructive/5"
+                                )}
+                                value={(a as any)[field] || ""}
+                                onChange={e => handleChange(rowIndex, field, e.target.value)}
+                                onKeyDown={e => handleKeyDown(e, rowIndex, colIndex)}
+                                disabled={isArchived}
+                                placeholder={isTemp ? `Add ${field}…` : ""}
+                                type={field === "email" ? "email" : "text"}
+                                inputMode={field === "mobile" ? "tel" : undefined}
+                              />
+                              {error && (
+                                <span className="absolute right-1 top-1/2 -translate-y-1/2 text-[10px] text-destructive bg-background px-1 rounded">
+                                  {error}
+                                </span>
                               )}
-                              value={(a as any)[field] || ""}
-                              onChange={e => handleChange(rowIndex, field, e.target.value)}
-                              onKeyDown={e => handleKeyDown(e, rowIndex, colIndex)}
-                              disabled={isArchived}
-                              placeholder={isTemp ? `Add ${field}…` : ""}
-                              type={field === "email" ? "email" : "text"}
-                              inputMode={field === "mobile" ? "tel" : undefined}
-                            />
-                            {error && (
-                              <span className="absolute right-1 top-1/2 -translate-y-1/2 text-[10px] text-destructive bg-background px-1 rounded">
-                                {error}
-                              </span>
-                            )}
-                          </div>
-                        </TableCell>
-                      );
-                    })}
-                    <TableCell className="p-1 text-center">
-                      {!isTemp && (
-                        <Badge 
-                          variant={a.confirmed ? "default" : a.invitation_sent ? "outline" : "secondary"} 
-                          className={cn("text-[10px]", a.confirmed && "bg-primary hover:bg-primary/90")}
-                        >
-                          {a.confirmed ? "Confirmed" : a.invitation_sent ? "Email Sent" : "Pending"}
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="p-1">
-                      <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                        {!isArchived && !isTemp && !a.confirmed && (
-                          <>
-                            <Button variant="ghost" size="icon" className="h-7 w-7" title="Send Invitation" disabled={sendingId === a.id} onClick={() => sendInvitation(a)}>
-                              <Mail className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-7 w-7" title="Send Reminder" disabled={sendingId === a.id} onClick={() => sendReminder(a)}>
-                              <Bell className="h-3.5 w-3.5" />
-                            </Button>
-                          </>
+                            </div>
+                          </TableCell>
+                        );
+                      })}
+                      <TableCell className="p-1 text-center">
+                        {!isTemp && (
+                          <Badge 
+                            variant={a.confirmed ? "default" : a.invitation_sent ? "outline" : "secondary"} 
+                            className={cn("text-[10px]", a.confirmed && "bg-primary hover:bg-primary/90")}
+                          >
+                            {a.confirmed ? "Confirmed" : a.invitation_sent ? "Invited" : "Pending"}
+                          </Badge>
                         )}
-                        {!isArchived && !isRowEmpty(a) && (
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => remove(a.id, rowIndex)}>
-                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                          </Button>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </div>
-        {!isArchived && (
-          <p className="text-[11px] text-muted-foreground px-4 py-2 border-t border-border">
-            Tab / Enter to navigate • Changes auto-save after {DEBOUNCE_MS / 1000}s • Email must be valid format • Mobile accepts numbers only
-          </p>
-        )}
-      </CardContent>
-    </Card>
+                      </TableCell>
+                      <TableCell className="p-1">
+                        <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                          {!isArchived && !isTemp && !a.confirmed && (
+                            <>
+                              <Button variant="ghost" size="icon" className="h-7 w-7" title={a.invitation_sent ? "Resend Invitation" : "Send Invitation"} disabled={sendingId === a.id} onClick={() => sendInvitation(a)}>
+                                <Mail className="h-3.5 w-3.5" />
+                              </Button>
+                              {a.invitation_sent && (
+                                <Button variant="ghost" size="icon" className="h-7 w-7" title="Send Reminder" disabled={sendingId === a.id} onClick={() => sendReminder(a)}>
+                                  <Bell className="h-3.5 w-3.5" />
+                                </Button>
+                              )}
+                            </>
+                          )}
+                          {!isArchived && !isRowEmpty(a) && (
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => remove(a.id)}>
+                              <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+          {!isArchived && (
+            <p className="text-[11px] text-muted-foreground px-4 py-2 border-t border-border">
+              Tab / Enter to navigate • Changes auto-save after {DEBOUNCE_MS / 1000}s • Email must be valid format • Mobile accepts numbers only
+            </p>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 };
 
