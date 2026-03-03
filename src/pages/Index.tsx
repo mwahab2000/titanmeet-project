@@ -31,7 +31,7 @@ const pricing = [
     name: "Starter",
     price: "$149",
     desc: "Perfect for individuals launching their first few events.",
-    features: ["3 clients", "5 active events/mo", "500 attendees/mo", "2,000 emails/mo", "5 GB storage", "2 admin users", "Standard support"],
+    features: ["3 clients", "5 active events/mo", "500 attendees/mo", "2,000 emails/mo", "5 GB storage", "Standard support"],
     cta: "Start with Starter",
     ctaLink: "/login?tab=signup",
     popular: false,
@@ -40,7 +40,7 @@ const pricing = [
     name: "Professional",
     price: "$399",
     desc: "Designed for growing agencies and frequent organizers.",
-    features: ["10 clients", "20 active events/mo", "3,000 attendees/mo", "10,000 emails/mo", "20 GB storage", "5 admin users", "Priority support"],
+    features: ["10 clients", "20 active events/mo", "3,000 attendees/mo", "10,000 emails/mo", "20 GB storage", "Priority support"],
     cta: "Get Started Now",
     ctaLink: "/login?tab=signup",
     popular: true,
@@ -49,9 +49,9 @@ const pricing = [
     name: "Enterprise",
     price: "$1,099",
     desc: "Enterprise-grade volume for large-scale operations.",
-    features: ["30 clients", "75 active events/mo", "15,000 attendees/mo", "50,000 emails/mo", "100 GB storage", "15 admin users", "Premium support"],
-    cta: "Contact Sales",
-    ctaLink: "mailto:sales@titanmeet.io",
+    features: ["30 clients", "75 active events/mo", "15,000 attendees/mo", "50,000 emails/mo", "100 GB storage", "Premium support"],
+    cta: "Start with Enterprise",
+    ctaLink: "/login?tab=signup",
     popular: false,
   },
 ];
@@ -252,11 +252,7 @@ const Index = () => {
                   }`}
                   asChild
                 >
-                  {plan.ctaLink.startsWith("mailto") ? (
-                    <a href={plan.ctaLink}>{plan.cta}</a>
-                  ) : (
-                    <Link to={plan.ctaLink}>{plan.cta}</Link>
-                  )}
+                  <Link to={plan.ctaLink}>{plan.cta}</Link>
                 </Button>
               </div>
             ))}
