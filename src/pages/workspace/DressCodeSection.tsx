@@ -8,6 +8,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Plus, Trash2, Upload, X, Shirt } from "lucide-react";
 import { differenceInDays, parseISO } from "date-fns";
+import { useSignedUrl } from "@/hooks/useSignedUrls";
+
+/** Small component to display a signed dress-code reference image */
+const DressCodeRefImage = ({ path, alt }: { path: string; alt: string }) => {
+  const url = useSignedUrl("dress-code-images", path);
+  return <img src={url || ""} alt={alt} className="w-full h-full object-cover rounded-lg border border-border" />;
+};
 
 const DRESS_TYPES = [
   { value: "formal", label: "Formal" },
@@ -114,8 +121,7 @@ const DressCodeSection = () => {
     const path = `${event.id}/${Date.now()}_${file.name}`;
     const { error } = await supabase.storage.from("dress-code-images").upload(path, file);
     if (error) { toast.error("Upload failed"); return; }
-    const { data: urlData } = supabase.storage.from("dress-code-images").getPublicUrl(path);
-    updateEntry(index, { reference_images: [...entries[index].reference_images, urlData.publicUrl] });
+    updateEntry(index, { reference_images: [...entries[index].reference_images, path] });
   };
 
   const removeImage = (entryIndex: number, imgIndex: number) => {
@@ -230,7 +236,7 @@ const DressCodeSection = () => {
             <div className="flex flex-wrap gap-3">
               {entry.reference_images.map((img, imgIdx) => (
                 <div key={imgIdx} className="relative group w-24 h-24">
-                  <img src={img} alt="Reference" className="w-full h-full object-cover rounded-lg border border-border" />
+                  <DressCodeRefImage path={img} alt="Reference" />
                   <button
                     onClick={() => removeImage(idx, imgIdx)}
                     className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"

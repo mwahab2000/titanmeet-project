@@ -2,3 +2,6 @@ project_id = "qclaciklevavttipztrv"
 
 [functions.auth-email-hook]
 verify_jwt = false
+
+[functions.serve-event-asset]
+verify_jwt = false

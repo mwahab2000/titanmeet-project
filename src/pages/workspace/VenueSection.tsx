@@ -8,28 +8,31 @@ import { useEventWorkspace } from "@/contexts/EventWorkspaceContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { X, Upload } from "lucide-react";
+import { useSignedUrls } from "@/hooks/useSignedUrls";
 
 const VenueSection = () => {
   const { event, autosave, isArchived } = useEventWorkspace();
   const [uploading, setUploading] = useState(false);
   if (!event) return null;
 
+  const venuePaths: string[] = Array.isArray(event.venue_images) ? (event.venue_images as string[]) : [];
+  const venueUrls = useSignedUrls("event-assets", venuePaths);
+
   const handleUpload = async (files: FileList | null) => {
     if (!files) return;
     setUploading(true);
-    const urls = [...event.venue_images];
+    const newPaths = [...venuePaths];
     for (const file of Array.from(files)) {
       const path = `events/${event.id}/venue/${Date.now()}-${file.name}`;
       const { error } = await supabase.storage.from("event-assets").upload(path, file);
       if (error) { toast.error("Upload failed"); continue; }
-      const { data } = supabase.storage.from("event-assets").getPublicUrl(path);
-      urls.push(data.publicUrl);
+      newPaths.push(path);
     }
-    autosave({ venue_images: urls as any });
+    autosave({ venue_images: newPaths as any });
     setUploading(false);
   };
 
-  const removeImage = (i: number) => autosave({ venue_images: event.venue_images.filter((_, j) => j !== i) as any });
+  const removeImage = (i: number) => autosave({ venue_images: venuePaths.filter((_, j) => j !== i) as any });
 
   return (
     <Card>
@@ -44,9 +47,9 @@ const VenueSection = () => {
         <div className="space-y-2">
           <Label>Venue Images</Label>
           <div className="flex flex-wrap gap-3">
-            {event.venue_images.map((url, i) => (
+            {venuePaths.map((_, i) => (
               <div key={i} className="relative group h-24 w-32 rounded-lg overflow-hidden border border-border">
-                <img src={url} alt="" className="h-full w-full object-cover" />
+                <img src={venueUrls[i] || ""} alt="" className="h-full w-full object-cover" />
                 {!isArchived && <button onClick={() => removeImage(i)} className="absolute top-1 right-1 bg-background/80 rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"><X className="h-3.5 w-3.5" /></button>}
               </div>
             ))}

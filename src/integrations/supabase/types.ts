@@ -1200,6 +1200,10 @@ export type Database = {
       }
       is_event_public: { Args: { _event_id: string }; Returns: boolean }
       owns_event: { Args: { _event_id: string }; Returns: boolean }
+      storage_extract_event_id: {
+        Args: { bucket_name: string; object_name: string }
+        Returns: string
+      }
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"

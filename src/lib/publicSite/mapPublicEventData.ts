@@ -1,4 +1,11 @@
 import type { PublicEventData } from "./types";
+import { getPublicAssetUrl } from "@/lib/storage";
+
+/** Resolve a stored path/URL to a public proxy URL for a given bucket */
+function resolveImages(bucket: string, images: unknown): string[] {
+  const arr = Array.isArray(images) ? (images as string[]) : [];
+  return arr.map((v) => getPublicAssetUrl(bucket, v));
+}
 
 export function mapPublicEventData(
   client: any,
@@ -14,9 +21,9 @@ export function mapPublicEventData(
   transportRoutes: any[] = [],
   transportStops: any[] = [],
 ): PublicEventData {
-  const heroImages = Array.isArray(event.hero_images) ? event.hero_images as string[] : [];
-  const venueImages = Array.isArray(event.venue_images) ? event.venue_images as string[] : [];
-  const galleryImages = Array.isArray(event.gallery_images) ? event.gallery_images as string[] : [];
+  const heroImages = resolveImages("event-assets", event.hero_images);
+  const venueImages = resolveImages("event-assets", event.venue_images);
+  const galleryImages = resolveImages("event-assets", event.gallery_images);
 
   // Group stops by route_id
   const stopsByRoute = new Map<string, any[]>();
@@ -63,7 +70,7 @@ export function mapPublicEventData(
       name: s.name,
       title: s.title ?? null,
       bio: s.bio ?? null,
-      photoUrl: s.photo_url ?? null,
+      photoUrl: s.photo_url ? getPublicAssetUrl("event-assets", s.photo_url) : null,
       linkedinUrl: s.linkedin_url ?? null,
     })),
     venue: {
@@ -79,7 +86,7 @@ export function mapPublicEventData(
       role: o.role ?? null,
       email: o.email ?? null,
       mobile: o.mobile ?? null,
-      photoUrl: o.photo_url ?? null,
+      photoUrl: o.photo_url ? getPublicAssetUrl("event-assets", o.photo_url) : null,
     })),
     announcements: announcements.map((a) => ({ id: a.id, text: a.text })),
     gallery: galleryImages,
@@ -87,7 +94,7 @@ export function mapPublicEventData(
       dayNumber: d.day_number ?? 1,
       dressType: d.dress_type ?? "business_casual",
       customInstructions: d.custom_instructions ?? null,
-      referenceImages: Array.isArray(d.reference_images) ? d.reference_images as string[] : [],
+      referenceImages: resolveImages("dress-code-images", d.reference_images),
     })),
     transport: {
       enabled: transportSettings?.enabled ?? false,
