@@ -612,6 +612,7 @@ export type Database = {
           payment_intent_id: string
           processed_at: string | null
           provider: string
+          provider_event_id: string | null
           raw_payload: Json | null
         }
         Insert: {
@@ -621,6 +622,7 @@ export type Database = {
           payment_intent_id: string
           processed_at?: string | null
           provider?: string
+          provider_event_id?: string | null
           raw_payload?: Json | null
         }
         Update: {
@@ -630,6 +632,7 @@ export type Database = {
           payment_intent_id?: string
           processed_at?: string | null
           provider?: string
+          provider_event_id?: string | null
           raw_payload?: Json | null
         }
         Relationships: [

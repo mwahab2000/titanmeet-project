@@ -9,13 +9,13 @@ const corsHeaders = {
 // Map Triple-A statuses to our internal statuses
 const STATUS_MAP: Record<string, string> = {
   new: "pending",
-  crypto_detected: "processing",
+  crypto_detected: "awaiting_payment",
   crypto_confirmed: "confirmed",
   done: "confirmed",
   expired: "expired",
   cancelled: "cancelled",
   overpaid: "confirmed",
-  underpaid: "underpaid",
+  underpaid: "awaiting_payment",
 };
 
 Deno.serve(async (req) => {
@@ -44,6 +44,10 @@ Deno.serve(async (req) => {
     const orderId = payload.order_id;
     const tripleAStatus = payload.status || payload.payment_status;
     const paymentReference = payload.payment_reference || payload.id;
+    // Build a unique provider event ID for idempotency
+    const providerEventId = payload.webhook_id || payload.id
+      ? `${payload.id || orderId}_${tripleAStatus}`
+      : null;
 
     if (!orderId) {
       console.error("No order_id in webhook payload");
@@ -73,8 +77,22 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Map status
-    const internalStatus = STATUS_MAP[tripleAStatus] || tripleAStatus;
+    // Idempotency: check if we already processed this exact event
+    if (providerEventId) {
+      const { data: existing } = await serviceClient
+        .from("payment_events")
+        .select("id")
+        .eq("provider_event_id", providerEventId)
+        .maybeSingle();
+
+      if (existing) {
+        console.log("Duplicate webhook skipped:", providerEventId);
+        return new Response(JSON.stringify({ success: true, duplicate: true }), {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
 
     // Log the event
     await serviceClient.from("payment_events").insert({
@@ -82,6 +100,7 @@ Deno.serve(async (req) => {
       provider: "triple_a",
       event_type: tripleAStatus || "unknown",
       raw_payload: payload,
+      provider_event_id: providerEventId,
     });
 
     // Update payment intent
