@@ -1,5 +1,29 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+// Helper to fire-and-forget notification emails
+async function sendNotificationEmail(
+  supabaseUrl: string,
+  serviceRoleKey: string,
+  payload: { type: string; user_id: string; title: string; message: string; link?: string; metadata?: Record<string, unknown> }
+) {
+  try {
+    const res = await fetch(`${supabaseUrl}/functions/v1/send-notification-email`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-internal-secret": serviceRoleKey,
+      },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const body = await res.text();
+      console.warn("Notification email failed:", res.status, body);
+    }
+  } catch (e) {
+    console.warn("Notification email error:", e);
+  }
+}
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -191,6 +215,26 @@ Deno.serve(async (req) => {
         _link: "/dashboard/billing",
         _metadata: JSON.stringify({ order_id: paymentIntent.internal_order_id }),
       });
+
+      // Send email notifications for payment + upgrade
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      const srvKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      await sendNotificationEmail(supabaseUrl, srvKey, {
+        type: "payment_confirmed",
+        user_id: paymentIntent.user_id,
+        title: "Payment confirmed",
+        message: `Your crypto payment of $${(paymentIntent.amount_usd_cents / 100).toFixed(2)} for the ${paymentIntent.plan_id} plan has been confirmed.`,
+        link: "/dashboard/billing",
+        metadata: { order_id: paymentIntent.internal_order_id, payment_intent_id: paymentIntent.id },
+      });
+      await sendNotificationEmail(supabaseUrl, srvKey, {
+        type: "subscription_upgraded",
+        user_id: paymentIntent.user_id,
+        title: "Subscription upgraded",
+        message: `Your subscription has been upgraded to the ${paymentIntent.plan_id} plan. Enjoy your new features!`,
+        link: "/dashboard/billing",
+        metadata: { plan_id: paymentIntent.plan_id },
+      });
     }
 
     // Notify on failed/expired/cancelled
@@ -205,6 +249,21 @@ Deno.serve(async (req) => {
           : `Your payment for the ${paymentIntent.plan_id} plan has ${internalStatus}. Please try again.`,
         _link: "/dashboard/billing",
         _metadata: JSON.stringify({ order_id: paymentIntent.internal_order_id }),
+      });
+
+      // Send email notification for failed/expired
+      const supabaseUrl2 = Deno.env.get("SUPABASE_URL")!;
+      const srvKey2 = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      const notifType2 = internalStatus === "expired" ? "payment_expired" : "payment_failed";
+      await sendNotificationEmail(supabaseUrl2, srvKey2, {
+        type: notifType2,
+        user_id: paymentIntent.user_id,
+        title: internalStatus === "expired" ? "Payment expired" : "Payment failed",
+        message: internalStatus === "expired"
+          ? `Your payment for the ${paymentIntent.plan_id} plan has expired. Please try again.`
+          : `Your payment for the ${paymentIntent.plan_id} plan has ${internalStatus}. Please try again.`,
+        link: "/dashboard/billing",
+        metadata: { order_id: paymentIntent.internal_order_id, payment_intent_id: paymentIntent.id },
       });
     }
 

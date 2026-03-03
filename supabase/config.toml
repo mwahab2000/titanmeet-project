@@ -14,3 +14,6 @@ verify_jwt = false
 
 [functions.triplea-webhook]
 verify_jwt = false
+
+[functions.send-notification-email]
+verify_jwt = false
