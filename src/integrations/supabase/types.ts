@@ -1198,6 +1198,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_event_public: { Args: { _event_id: string }; Returns: boolean }
       owns_event: { Args: { _event_id: string }; Returns: boolean }
     }
     Enums: {
