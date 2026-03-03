@@ -1,19 +1,83 @@
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { CreditCard, TrendingUp, AlertTriangle, CheckCircle, ArrowUpRight } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { CreditCard, TrendingUp, AlertTriangle, CheckCircle, ArrowUpRight, Bitcoin, Clock, XCircle, RefreshCw, ExternalLink } from "lucide-react";
 import { useBilling } from "@/hooks/useBilling";
-import { calculateOverages, formatCents, usagePercent, type OverageLineItem } from "@/lib/billing";
+import { calculateOverages, formatCents, usagePercent } from "@/lib/billing";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { useSearchParams } from "react-router-dom";
+
+const STATUS_LABELS: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
+  pending: { label: "Awaiting Payment", variant: "outline" },
+  processing: { label: "Payment Detected", variant: "secondary" },
+  confirmed: { label: "Confirmed", variant: "default" },
+  expired: { label: "Expired", variant: "destructive" },
+  cancelled: { label: "Cancelled", variant: "destructive" },
+  failed: { label: "Failed", variant: "destructive" },
+  underpaid: { label: "Underpaid", variant: "secondary" },
+};
 
 const BillingPage = () => {
   const { user } = useAuth();
   const { plans, subscription, currentPlan, usage, loading } = useBilling();
+  const [searchParams] = useSearchParams();
+  const [paymentIntents, setPaymentIntents] = useState<any[]>([]);
+  const [creatingPayment, setCreatingPayment] = useState<string | null>(null);
+  const [loadingPayments, setLoadingPayments] = useState(true);
+
+  const loadPaymentIntents = useCallback(async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from("payment_intents" as any)
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(20);
+    setPaymentIntents((data as any[]) || []);
+    setLoadingPayments(false);
+  }, [user]);
+
+  useEffect(() => {
+    loadPaymentIntents();
+  }, [loadPaymentIntents]);
+
+  useEffect(() => {
+    const paymentStatus = searchParams.get("payment");
+    if (paymentStatus === "success") {
+      toast.success("Payment submitted! Your subscription will activate once confirmed.");
+    } else if (paymentStatus === "cancelled") {
+      toast.info("Payment cancelled.");
+    }
+  }, [searchParams]);
+
+  const handleCryptoPayment = async (planId: string) => {
+    if (!user) return;
+    setCreatingPayment(planId);
+    try {
+      const { data, error } = await supabase.functions.invoke("create-triplea-payment", {
+        body: { plan_id: planId },
+      });
+      if (error) throw error;
+      if (data?.checkout_url) {
+        window.open(data.checkout_url, "_blank");
+        toast.success("Checkout opened in a new tab. Complete your crypto payment there.");
+      } else {
+        toast.info("Payment created. Check your payment history for details.");
+      }
+      await loadPaymentIntents();
+    } catch (err: any) {
+      console.error("Payment creation failed:", err);
+      toast.error(err.message || "Failed to create payment. Please try again.");
+    } finally {
+      setCreatingPayment(null);
+    }
+  };
 
   if (loading) {
     return (
@@ -46,25 +110,15 @@ const BillingPage = () => {
 
   const warnings = usageMetrics.filter((m) => usagePercent(m.used, m.limit) >= 80);
 
-  const upgradePlan = async (planId: string) => {
-    if (!user) return;
-    const { error } = await supabase
-      .from("account_subscriptions")
-      .update({ plan_id: planId })
-      .eq("user_id", user.id);
-    if (error) {
-      toast.error("Failed to update plan");
-    } else {
-      toast.success("Plan updated! Refresh to see changes.");
-      window.location.reload();
-    }
-  };
+  // Check for any pending payments for a plan
+  const hasPendingPayment = (planId: string) =>
+    paymentIntents.some((pi) => pi.plan_id === planId && (pi.status === "pending" || pi.status === "processing"));
 
   return (
     <div className="max-w-5xl space-y-6">
       <div>
         <h1 className="font-display text-3xl font-bold">Billing & Subscription</h1>
-        <p className="text-muted-foreground">Manage your plan, track usage, and view estimated charges.</p>
+        <p className="text-muted-foreground">Manage your plan, track usage, and pay with crypto.</p>
       </div>
 
       {/* Upgrade warnings */}
@@ -179,16 +233,17 @@ const BillingPage = () => {
         </Card>
       )}
 
-      {/* Plan comparison / upgrade */}
+      {/* Plan comparison / upgrade with crypto */}
       <Card>
         <CardHeader>
           <CardTitle className="font-display">Available Plans</CardTitle>
-          <CardDescription>Compare plans and upgrade when ready</CardDescription>
+          <CardDescription>Compare plans and pay with cryptocurrency via Triple-A</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 md:grid-cols-3">
             {plans.map((plan) => {
               const isCurrent = plan.id === currentPlan.id;
+              const pending = hasPendingPayment(plan.id);
               return (
                 <div
                   key={plan.id}
@@ -197,6 +252,7 @@ const BillingPage = () => {
                   <div className="flex items-center justify-between">
                     <h3 className="font-display font-bold text-lg">{plan.name}</h3>
                     {isCurrent && <Badge><CheckCircle className="h-3 w-3 mr-1" />Current</Badge>}
+                    {pending && <Badge variant="secondary"><Clock className="h-3 w-3 mr-1" />Pending</Badge>}
                   </div>
                   <p className="text-2xl font-bold">{formatCents(plan.monthly_price_cents)}<span className="text-sm text-muted-foreground font-normal">/mo</span></p>
                   <ul className="text-sm text-muted-foreground space-y-1">
@@ -207,20 +263,108 @@ const BillingPage = () => {
                     <li>{plan.max_storage_gb} GB storage</li>
                     <li className="capitalize">{plan.support_tier} support</li>
                   </ul>
-                  {!isCurrent && plan.display_order > currentPlan.display_order && (
-                    <Button size="sm" className="w-full gap-1" onClick={() => upgradePlan(plan.id)}>
-                      Upgrade <ArrowUpRight className="h-3 w-3" />
+                  {!isCurrent && !pending && (
+                    <Button
+                      size="sm"
+                      className="w-full gap-1"
+                      onClick={() => handleCryptoPayment(plan.id)}
+                      disabled={creatingPayment === plan.id}
+                    >
+                      {creatingPayment === plan.id ? (
+                        <><RefreshCw className="h-3 w-3 animate-spin" /> Creating...</>
+                      ) : (
+                        <><Bitcoin className="h-3 w-3" /> {plan.display_order > currentPlan.display_order ? "Upgrade" : "Switch"} with Crypto</>
+                      )}
                     </Button>
                   )}
-                  {!isCurrent && plan.display_order < currentPlan.display_order && (
-                    <Button size="sm" variant="outline" className="w-full" onClick={() => upgradePlan(plan.id)}>
-                      Downgrade
-                    </Button>
+                  {pending && (
+                    <p className="text-xs text-center text-muted-foreground">Payment pending confirmation</p>
                   )}
                 </div>
               );
             })}
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Payment History */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="font-display flex items-center gap-2">
+                <Bitcoin className="h-5 w-5 text-primary" /> Payment History
+              </CardTitle>
+              <CardDescription>Your crypto payment transactions</CardDescription>
+            </div>
+            <Button size="sm" variant="outline" onClick={loadPaymentIntents}>
+              <RefreshCw className="h-3 w-3 mr-1" /> Refresh
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {loadingPayments ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin h-6 w-6 border-4 border-primary border-t-transparent rounded-full" />
+            </div>
+          ) : paymentIntents.length === 0 ? (
+            <p className="text-center text-muted-foreground py-8">No payments yet.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Plan</TableHead>
+                    <TableHead>Amount</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Order ID</TableHead>
+                    <TableHead></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {paymentIntents.map((pi: any) => {
+                    const statusInfo = STATUS_LABELS[pi.status] || { label: pi.status, variant: "outline" as const };
+                    const isRetryable = pi.status === "expired" || pi.status === "failed" || pi.status === "cancelled";
+                    return (
+                      <TableRow key={pi.id}>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {new Date(pi.created_at).toLocaleString()}
+                        </TableCell>
+                        <TableCell className="font-medium capitalize">{pi.plan_id}</TableCell>
+                        <TableCell>{formatCents(pi.amount_usd_cents)}</TableCell>
+                        <TableCell>
+                          <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>
+                        </TableCell>
+                        <TableCell className="text-xs font-mono text-muted-foreground">{pi.internal_order_id}</TableCell>
+                        <TableCell>
+                          <div className="flex gap-1">
+                            {pi.checkout_url && pi.status === "pending" && (
+                              <Button size="sm" variant="outline" asChild>
+                                <a href={pi.checkout_url} target="_blank" rel="noopener noreferrer">
+                                  <ExternalLink className="h-3 w-3 mr-1" /> Pay
+                                </a>
+                              </Button>
+                            )}
+                            {isRetryable && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleCryptoPayment(pi.plan_id)}
+                                disabled={creatingPayment === pi.plan_id}
+                              >
+                                <RefreshCw className="h-3 w-3 mr-1" /> Retry
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

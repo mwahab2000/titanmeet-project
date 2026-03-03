@@ -26,6 +26,12 @@
 | `TWILIO_ACCOUNT_SID` | ❌ MVP | Only for SMS/WhatsApp |
 | `TWILIO_AUTH_TOKEN` | ❌ MVP | Only for SMS/WhatsApp |
 | `TWILIO_PHONE_NUMBER` | ❌ MVP | Only for SMS/WhatsApp |
+| `TRIPLEA_CLIENT_ID` | ✅ Crypto | Triple-A dashboard → API credentials |
+| `TRIPLEA_CLIENT_SECRET` | ✅ Crypto | Triple-A dashboard → API credentials |
+| `TRIPLEA_MERCHANT_ID` | ✅ Crypto | Triple-A dashboard → Merchant key |
+| `TRIPLEA_WEBHOOK_SECRET` | ✅ Crypto | Triple-A dashboard → Webhook config |
+| `TRIPLEA_SUCCESS_URL` | ❌ | Defaults to `/dashboard/billing?payment=success` |
+| `TRIPLEA_CANCEL_URL` | ❌ | Defaults to `/dashboard/billing?payment=cancelled` |
 
 ---
 
@@ -60,6 +66,8 @@ Private buckets are served via the `serve-event-asset` Edge Function proxy.
 | `confirm-rsvp` | No | RSVP confirmation via token |
 | `send-email` | Yes | Send invitation/reminder emails |
 | `send-communication` | Yes | Multi-channel comms (email/SMS/WhatsApp) |
+| `create-triplea-payment` | No* | Create crypto payment intent (*validates JWT in code) |
+| `triplea-webhook` | No | Receive Triple-A payment status webhooks |
 
 Edge functions deploy automatically via Lovable.
 
@@ -104,7 +112,8 @@ Edge functions deploy automatically via Lovable.
 ## 7. Known Limitations (MVP)
 
 - Email via Gmail SMTP — subject to Google rate limits (~500/day)
-- No QR check-in, ticketing, or payment processing
+- No QR check-in or ticketing
+- Crypto payments via Triple-A (no card processing, no auto-renewal, no refunds yet)
 - No public self-registration
 - SMS/WhatsApp requires Twilio setup (not configured for MVP)
 - OG images in `index.html` still reference Lovable defaults

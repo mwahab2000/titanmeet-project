@@ -604,6 +604,116 @@ export type Database = {
           },
         ]
       }
+      payment_events: {
+        Row: {
+          created_at: string
+          event_type: string
+          id: string
+          payment_intent_id: string
+          processed_at: string | null
+          provider: string
+          raw_payload: Json | null
+        }
+        Insert: {
+          created_at?: string
+          event_type: string
+          id?: string
+          payment_intent_id: string
+          processed_at?: string | null
+          provider?: string
+          raw_payload?: Json | null
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          id?: string
+          payment_intent_id?: string
+          processed_at?: string | null
+          provider?: string
+          raw_payload?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_events_payment_intent_id_fkey"
+            columns: ["payment_intent_id"]
+            isOneToOne: false
+            referencedRelation: "payment_intents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_intents: {
+        Row: {
+          amount_usd_cents: number
+          checkout_url: string | null
+          created_at: string
+          currency: string
+          expires_at: string | null
+          id: string
+          internal_order_id: string
+          metadata: Json | null
+          paid_at: string | null
+          plan_id: string
+          provider: string
+          provider_payment_id: string | null
+          status: string
+          subscription_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount_usd_cents: number
+          checkout_url?: string | null
+          created_at?: string
+          currency?: string
+          expires_at?: string | null
+          id?: string
+          internal_order_id?: string
+          metadata?: Json | null
+          paid_at?: string | null
+          plan_id: string
+          provider?: string
+          provider_payment_id?: string | null
+          status?: string
+          subscription_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount_usd_cents?: number
+          checkout_url?: string | null
+          created_at?: string
+          currency?: string
+          expires_at?: string | null
+          id?: string
+          internal_order_id?: string
+          metadata?: Json | null
+          paid_at?: string | null
+          plan_id?: string
+          provider?: string
+          provider_payment_id?: string | null
+          status?: string
+          subscription_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_intents_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_intents_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "account_subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
