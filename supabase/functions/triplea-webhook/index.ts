@@ -31,9 +31,16 @@ Deno.serve(async (req) => {
     const payload = await req.json();
     console.log("Triple-A webhook received:", JSON.stringify(payload));
 
-    // Verify webhook secret
+    // Verify webhook secret — MUST be configured
     const webhookSecret = Deno.env.get("TRIPLEA_WEBHOOK_SECRET");
-    if (webhookSecret && payload.notify_secret !== webhookSecret) {
+    if (!webhookSecret) {
+      console.error("TRIPLEA_WEBHOOK_SECRET is not configured — rejecting webhook");
+      return new Response(JSON.stringify({ error: "Service misconfigured" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (payload.notify_secret !== webhookSecret) {
       console.error("Webhook secret mismatch");
       return new Response(JSON.stringify({ error: "Forbidden" }), {
         status: 403,
