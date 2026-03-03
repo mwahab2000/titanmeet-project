@@ -32,6 +32,21 @@ const CreateEvent = () => {
     if (!user) return;
     setLoading(true);
 
+    // Pre-check slug uniqueness within the selected client
+    if (clientId && slug) {
+      const { data: existing } = await supabase
+        .from("events")
+        .select("id")
+        .eq("client_id", clientId)
+        .eq("slug", slug)
+        .maybeSingle();
+      if (existing) {
+        toast.error("This slug is already used by another event under this client. Please choose a different one.");
+        setLoading(false);
+        return;
+      }
+    }
+
     const now = new Date().toISOString();
     const { data, error } = await supabase.from("events").insert({
       title,
@@ -44,7 +59,14 @@ const CreateEvent = () => {
     } as any).select("id").single();
 
     setLoading(false);
-    if (error) { toast.error(error.message); return; }
+    if (error) {
+      if (error.message?.includes("idx_events_client_slug")) {
+        toast.error("This slug is already used by another event under this client.");
+      } else {
+        toast.error(error.message);
+      }
+      return;
+    }
     toast.success("Event created! Redirecting to workspace...");
     navigate(`/dashboard/events/${data.id}/hero`);
   };
