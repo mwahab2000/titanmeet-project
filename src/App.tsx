@@ -18,7 +18,9 @@ import Attendees from "./pages/Attendees";
 import DashboardSettings from "./pages/DashboardSettings";
 import BillingPage from "./pages/BillingPage";
 import AdminBillingPage from "./pages/AdminBillingPage";
-
+import SupportPage from "./pages/SupportPage";
+import SupportTicketDetail from "./pages/SupportTicketDetail";
+import AdminSupportPage from "./pages/AdminSupportPage";
 import NotFound from "./pages/NotFound";
 import HeroSection from "./pages/workspace/HeroSection";
 import EventInfoSection from "./pages/workspace/EventInfoSection";
@@ -60,6 +62,10 @@ const App = () => (
                 <Route path="attendees" element={<Attendees />} />
                 <Route path="settings" element={<DashboardSettings />} />
                 <Route path="billing" element={<BillingPage />} />
+                <Route path="support" element={<SupportPage />} />
+                <Route path="support/:ticketId" element={<SupportTicketDetail />} />
+                <Route path="admin/billing" element={<AdminBillingPage />} />
+                <Route path="admin/support" element={<AdminSupportPage />} />
                 <Route path="admin/billing" element={<AdminBillingPage />} />
                 
                 <Route path="events/:id" element={<EventWorkspaceLayout />}>
