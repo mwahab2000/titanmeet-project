@@ -14,6 +14,50 @@ export type Database = {
   }
   public: {
     Tables: {
+      account_subscriptions: {
+        Row: {
+          created_at: string
+          current_period_end: string
+          current_period_start: string
+          id: string
+          plan_id: string
+          started_at: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          current_period_end?: string
+          current_period_start?: string
+          id?: string
+          plan_id?: string
+          started_at?: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          current_period_end?: string
+          current_period_start?: string
+          id?: string
+          plan_id?: string
+          started_at?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_subscriptions_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agenda_items: {
         Row: {
           day_number: number | null
@@ -607,6 +651,45 @@ export type Database = {
           },
         ]
       }
+      monthly_usage: {
+        Row: {
+          active_events_count: number
+          attendees_count: number
+          clients_count: number
+          created_at: string
+          emails_sent_count: number
+          id: string
+          period_start: string
+          snapshot_at: string
+          storage_used_mb: number
+          user_id: string
+        }
+        Insert: {
+          active_events_count?: number
+          attendees_count?: number
+          clients_count?: number
+          created_at?: string
+          emails_sent_count?: number
+          id?: string
+          period_start?: string
+          snapshot_at?: string
+          storage_used_mb?: number
+          user_id: string
+        }
+        Update: {
+          active_events_count?: number
+          attendees_count?: number
+          clients_count?: number
+          created_at?: string
+          emails_sent_count?: number
+          id?: string
+          period_start?: string
+          snapshot_at?: string
+          storage_used_mb?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       organizers: {
         Row: {
           email: string | null
@@ -754,6 +837,66 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      subscription_plans: {
+        Row: {
+          created_at: string
+          display_order: number
+          id: string
+          is_active: boolean
+          max_active_events: number
+          max_attendees: number
+          max_clients: number
+          max_emails: number
+          max_storage_gb: number
+          monthly_price_cents: number
+          name: string
+          overage_attendees_per_100_cents: number
+          overage_client_cents: number
+          overage_emails_per_1000_cents: number
+          overage_event_cents: number
+          overage_storage_per_5gb_cents: number
+          support_tier: string
+        }
+        Insert: {
+          created_at?: string
+          display_order?: number
+          id: string
+          is_active?: boolean
+          max_active_events: number
+          max_attendees: number
+          max_clients: number
+          max_emails: number
+          max_storage_gb: number
+          monthly_price_cents: number
+          name: string
+          overage_attendees_per_100_cents?: number
+          overage_client_cents?: number
+          overage_emails_per_1000_cents?: number
+          overage_event_cents?: number
+          overage_storage_per_5gb_cents?: number
+          support_tier?: string
+        }
+        Update: {
+          created_at?: string
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          max_active_events?: number
+          max_attendees?: number
+          max_clients?: number
+          max_emails?: number
+          max_storage_gb?: number
+          monthly_price_cents?: number
+          name?: string
+          overage_attendees_per_100_cents?: number
+          overage_client_cents?: number
+          overage_emails_per_1000_cents?: number
+          overage_event_cents?: number
+          overage_storage_per_5gb_cents?: number
+          support_tier?: string
+        }
+        Relationships: []
       }
       survey_answers: {
         Row: {
