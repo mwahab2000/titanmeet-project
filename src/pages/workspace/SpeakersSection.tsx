@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Plus, Trash2, Mic, Upload, Linkedin, User, UserRound } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useSignedUrl } from "@/hooks/useSignedUrls";
 
 const AVATAR_MALE = "https://api.dicebear.com/7.x/personas/svg?seed=male-default&backgroundColor=b6e3f4";
 const AVATAR_FEMALE = "https://api.dicebear.com/7.x/personas/svg?seed=female-default&backgroundColor=ffdfbf";
@@ -68,9 +69,8 @@ const SpeakersSection = () => {
       return;
     }
 
-    const { data: urlData } = supabase.storage.from("event-assets").getPublicUrl(path);
-    const photo_url = urlData.publicUrl + "?t=" + Date.now();
-    await updateSpeaker(speakerId, { photo_url });
+    // Store the path, not a full URL
+    await updateSpeaker(speakerId, { photo_url: path });
     setUploading(null);
     toast.success("Photo uploaded");
   };
@@ -118,13 +118,14 @@ interface SpeakerCardProps {
 
 const SpeakerCard = ({ speaker, isArchived, uploading, onUpdate, onDelete, onUpload }: SpeakerCardProps) => {
   const fileRef = useRef<HTMLInputElement>(null);
+  const photoUrl = useSignedUrl("event-assets", speaker.photo_url);
 
   return (
     <div className="flex items-start gap-4 rounded-lg border border-border p-4 bg-background">
       {/* Photo / Avatar */}
       <div className="flex flex-col items-center gap-2">
         <Avatar className="h-16 w-16">
-          <AvatarImage src={speaker.photo_url || undefined} alt={speaker.name} />
+          <AvatarImage src={photoUrl || undefined} alt={speaker.name} />
           <AvatarFallback className="text-lg">{speaker.name.charAt(0).toUpperCase()}</AvatarFallback>
         </Avatar>
         {!isArchived && (

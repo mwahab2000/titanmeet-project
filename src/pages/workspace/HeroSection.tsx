@@ -7,31 +7,34 @@ import { useEventWorkspace } from "@/contexts/EventWorkspaceContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { X, Upload } from "lucide-react";
+import { useSignedUrls } from "@/hooks/useSignedUrls";
 
 const HeroSection = React.forwardRef<HTMLDivElement>((_, ref) => {
   const { event, autosave, isArchived } = useEventWorkspace();
   const [uploading, setUploading] = useState(false);
   if (!event) return null;
 
+  const heroPaths: string[] = Array.isArray(event.hero_images) ? (event.hero_images as string[]) : [];
+  const heroUrls = useSignedUrls("event-assets", heroPaths);
+
   const handleTitleChange = (val: string) => autosave({ title: val });
 
   const handleUpload = async (files: FileList | null) => {
     if (!files || !files.length) return;
     setUploading(true);
-    const newUrls = [...event.hero_images];
+    const newPaths = [...heroPaths];
     for (const file of Array.from(files)) {
       const path = `events/${event.id}/hero/${Date.now()}-${file.name}`;
       const { error } = await supabase.storage.from("event-assets").upload(path, file);
       if (error) { toast.error("Upload failed"); continue; }
-      const { data } = supabase.storage.from("event-assets").getPublicUrl(path);
-      newUrls.push(data.publicUrl);
+      newPaths.push(path);
     }
-    autosave({ hero_images: newUrls as any });
+    autosave({ hero_images: newPaths as any });
     setUploading(false);
   };
 
   const removeImage = (idx: number) => {
-    const updated = event.hero_images.filter((_, i) => i !== idx);
+    const updated = heroPaths.filter((_, i) => i !== idx);
     autosave({ hero_images: updated as any });
   };
 
@@ -46,9 +49,9 @@ const HeroSection = React.forwardRef<HTMLDivElement>((_, ref) => {
         <div className="space-y-2">
           <Label>Hero Images</Label>
           <div className="flex flex-wrap gap-3">
-            {event.hero_images.map((url, i) => (
+            {heroPaths.map((_, i) => (
               <div key={i} className="relative group h-24 w-32 rounded-lg overflow-hidden border border-border">
-                <img src={url} alt="" className="h-full w-full object-cover" />
+                <img src={heroUrls[i] || ""} alt="" className="h-full w-full object-cover" />
                 {!isArchived && (
                   <button onClick={() => removeImage(i)} className="absolute top-1 right-1 bg-background/80 rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                     <X className="h-3.5 w-3.5" />

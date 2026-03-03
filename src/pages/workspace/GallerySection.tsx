@@ -22,6 +22,7 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { useSignedUrls } from "@/hooks/useSignedUrls";
 
 interface SortableImageProps {
   id: string;
@@ -97,17 +98,18 @@ const GallerySection = React.forwardRef<HTMLDivElement>((_, ref) => {
   const handleUpload = async (files: FileList | null) => {
     if (!files || !files.length) return;
     setUploading(true);
-    const newUrls = [...galleryImages];
+    const newPaths = [...galleryImages];
     for (const file of Array.from(files)) {
       const path = `events/${event.id}/gallery/${Date.now()}-${file.name}`;
       const { error } = await supabase.storage.from("event-assets").upload(path, file);
       if (error) { toast.error("Upload failed"); continue; }
-      const { data } = supabase.storage.from("event-assets").getPublicUrl(path);
-      newUrls.push(data.publicUrl);
+      newPaths.push(path);
     }
-    autosave({ gallery_images: newUrls } as any);
+    autosave({ gallery_images: newPaths } as any);
     setUploading(false);
   };
+
+  const galleryUrls = useSignedUrls("event-assets", galleryImages);
 
   return (
     <Card ref={ref}>
@@ -125,11 +127,11 @@ const GallerySection = React.forwardRef<HTMLDivElement>((_, ref) => {
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             <SortableContext items={imageIds} strategy={rectSortingStrategy}>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                {galleryImages.map((url, i) => (
+                {galleryImages.map((_, i) => (
                   <SortableImage
                     key={imageIds[i]}
                     id={imageIds[i]}
-                    url={url}
+                    url={galleryUrls[i] || ""}
                     index={i}
                     onRemove={removeImage}
                     disabled={!!isArchived}

@@ -38,10 +38,10 @@ const CreateClient = () => {
 
     let logo_url: string | null = null;
     if (logoFile) {
-      const path = `clients/${slug}/${logoFile.name}`;
-      const { error: upErr } = await supabase.storage.from("event-assets").upload(path, logoFile);
+      const path = `${slug}/${logoFile.name}`;
+      const { error: upErr } = await supabase.storage.from("client-assets").upload(path, logoFile);
       if (upErr) { toast.error("Logo upload failed"); setLoading(false); return; }
-      const { data: urlData } = supabase.storage.from("event-assets").getPublicUrl(path);
+      const { data: urlData } = supabase.storage.from("client-assets").getPublicUrl(path);
       logo_url = urlData.publicUrl;
     }
 
