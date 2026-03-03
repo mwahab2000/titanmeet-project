@@ -8,3 +8,9 @@ verify_jwt = false
 
 [functions.confirm-rsvp]
 verify_jwt = false
+
+[functions.create-triplea-payment]
+verify_jwt = false
+
+[functions.triplea-webhook]
+verify_jwt = false
