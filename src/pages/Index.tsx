@@ -29,26 +29,29 @@ const faqs = [
 const pricing = [
   {
     name: "Starter",
-    price: "$15",
+    price: "$149",
     desc: "Perfect for individuals launching their first few events.",
-    features: ["3 clients", "10 active events", "10 GB storage"],
-    cta: "Start Free Trial",
+    features: ["3 clients", "5 active events/mo", "500 attendees/mo", "2,000 emails/mo", "5 GB storage", "2 admin users", "Standard support"],
+    cta: "Start with Starter",
+    ctaLink: "/login?tab=signup",
     popular: false,
   },
   {
-    name: "Growth",
-    price: "$75",
+    name: "Professional",
+    price: "$399",
     desc: "Designed for growing agencies and frequent organizers.",
-    features: ["10 clients", "50 active events", "50 GB storage", "Priority support"],
+    features: ["10 clients", "20 active events/mo", "3,000 attendees/mo", "10,000 emails/mo", "20 GB storage", "5 admin users", "Priority support"],
     cta: "Get Started Now",
+    ctaLink: "/login?tab=signup",
     popular: true,
   },
   {
-    name: "Business",
-    price: "$299",
+    name: "Enterprise",
+    price: "$1,099",
     desc: "Enterprise-grade volume for large-scale operations.",
-    features: ["50 clients", "200 active events", "200 GB storage", "White-labeling"],
+    features: ["30 clients", "75 active events/mo", "15,000 attendees/mo", "50,000 emails/mo", "100 GB storage", "15 admin users", "Premium support"],
     cta: "Contact Sales",
+    ctaLink: "mailto:sales@titanmeet.io",
     popular: false,
   },
 ];
@@ -249,13 +252,17 @@ const Index = () => {
                   }`}
                   asChild
                 >
-                  <Link to="/login?tab=signup">{plan.cta}</Link>
+                  {plan.ctaLink.startsWith("mailto") ? (
+                    <a href={plan.ctaLink}>{plan.cta}</a>
+                  ) : (
+                    <Link to={plan.ctaLink}>{plan.cta}</Link>
+                  )}
                 </Button>
               </div>
             ))}
           </div>
-          <p className="text-center text-xs text-[hsl(var(--landing-fg-muted)/0.6)] mt-8">
-            * Overage fees apply for additional events ($2/event) or storage ($5/10GB)
+          <p className="text-center text-sm text-[hsl(var(--landing-fg-muted)/0.6)] mt-8 max-w-2xl mx-auto">
+            All plans include unlimited RSVPs and survey responses. Overage fees apply for extra clients, events, attendees, emails, and storage beyond your plan limits.
           </p>
         </div>
       </section>

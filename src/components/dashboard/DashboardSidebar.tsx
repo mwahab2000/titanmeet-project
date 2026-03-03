@@ -2,11 +2,13 @@ import { Link, useLocation } from "react-router-dom";
 import { Calendar, LayoutDashboard, Settings, LogOut, Plus, Building2, Image, Images, Info, ListOrdered, UserCog, UsersRound, Layers, Bus, MapPin, Megaphone, ClipboardList, MessageSquare, Users, Mic, Globe, Shirt, CreditCard } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import logo from "@/assets/logo.png";
 import { useState, useEffect, useCallback, useContext } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useEventWorkspaceOptional } from "@/contexts/EventWorkspaceContext";
+import { useBilling } from "@/hooks/useBilling";
 
 type CompletionStatus = "empty" | "partial" | "done";
 
@@ -62,6 +64,7 @@ function computeCompletion(event: any, counts: Record<string, number>): Record<s
 export const DashboardSidebar = () => {
   const location = useLocation();
   const { signOut } = useAuth();
+  const { currentPlan } = useBilling();
   const [activeEventId, setActiveEventId] = useState<string | null>(null);
   const [activeEventTitle, setActiveEventTitle] = useState<string>("");
   const [localCompletionMap, setLocalCompletionMap] = useState<Record<string, CompletionStatus>>({});
@@ -198,6 +201,11 @@ export const DashboardSidebar = () => {
           }`}
         >
           <CreditCard className="h-4 w-4" /> Billing
+          {currentPlan && (
+            <Badge variant="outline" className="ml-auto text-[10px] px-1.5 py-0 h-5 border-sidebar-border text-sidebar-foreground/60">
+              {currentPlan.name}
+            </Badge>
+          )}
         </Link>
 
         <Link
