@@ -1204,6 +1204,10 @@ export type Database = {
         Args: { bucket_name: string; object_name: string }
         Returns: string
       }
+      storage_owns_client_asset: {
+        Args: { object_name: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"
