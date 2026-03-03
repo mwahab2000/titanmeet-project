@@ -225,12 +225,9 @@ Deno.serve(async (req) => {
 
     console.log("Notification email sent:", info.messageId, "to:", recipientEmail, "type:", data.type);
 
-    // Log for dedupe — use a dummy event_id (required by schema)
-    // We use communications_log with channel='notification_email' and recipient_info=dedupeKey
-    // Since event_id is required, we use a nil UUID
-    const nilUuid = "00000000-0000-0000-0000-000000000000";
+    // Log for dedupe — event_id is nullable for notification emails
     await serviceClient.from("communications_log").insert({
-      event_id: nilUuid,
+      event_id: null,
       channel: "notification_email",
       recipient_info: key,
       message: data.message,
