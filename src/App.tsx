@@ -8,6 +8,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { EventWorkspaceLayout } from "@/components/dashboard/EventWorkspaceLayout";
+import { getClientSlugFromHostname } from "@/lib/subdomain";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
@@ -41,8 +42,15 @@ import DressCodeSection from "./pages/workspace/DressCodeSection";
 import GallerySection from "./pages/workspace/GallerySection";
 import PreviewEventPage from "./pages/workspace/PreviewEventPage";
 import PublicEventPage from "./pages/public/PublicEventPage";
+import SubdomainEventPage from "./pages/public/SubdomainEventPage";
 
 const queryClient = new QueryClient();
+
+/**
+ * Detect whether the current hostname is a client subdomain.
+ * If so, we render subdomain-based public routes instead of the main app.
+ */
+const subdomainClient = getClientSlugFromHostname();
 
 const App = () => (
   <ThemeProvider attribute="class" defaultTheme="dark" storageKey="titanmeet-theme">
@@ -51,48 +59,58 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
-          <AuthProvider>
+          {subdomainClient ? (
+            /* ── Subdomain mode: clientslug.titanmeet.com ── */
             <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/dashboard" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
-                <Route index element={<Dashboard />} />
-                <Route path="events" element={<Events />} />
-                <Route path="events/new" element={<CreateEvent />} />
-                <Route path="clients/new" element={<CreateClient />} />
-                <Route path="attendees" element={<Attendees />} />
-                <Route path="settings" element={<DashboardSettings />} />
-                <Route path="billing" element={<BillingPage />} />
-                <Route path="notifications" element={<NotificationsPage />} />
-                <Route path="support" element={<SupportPage />} />
-                <Route path="support/:ticketId" element={<SupportTicketDetail />} />
-                <Route path="admin/billing" element={<AdminBillingPage />} />
-                <Route path="admin/support" element={<AdminSupportPage />} />
-                
-                <Route path="events/:id" element={<EventWorkspaceLayout />}>
-                  <Route path="hero" element={<HeroSection />} />
-                  <Route path="info" element={<EventInfoSection />} />
-                  <Route path="agenda" element={<AgendaSection />} />
-                  <Route path="organizers" element={<OrganizersSection />} />
-                  <Route path="speakers" element={<SpeakersSection />} />
-                  <Route path="attendees" element={<AttendeesSection />} />
-                  <Route path="groups" element={<GroupsSection />} />
-                  <Route path="assign-groups" element={<AssignGroupsSection />} />
-                  <Route path="transportation" element={<TransportationSection />} />
-                  <Route path="dress-code" element={<DressCodeSection />} />
-                  <Route path="gallery" element={<GallerySection />} />
-                  <Route path="venue" element={<VenueSection />} />
-                  <Route path="announcements" element={<AnnouncementsSection />} />
-                  <Route path="survey" element={<SurveySection />} />
-                  <Route path="communications" element={<CommunicationsSection />} />
-                  <Route path="website" element={<WebsiteSection />} />
-                </Route>
-              </Route>
-              <Route path="/dashboard/events/:id/preview" element={<ProtectedRoute><PreviewEventPage /></ProtectedRoute>} />
-              <Route path="/:clientSlug/:eventSlug" element={<PublicEventPage />} />
+              <Route path="/:eventSlug" element={<SubdomainEventPage clientSlug={subdomainClient} />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
-          </AuthProvider>
+          ) : (
+            /* ── Main domain / local dev ── */
+            <AuthProvider>
+              <Routes>
+                <Route path="/" element={<Index />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/dashboard" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
+                  <Route index element={<Dashboard />} />
+                  <Route path="events" element={<Events />} />
+                  <Route path="events/new" element={<CreateEvent />} />
+                  <Route path="clients/new" element={<CreateClient />} />
+                  <Route path="attendees" element={<Attendees />} />
+                  <Route path="settings" element={<DashboardSettings />} />
+                  <Route path="billing" element={<BillingPage />} />
+                  <Route path="notifications" element={<NotificationsPage />} />
+                  <Route path="support" element={<SupportPage />} />
+                  <Route path="support/:ticketId" element={<SupportTicketDetail />} />
+                  <Route path="admin/billing" element={<AdminBillingPage />} />
+                  <Route path="admin/support" element={<AdminSupportPage />} />
+                  
+                  <Route path="events/:id" element={<EventWorkspaceLayout />}>
+                    <Route path="hero" element={<HeroSection />} />
+                    <Route path="info" element={<EventInfoSection />} />
+                    <Route path="agenda" element={<AgendaSection />} />
+                    <Route path="organizers" element={<OrganizersSection />} />
+                    <Route path="speakers" element={<SpeakersSection />} />
+                    <Route path="attendees" element={<AttendeesSection />} />
+                    <Route path="groups" element={<GroupsSection />} />
+                    <Route path="assign-groups" element={<AssignGroupsSection />} />
+                    <Route path="transportation" element={<TransportationSection />} />
+                    <Route path="dress-code" element={<DressCodeSection />} />
+                    <Route path="gallery" element={<GallerySection />} />
+                    <Route path="venue" element={<VenueSection />} />
+                    <Route path="announcements" element={<AnnouncementsSection />} />
+                    <Route path="survey" element={<SurveySection />} />
+                    <Route path="communications" element={<CommunicationsSection />} />
+                    <Route path="website" element={<WebsiteSection />} />
+                  </Route>
+                </Route>
+                <Route path="/dashboard/events/:id/preview" element={<ProtectedRoute><PreviewEventPage /></ProtectedRoute>} />
+                {/* Dev fallback: path-based public event routing */}
+                <Route path="/:clientSlug/:eventSlug" element={<PublicEventPage />} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </AuthProvider>
+          )}
         </BrowserRouter>
       </TooltipProvider>
     </QueryClientProvider>

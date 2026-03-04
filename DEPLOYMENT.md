@@ -16,6 +16,7 @@
 | `VITE_SUPABASE_URL` | ✅ | Auto-set |
 | `VITE_SUPABASE_PUBLISHABLE_KEY` | ✅ | Auto-set |
 | `VITE_SUPABASE_PROJECT_ID` | ✅ | Auto-set |
+| `VITE_PUBLIC_ROOT_DOMAIN` | ✅ | Root domain for subdomain routing (e.g. `titanmeet.com`) |
 
 ### Supabase Edge Function Secrets
 | Secret | Required | Where to set |
@@ -87,6 +88,8 @@ Edge functions deploy automatically via Lovable.
 1. Verify all secrets are set in Supabase dashboard
 2. Verify storage buckets exist (they should from migrations)
 3. If using custom domain: configure DNS in Lovable Settings → Domains
+4. **Wildcard subdomain**: configure DNS with `*.titanmeet.com` → A record pointing to your hosting IP. Provision a wildcard SSL certificate (`*.titanmeet.com`) or use a provider that auto-provisions per-subdomain certs.
+5. Set `VITE_PUBLIC_ROOT_DOMAIN=titanmeet.com` in your build environment
 
 ---
 
