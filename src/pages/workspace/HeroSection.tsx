@@ -12,10 +12,11 @@ import { useSignedUrls } from "@/hooks/useSignedUrls";
 const HeroSection = React.forwardRef<HTMLDivElement>((_, ref) => {
   const { event, autosave, isArchived } = useEventWorkspace();
   const [uploading, setUploading] = useState(false);
-  if (!event) return null;
 
-  const heroPaths: string[] = Array.isArray(event.hero_images) ? (event.hero_images as string[]) : [];
+  const heroPaths: string[] = event && Array.isArray(event.hero_images) ? (event.hero_images as string[]) : [];
   const heroUrls = useSignedUrls("event-assets", heroPaths);
+
+  if (!event) return null;
 
   const handleTitleChange = (val: string) => autosave({ title: val });
 
