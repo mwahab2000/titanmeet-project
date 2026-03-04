@@ -1,10 +1,12 @@
 import { useEventWorkspace } from "@/contexts/EventWorkspaceContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Check, X, ExternalLink, Globe, Eye } from "lucide-react";
+import { Check, X, ExternalLink, Globe, Eye, Copy } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
+import { buildPublicEventUrl, buildPublicEventUrlAbsolute } from "@/lib/subdomain";
+import { toast } from "sonner";
 
 const themes = [
   { id: "corporate", name: "Corporate Clean", desc: "Structured, business-focused", color: "bg-[hsl(210,20%,95%)]" },
@@ -42,7 +44,15 @@ const WebsiteSection = () => {
   const checks = PUBLISH_CHECKS.map(c => ({ label: c.label, ok: c.check(event) }));
   const allPass = checks.every((c) => c.ok);
 
-  const publicUrl = event.slug && clientSlug ? `/${clientSlug}/${event.slug}` : null;
+  const publicUrl = event.slug && clientSlug ? buildPublicEventUrl(clientSlug, event.slug) : null;
+  const publicUrlAbsolute = event.slug && clientSlug ? buildPublicEventUrlAbsolute(clientSlug, event.slug) : null;
+
+  const copyPublicLink = () => {
+    if (publicUrlAbsolute) {
+      navigator.clipboard.writeText(publicUrlAbsolute);
+      toast.success("Public link copied to clipboard");
+    }
+  };
 
   return (
     <div className="space-y-6 max-w-3xl">
@@ -50,16 +60,26 @@ const WebsiteSection = () => {
 
       {/* Preview button - always available for owners */}
       <Card>
-        <CardContent className="pt-6 flex items-center gap-3">
-          <Button variant="outline" className="gap-2" onClick={() => navigate(`/dashboard/events/${event.id}/preview`)}>
-            <Eye className="h-4 w-4" /> Preview Public Page
-          </Button>
-          {event.status === "published" && publicUrl && (
-            <Button variant="outline" className="gap-2" asChild>
-              <a href={publicUrl} target="_blank" rel="noopener noreferrer">
-                <Globe className="h-4 w-4" /> View Live <ExternalLink className="h-3 w-3" />
-              </a>
+        <CardContent className="pt-6 space-y-3">
+          <div className="flex items-center gap-3 flex-wrap">
+            <Button variant="outline" className="gap-2" onClick={() => navigate(`/dashboard/events/${event.id}/preview`)}>
+              <Eye className="h-4 w-4" /> Preview Public Page
             </Button>
+            {event.status === "published" && publicUrl && (
+              <>
+                <Button variant="outline" className="gap-2" asChild>
+                  <a href={publicUrl} target="_blank" rel="noopener noreferrer">
+                    <Globe className="h-4 w-4" /> View Live <ExternalLink className="h-3 w-3" />
+                  </a>
+                </Button>
+                <Button variant="outline" className="gap-2" onClick={copyPublicLink}>
+                  <Copy className="h-4 w-4" /> Copy Link
+                </Button>
+              </>
+            )}
+          </div>
+          {event.status === "published" && publicUrlAbsolute && (
+            <p className="text-xs text-muted-foreground font-mono break-all">{publicUrlAbsolute}</p>
           )}
         </CardContent>
       </Card>
