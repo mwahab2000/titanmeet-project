@@ -6,9 +6,19 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2, Upload, ExternalLink, Copy, Shirt, FileImage } from "lucide-react";
+import { Plus, Trash2, Upload, X, Shirt } from "lucide-react";
 import { differenceInDays, parseISO } from "date-fns";
-import { createSignedAssetUrl } from "@/lib/storage";
+import { useSignedUrl } from "@/hooks/useSignedUrls";
+
+/** Small component to display a signed dress-code reference image */
+const DressCodeRefImage = ({ path, alt }: { path: string; alt: string }) => {
+  // If it's a local public path (default images), use directly
+  if (path.startsWith("/images/")) {
+    return <img src={path} alt={alt} className="w-full h-full object-cover rounded-lg border border-border" />;
+  }
+  const url = useSignedUrl("dress-code-images", path);
+  return <img src={url || ""} alt={alt} className="w-full h-full object-cover rounded-lg border border-border" />;
+};
 
 const DRESS_TYPES = [
   { value: "formal", label: "Formal" },
@@ -41,44 +51,6 @@ interface DressCode {
   dress_type: string;
   custom_instructions: string;
   reference_images: string[];
-}
-
-/** Extract a display name from a path or URL */
-function getImageDisplayName(path: string): string {
-  if (path.startsWith("/images/")) {
-    const parts = path.split("/");
-    return parts[parts.length - 1];
-  }
-  const parts = path.split("/");
-  const last = parts[parts.length - 1];
-  // Remove timestamp prefix if present
-  const cleaned = last.replace(/^\d+[-_]/, "");
-  return cleaned || last;
-}
-
-/** Open an image in a new tab, generating signed URL if needed */
-async function openImage(path: string) {
-  if (path.startsWith("/images/") || path.startsWith("http")) {
-    window.open(path, "_blank");
-    return;
-  }
-  const url = await createSignedAssetUrl("dress-code-images", path);
-  if (url) window.open(url, "_blank");
-  else toast.error("Could not generate image URL");
-}
-
-/** Copy the image URL to clipboard */
-async function copyImageLink(path: string) {
-  try {
-    let url = path;
-    if (!path.startsWith("/images/") && !path.startsWith("http")) {
-      url = await createSignedAssetUrl("dress-code-images", path);
-    }
-    await navigator.clipboard.writeText(url);
-    toast.success("Link copied!");
-  } catch {
-    toast.error("Failed to copy link");
-  }
 }
 
 const DressCodeSection = () => {
@@ -265,38 +237,33 @@ const DressCodeSection = () => {
 
           <div className="space-y-2">
             <Label>Reference Images</Label>
-            {/* List view instead of thumbnails */}
-            <div className="space-y-1">
+            <div className="flex flex-wrap gap-3">
               {entry.reference_images.map((img, imgIdx) => (
-                <div key={imgIdx} className="flex items-center gap-2 px-3 py-2 rounded-md border border-border bg-muted/30 text-sm">
-                  <FileImage className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <span className="flex-1 truncate">{getImageDisplayName(img)}</span>
-                  <Button variant="ghost" size="sm" className="h-7 px-2 gap-1 text-xs" onClick={() => openImage(img)}>
-                    <ExternalLink className="h-3 w-3" /> View
-                  </Button>
-                  <Button variant="ghost" size="sm" className="h-7 px-2 gap-1 text-xs" onClick={() => copyImageLink(img)}>
-                    <Copy className="h-3 w-3" /> Copy
-                  </Button>
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => removeImage(idx, imgIdx)}>
-                    <Trash2 className="h-3 w-3 text-destructive" />
-                  </Button>
+                <div key={imgIdx} className="relative group w-24 h-24">
+                  <DressCodeRefImage path={img} alt="Reference" />
+                  <button
+                    onClick={() => removeImage(idx, imgIdx)}
+                    className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
                 </div>
               ))}
+              <label className="w-24 h-24 border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-primary/50 transition-colors">
+                <Upload className="h-5 w-5 text-muted-foreground" />
+                <span className="text-[10px] text-muted-foreground mt-1">Upload</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleImageUpload(idx, file);
+                    e.target.value = "";
+                  }}
+                />
+              </label>
             </div>
-            <label className="inline-flex items-center gap-2 cursor-pointer text-sm text-primary hover:underline">
-              <Upload className="h-4 w-4" />
-              <span>Upload image</span>
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) handleImageUpload(idx, file);
-                  e.target.value = "";
-                }}
-              />
-            </label>
           </div>
         </div>
       ))}
