@@ -14,6 +14,7 @@ import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Events from "./pages/Events";
 import CreateEvent from "./pages/CreateEvent";
+import QuickEventWizard from "./pages/QuickEventWizard";
 import CreateClient from "./pages/CreateClient";
 import Attendees from "./pages/Attendees";
 import DashboardSettings from "./pages/DashboardSettings";
@@ -75,6 +76,7 @@ const App = () => (
                   <Route index element={<Dashboard />} />
                   <Route path="events" element={<Events />} />
                   <Route path="events/new" element={<CreateEvent />} />
+                  <Route path="events/quick-setup" element={<QuickEventWizard />} />
                   <Route path="clients/new" element={<CreateClient />} />
                   <Route path="attendees" element={<Attendees />} />
                   <Route path="settings" element={<DashboardSettings />} />
