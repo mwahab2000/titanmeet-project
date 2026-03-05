@@ -3,10 +3,7 @@ import type { PublicEventData } from "@/lib/publicSite/types";
 import { Users, Mic2, CalendarDays, Building2 } from "lucide-react";
 import { MotionReveal, MotionRevealItem } from "./MotionReveal";
 
-interface Props {
-  data: PublicEventData;
-  className?: string;
-}
+interface Props { data: PublicEventData; className?: string; }
 
 function useCountUp(target: number, duration = 1500, trigger: boolean) {
   const [value, setValue] = useState(0);
@@ -55,17 +52,17 @@ export const PublicStatsSection: React.FC<Props> = ({ data, className = "" }) =>
 
   return (
     <div ref={sectionRef}>
-      <MotionReveal className={`max-w-4xl mx-auto px-6 py-16 ${className}`}>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-8">
+      <MotionReveal className={`max-w-5xl mx-auto px-6 sm:px-8 py-20 ${className}`}>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
           {stats.map((s, i) => {
             const count = useCountUp(s.value, 1200, triggered);
             return (
               <MotionRevealItem key={s.label} index={i} className="text-center space-y-3">
-                <div className="w-14 h-14 mx-auto rounded-2xl bg-primary/10 flex items-center justify-center">
-                  <s.icon className="h-7 w-7 text-primary" />
+                <div className="w-14 h-14 mx-auto rounded-2xl bg-primary/8 border border-primary/10 flex items-center justify-center">
+                  <s.icon className="h-6 w-6 text-primary" />
                 </div>
                 <p className="text-4xl sm:text-5xl font-bold font-display tabular-nums">{count}</p>
-                <p className="text-xs sm:text-sm text-muted-foreground uppercase tracking-widest font-medium">{s.label}</p>
+                <p className="text-xs text-muted-foreground uppercase tracking-[0.15em] font-semibold">{s.label}</p>
               </MotionRevealItem>
             );
           })}

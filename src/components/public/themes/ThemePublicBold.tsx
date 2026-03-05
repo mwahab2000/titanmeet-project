@@ -19,7 +19,7 @@ interface Props { data: PublicEventData; }
 export const ThemePublicBold: React.FC<Props> = ({ data }) => (
   <div className="min-h-screen bg-[hsl(0,0%,5%)] text-[hsl(0,0%,95%)]">
     <PublicStickyNav data={data} className="[&_nav>div]:bg-[hsl(0,0%,5%)]/90 [&_nav>div]:border-[hsl(0,0%,15%)]/50 [&_nav>div]:backdrop-blur-md" />
-    <PublicHeroSection data={data} parallax className="min-h-[520px] flex items-end bg-gradient-to-br from-[hsl(260,60%,30%)] to-[hsl(320,60%,25%)]" />
+    <PublicHeroSection data={data} parallax className="min-h-[520px] sm:min-h-[600px] flex items-end bg-gradient-to-br from-[hsl(260,60%,30%)] to-[hsl(320,60%,25%)]" />
     <PublicCountdownSection data={data} className="bg-[hsl(0,0%,8%)] text-[hsl(0,0%,90%)]" />
     <PublicAnnouncementsSection data={data} className="[&_div]:border-[hsl(260,40%,30%)]/40 [&_div]:bg-[hsl(260,30%,12%)] [&_p]:text-[hsl(0,0%,80%)]" />
     <PublicStatsSection data={data} />

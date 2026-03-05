@@ -1,6 +1,5 @@
-import { useState } from "react";
 import type { PublicEventData } from "@/lib/publicSite/types";
-import { Calendar, MapPin } from "lucide-react";
+import { Calendar, MapPin, ArrowDown } from "lucide-react";
 import { format } from "date-fns";
 import { motion } from "framer-motion";
 
@@ -19,62 +18,90 @@ export const PublicHeroSection: React.FC<Props> = ({ data, className = "", paral
 
   return (
     <section className={`relative overflow-hidden ${className}`}>
-      {bgImage && (
-        <div className="absolute inset-0" style={parallax ? { transform: "translateZ(0)" } : undefined}>
+      {/* Background */}
+      {bgImage ? (
+        <div className="absolute inset-0">
           <img
             src={bgImage}
             alt=""
             className={`w-full h-full object-cover ${parallax ? "scale-110" : ""}`}
-            style={parallax ? {
-              position: "fixed",
-              top: 0,
-              left: 0,
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
-              zIndex: -1,
-            } : undefined}
+            style={parallax ? { position: "fixed", top: 0, left: 0, width: "100%", height: "100%", objectFit: "cover", zIndex: -1 } : undefined}
             onError={(e) => { (e.target as HTMLImageElement).src = fallbackImg; }}
           />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/40 to-black/80" />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/50 to-black/90" />
         </div>
+      ) : (
+        <div className="absolute inset-0 bg-gradient-to-br from-[hsl(var(--primary)/0.15)] via-background to-background" />
       )}
-      <div className={`relative z-10 max-w-5xl mx-auto px-6 py-28 md:py-36 lg:py-44 ${bgImage ? "text-white" : ""}`}>
+
+      {/* Decorative grid */}
+      <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E\")" }} />
+
+      <div className={`relative z-10 max-w-6xl mx-auto px-6 sm:px-8 py-32 md:py-40 lg:py-52 ${bgImage ? "text-white" : ""}`}>
         <motion.div
-          initial={{ opacity: 0, y: 24 }}
+          initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-          className="space-y-6"
+          transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
+          className="space-y-8 max-w-3xl"
         >
-          <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold font-display leading-[1.1] tracking-tight">
+          {/* Eyebrow */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.1 }}
+          >
+            <span className={`inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] px-4 py-1.5 rounded-full border ${bgImage ? "border-white/20 bg-white/10 backdrop-blur-md text-white/90" : "border-primary/20 bg-primary/5 text-primary"}`}>
+              {data.client.name}
+            </span>
+          </motion.div>
+
+          {/* Title */}
+          <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold font-display leading-[1.05] tracking-tight">
             {hero.title}
           </h1>
+
+          {/* Description */}
           {hero.description && (
             <motion.p
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.7, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
-              className="text-lg md:text-xl lg:text-2xl opacity-85 max-w-2xl leading-relaxed"
+              transition={{ duration: 0.7, delay: 0.2 }}
+              className={`text-lg md:text-xl max-w-2xl leading-relaxed ${bgImage ? "text-white/80" : "text-muted-foreground"}`}
             >
               {hero.description}
             </motion.p>
           )}
+
+          {/* Meta pills */}
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
-            className="flex flex-wrap gap-5 text-sm md:text-base pt-2"
+            transition={{ duration: 0.6, delay: 0.35 }}
+            className="flex flex-wrap gap-3 pt-2"
           >
             {formattedDate && (
-              <span className="flex items-center gap-2.5 opacity-80 bg-white/10 backdrop-blur-sm rounded-full px-4 py-2">
-                <Calendar className="h-4 w-4" /> {formattedDate}
+              <span className={`inline-flex items-center gap-2.5 text-sm font-medium px-5 py-2.5 rounded-xl border ${bgImage ? "border-white/15 bg-white/10 backdrop-blur-md text-white/90" : "border-border bg-card text-foreground"}`}>
+                <Calendar className="h-4 w-4 opacity-70" /> {formattedDate}
               </span>
             )}
             {hero.venueName && (
-              <span className="flex items-center gap-2.5 opacity-80 bg-white/10 backdrop-blur-sm rounded-full px-4 py-2">
-                <MapPin className="h-4 w-4" /> {hero.venueName}
+              <span className={`inline-flex items-center gap-2.5 text-sm font-medium px-5 py-2.5 rounded-xl border ${bgImage ? "border-white/15 bg-white/10 backdrop-blur-md text-white/90" : "border-border bg-card text-foreground"}`}>
+                <MapPin className="h-4 w-4 opacity-70" /> {hero.venueName}
               </span>
             )}
+          </motion.div>
+        </motion.div>
+
+        {/* Scroll indicator */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 1.2, duration: 0.8 }}
+          className="absolute bottom-8 left-1/2 -translate-x-1/2 hidden md:flex flex-col items-center gap-2"
+        >
+          <span className={`text-[10px] uppercase tracking-[0.25em] font-medium ${bgImage ? "text-white/40" : "text-muted-foreground/40"}`}>Scroll</span>
+          <motion.div animate={{ y: [0, 6, 0] }} transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}>
+            <ArrowDown className={`h-4 w-4 ${bgImage ? "text-white/30" : "text-muted-foreground/30"}`} />
           </motion.div>
         </motion.div>
       </div>
