@@ -8,6 +8,7 @@ import { formatCents } from "@/lib/billing";
 import { Shield, Bitcoin, DollarSign, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { useOwnerRole } from "@/hooks/useOwnerRole";
 
 interface AdminAccount {
   user_id: string;
@@ -35,14 +36,18 @@ const STATUS_BADGE: Record<string, "default" | "secondary" | "destructive" | "ou
   failed: "destructive",
 };
 
-/** Server-side admin RPC to confirm a payment intent and activate subscription */
+/** Server-side owner-only RPC to confirm a payment intent and activate subscription */
 const confirmPaymentIntent = async (intentId: string) => {
-  const { data, error } = await supabase.rpc("admin_confirm_payment_intent", {
+  const { data, error } = await supabase.rpc("owner_confirm_payment_intent" as any, {
     _intent_id: intentId,
     _notes: "Manual confirmation from admin billing dashboard",
   });
   if (error) {
-    toast.error("Failed to confirm payment: " + error.message);
+    if (error.message?.includes("Owner privileges required")) {
+      toast.error("Owner access required to confirm payments.");
+    } else {
+      toast.error("Failed to confirm payment: " + error.message);
+    }
     return false;
   }
   const result = data as any;
@@ -56,6 +61,7 @@ const AdminBillingPage = () => {
   const [loading, setLoading] = useState(true);
   const [totalMRR, setTotalMRR] = useState(0);
   const [confirming, setConfirming] = useState<string | null>(null);
+  const { isOwner } = useOwnerRole();
 
   const handleConfirmPayment = async (intentId: string) => {
     setConfirming(intentId);
@@ -289,7 +295,7 @@ const AdminBillingPage = () => {
                           {p.paid_at ? new Date(p.paid_at).toLocaleString() : "—"}
                         </TableCell>
                         <TableCell>
-                          {p.status !== "confirmed" && (
+                          {p.status !== "confirmed" && isOwner && (
                             <Button
                               variant="outline"
                               size="sm"
