@@ -1,19 +1,35 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import type { PublicEventData } from "@/lib/publicSite/types";
-import { MapPin, ExternalLink, Maximize2 } from "lucide-react";
+import { MapPin, ExternalLink } from "lucide-react";
 import { MotionReveal } from "./MotionReveal";
-import { PublicLightbox } from "./PublicLightbox";
 
 interface Props { data: PublicEventData; className?: string; }
 
 const fallback = "/placeholder.svg";
+const SLIDE_INTERVAL = 5000;
 
 export const PublicVenueSection: React.FC<Props> = ({ data, className = "" }) => {
   const { venue } = data;
-  const [lightboxOpen, setLightboxOpen] = useState(false);
-  const [lightboxIndex, setLightboxIndex] = useState(0);
+  const images = venue.images;
+  const [activeIdx, setActiveIdx] = useState(0);
+  const [transitioning, setTransitioning] = useState(false);
 
-  if (!venue.name && !venue.address && venue.images.length === 0) return null;
+  const goNext = useCallback(() => {
+    if (images.length <= 1) return;
+    setTransitioning(true);
+    setTimeout(() => {
+      setActiveIdx(p => (p + 1) % images.length);
+      setTransitioning(false);
+    }, 600);
+  }, [images.length]);
+
+  useEffect(() => {
+    if (images.length <= 1) return;
+    const iv = setInterval(goNext, SLIDE_INTERVAL);
+    return () => clearInterval(iv);
+  }, [goNext, images.length]);
+
+  if (!venue.name && !venue.address && images.length === 0) return null;
 
   return (
     <MotionReveal id="venue" className={`max-w-5xl mx-auto px-6 sm:px-8 py-24 ${className}`}>
@@ -50,33 +66,28 @@ export const PublicVenueSection: React.FC<Props> = ({ data, className = "" }) =>
             )}
           </div>
 
-          {/* Image side */}
-          {venue.images.length > 0 && (
-            <div className="relative">
-              <div
-                className="group cursor-pointer h-64 md:h-full min-h-[280px]"
-                onClick={() => { setLightboxIndex(0); setLightboxOpen(true); }}
-              >
+          {/* Image slideshow side */}
+          {images.length > 0 && (
+            <div className="relative h-64 md:h-full min-h-[280px] overflow-hidden select-none">
+              {images.map((src, i) => (
                 <img
-                  src={venue.images[0]}
+                  key={src}
+                  src={src}
                   alt={venue.name ?? "Venue"}
-                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                  className="absolute inset-0 w-full h-full object-cover transition-opacity duration-[1000ms] ease-in-out"
+                  style={{ opacity: i === activeIdx ? 1 : 0 }}
                   onError={(e) => { (e.target as HTMLImageElement).src = fallback; }}
                 />
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/15 transition-colors duration-300 flex items-center justify-center">
-                  <Maximize2 className="h-8 w-8 text-white opacity-0 group-hover:opacity-80 transition-opacity duration-300 drop-shadow-lg" />
-                </div>
-              </div>
-              {venue.images.length > 1 && (
-                <div className="absolute bottom-3 right-3 flex gap-1.5">
-                  {venue.images.slice(1, 4).map((img, i) => (
-                    <div
+              ))}
+              {images.length > 1 && (
+                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
+                  {images.map((_, i) => (
+                    <span
                       key={i}
-                      className="w-14 h-14 rounded-lg overflow-hidden border-2 border-white/80 shadow-md cursor-pointer hover:scale-110 transition-transform"
-                      onClick={(e) => { e.stopPropagation(); setLightboxIndex(i + 1); setLightboxOpen(true); }}
-                    >
-                      <img src={img} alt={`Venue ${i + 2}`} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).src = fallback; }} />
-                    </div>
+                      className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                        i === activeIdx ? "bg-white scale-110" : "bg-white/50"
+                      }`}
+                    />
                   ))}
                 </div>
               )}
@@ -84,7 +95,6 @@ export const PublicVenueSection: React.FC<Props> = ({ data, className = "" }) =>
           )}
         </div>
       </div>
-      <PublicLightbox images={venue.images} initialIndex={lightboxIndex} open={lightboxOpen} onClose={() => setLightboxOpen(false)} />
     </MotionReveal>
   );
 };
