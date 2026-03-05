@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Plus, Search, Calendar, MapPin, Users, X, Zap } from "lucide-react";
+import { Plus, Search, Calendar, MapPin, Users, X, Zap, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -53,6 +53,9 @@ const Events = () => {
         <div className="flex items-center gap-2">
           <Button className="gradient-titan border-0 text-primary-foreground gap-2" asChild>
             <Link to="/dashboard/events/quick-setup"><Zap className="h-4 w-4" /> Quick Setup</Link>
+          </Button>
+          <Button variant="outline" className="gap-2" asChild>
+            <Link to="/dashboard/templates"><Copy className="h-4 w-4" /> From Template</Link>
           </Button>
           <Button variant="outline" className="gap-2" asChild>
             <Link to="/dashboard/events/new"><Plus className="h-4 w-4" /> Full Setup</Link>

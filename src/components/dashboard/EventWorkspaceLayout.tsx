@@ -1,12 +1,14 @@
+import { useState } from "react";
 import { useParams, Outlet, useLocation, Link } from "react-router-dom";
 import { EventWorkspaceProvider, useEventWorkspace } from "@/contexts/EventWorkspaceContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Save, Loader2, Check, AlertCircle, ChevronRight } from "lucide-react";
+import { Save, Loader2, Check, AlertCircle, ChevronRight, Copy } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { PUBLISH_CHECKS } from "@/pages/workspace/WebsiteSection";
+import { SaveAsTemplateDialog } from "@/components/templates/SaveAsTemplateDialog";
 
 const sectionLabels: Record<string, string> = {
   hero: "Hero", info: "Event Info", agenda: "Agenda", organizers: "Organizers", speakers: "Speakers",
@@ -19,6 +21,7 @@ const WorkspaceHeader = () => {
   const { event, saveStatus, manualSave, setEvent, isArchived } = useEventWorkspace();
   const { user } = useAuth();
   const location = useLocation();
+  const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
   const sectionSlug = location.pathname.split("/").pop() || "";
   const sectionName = sectionLabels[sectionSlug] || sectionSlug;
   if (!event) return null;
@@ -34,7 +37,6 @@ const WorkspaceHeader = () => {
     setEvent(prev => prev ? { ...prev, status: "published" } : prev);
     toast.success("Event published!");
 
-    // Create notification
     if (user) {
       await supabase.from("notifications" as any).insert({
         user_id: user.id,
@@ -83,6 +85,9 @@ const WorkspaceHeader = () => {
           <Button variant="outline" size="sm" onClick={manualSave} disabled={isArchived}>
             <Save className="h-4 w-4 mr-1" /> Save
           </Button>
+          <Button variant="outline" size="sm" onClick={() => setTemplateDialogOpen(true)}>
+            <Copy className="h-4 w-4 mr-1" /> Save as Template
+          </Button>
           {event.status === "draft" && (
             <Button size="sm" className="gradient-titan border-0 text-primary-foreground" onClick={handlePublish}>
               Publish
@@ -93,6 +98,13 @@ const WorkspaceHeader = () => {
           )}
         </div>
       </div>
+      <SaveAsTemplateDialog
+        open={templateDialogOpen}
+        onOpenChange={setTemplateDialogOpen}
+        eventId={event.id}
+        eventTitle={event.title || "Untitled"}
+        clientId={event.client_id}
+      />
     </div>
   );
 };
