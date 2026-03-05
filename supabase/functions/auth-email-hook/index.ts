@@ -8,12 +8,10 @@ import { MagicLinkEmail } from '../_shared/email-templates/magic-link.tsx'
 import { RecoveryEmail } from '../_shared/email-templates/recovery.tsx'
 import { EmailChangeEmail } from '../_shared/email-templates/email-change.tsx'
 import { ReauthenticationEmail } from '../_shared/email-templates/reauthentication.tsx'
+import { getCorsHeaders, handleCorsOptions } from '../_shared/cors.ts'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers':
-    'authorization, x-client-info, apikey, content-type',
-}
+// Auth email hook: called by Supabase Auth internally (server-to-server)
+// and also has a /preview endpoint for browser use.
 
 const SITE_NAME = "TitanMeet"
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || 'https://qclaciklevavttipztrv.supabase.co'
@@ -107,8 +105,10 @@ async function sendEmailInBackground(user: { email: string }, emailData: any) {
 
 async function handlePreview(req: Request): Promise<Response> {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders })
+    return handleCorsOptions(req)
   }
+
+  const corsHeaders = getCorsHeaders(req)
 
   let type: string
   try {
@@ -147,11 +147,11 @@ async function handlePreview(req: Request): Promise<Response> {
 }
 
 async function handleWebhook(req: Request): Promise<Response> {
+  // Server-to-server call from Supabase Auth — no browser CORS needed
   if (req.method !== 'POST') {
     return new Response('Method not allowed', { status: 405 })
   }
 
-  // Parse the payload - verify signature if secret is available
   const payload = await req.text()
   let data: { user: { email: string }; email_data: any }
   
@@ -175,30 +175,25 @@ async function handleWebhook(req: Request): Promise<Response> {
   const emailType = email_data.email_action_type
   console.log('Received auth email hook', { emailType, email: user.email })
 
-  // Validate email type before returning
   if (!EMAIL_TEMPLATES[emailType]) {
     console.error('Unknown email type', { emailType })
     return new Response(
       JSON.stringify({ error: `Unknown email type: ${emailType}` }),
-      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 400, headers: { 'Content-Type': 'application/json' } }
     )
   }
 
-  // Fire-and-forget: send email in background using EdgeRuntime.waitUntil
-  // This allows us to return immediately so the hook doesn't timeout
   const emailPromise = sendEmailInBackground(user, email_data)
 
-  // Use EdgeRuntime.waitUntil to keep the function alive after responding
   // @ts-ignore - EdgeRuntime is available in Supabase Edge Functions
   if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
     // @ts-ignore
     EdgeRuntime.waitUntil(emailPromise)
   }
 
-  // Return immediately so Supabase Auth doesn't timeout
   return new Response(
     JSON.stringify({ success: true }),
-    { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    { status: 200, headers: { 'Content-Type': 'application/json' } }
   )
 }
 
@@ -206,7 +201,7 @@ Deno.serve(async (req) => {
   const url = new URL(req.url)
 
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders })
+    return handleCorsOptions(req)
   }
 
   if (url.pathname.endsWith('/preview')) {
@@ -220,7 +215,7 @@ Deno.serve(async (req) => {
     const message = error instanceof Error ? error.message : 'Unknown error'
     return new Response(JSON.stringify({ error: message }), {
       status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json' },
     })
   }
 })

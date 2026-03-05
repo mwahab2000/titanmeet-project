@@ -1,6 +1,8 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-// Helper to fire-and-forget notification emails
+// Server-to-server webhook: Triple-A calls this endpoint directly.
+// No browser CORS needed. We return minimal headers for safety.
+
 async function sendNotificationEmail(
   supabaseUrl: string,
   serviceRoleKey: string,
@@ -24,13 +26,6 @@ async function sendNotificationEmail(
   }
 }
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
-
-// Map Triple-A statuses to our CHECK-constrained statuses
 const STATUS_MAP: Record<string, string> = {
   new: "pending",
   crypto_detected: "awaiting_payment",
@@ -43,8 +38,9 @@ const STATUS_MAP: Record<string, string> = {
 };
 
 Deno.serve(async (req) => {
+  // Webhook endpoint — no browser CORS preflight expected
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { status: 204 });
   }
 
   if (req.method !== "POST") {
@@ -55,20 +51,19 @@ Deno.serve(async (req) => {
     const payload = await req.json();
     console.log("Triple-A webhook received:", JSON.stringify(payload));
 
-    // Verify webhook secret — MUST be configured
     const webhookSecret = Deno.env.get("TRIPLEA_WEBHOOK_SECRET");
     if (!webhookSecret) {
       console.error("TRIPLEA_WEBHOOK_SECRET is not configured — rejecting webhook");
       return new Response(JSON.stringify({ error: "Service misconfigured" }), {
         status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json" },
       });
     }
     if (payload.notify_secret !== webhookSecret) {
       console.error("Webhook secret mismatch");
       return new Response(JSON.stringify({ error: "Forbidden" }), {
         status: 403,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json" },
       });
     }
 
@@ -76,7 +71,6 @@ Deno.serve(async (req) => {
     const tripleAStatus = payload.status || payload.payment_status;
     const paymentReference = payload.payment_reference || payload.id;
 
-    // Build a unique provider event ID for idempotency
     const providerEventId = payload.webhook_id
       || (payload.id ? `${payload.id}_${tripleAStatus}` : `${orderId}_${tripleAStatus}_${Date.now()}`);
 
@@ -84,7 +78,7 @@ Deno.serve(async (req) => {
       console.error("No order_id in webhook payload");
       return new Response(JSON.stringify({ error: "Missing order_id" }), {
         status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json" },
       });
     }
 
@@ -93,7 +87,6 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Find payment intent
     const { data: paymentIntent, error: piError } = await serviceClient
       .from("payment_intents")
       .select("*")
@@ -104,11 +97,10 @@ Deno.serve(async (req) => {
       console.error("Payment intent not found for order:", orderId);
       return new Response(JSON.stringify({ error: "Payment intent not found" }), {
         status: 404,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json" },
       });
     }
 
-    // Idempotency: skip if already processed
     if (providerEventId) {
       const { data: existing } = await serviceClient
         .from("payment_events")
@@ -120,15 +112,13 @@ Deno.serve(async (req) => {
         console.log("Duplicate webhook skipped:", providerEventId);
         return new Response(JSON.stringify({ success: true, duplicate: true }), {
           status: 200,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json" },
         });
       }
     }
 
-    // Map to internal status
     const internalStatus = STATUS_MAP[tripleAStatus] || "pending";
 
-    // Log the event
     await serviceClient.from("payment_events").insert({
       payment_intent_id: paymentIntent.id,
       provider: "triple_a",
@@ -137,7 +127,6 @@ Deno.serve(async (req) => {
       provider_event_id: providerEventId,
     });
 
-    // Update payment intent status
     const updateData: Record<string, unknown> = {
       status: internalStatus,
       provider_payment_id: paymentReference || paymentIntent.provider_payment_id,
@@ -152,7 +141,6 @@ Deno.serve(async (req) => {
       .update(updateData)
       .eq("id", paymentIntent.id);
 
-    // If payment is confirmed → activate/upgrade subscription
     if (internalStatus === "confirmed") {
       console.log("Payment confirmed, activating subscription for user:", paymentIntent.user_id, "plan:", paymentIntent.plan_id);
 
@@ -185,7 +173,6 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Log subscription activation
       await serviceClient.from("payment_events").insert({
         payment_intent_id: paymentIntent.id,
         provider: "triple_a",
@@ -196,7 +183,6 @@ Deno.serve(async (req) => {
 
       console.log("Subscription activated successfully");
 
-      // Notify user: subscription upgraded
       await serviceClient.rpc("create_notification", {
         _user_id: paymentIntent.user_id,
         _type: "subscription_upgraded",
@@ -206,7 +192,6 @@ Deno.serve(async (req) => {
         _metadata: JSON.stringify({ plan_id: paymentIntent.plan_id }),
       });
 
-      // Notify user: payment confirmed
       await serviceClient.rpc("create_notification", {
         _user_id: paymentIntent.user_id,
         _type: "payment_confirmed",
@@ -216,7 +201,6 @@ Deno.serve(async (req) => {
         _metadata: JSON.stringify({ order_id: paymentIntent.internal_order_id }),
       });
 
-      // Send email notifications for payment + upgrade
       const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
       const srvKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
       await sendNotificationEmail(supabaseUrl, srvKey, {
@@ -237,7 +221,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Notify on failed/expired/cancelled
     if (["expired", "failed", "cancelled"].includes(internalStatus)) {
       const notifType = internalStatus === "expired" ? "payment_expired" : "payment_failed";
       await serviceClient.rpc("create_notification", {
@@ -251,7 +234,6 @@ Deno.serve(async (req) => {
         _metadata: JSON.stringify({ order_id: paymentIntent.internal_order_id }),
       });
 
-      // Send email notification for failed/expired
       const supabaseUrl2 = Deno.env.get("SUPABASE_URL")!;
       const srvKey2 = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
       const notifType2 = internalStatus === "expired" ? "payment_expired" : "payment_failed";
@@ -269,13 +251,13 @@ Deno.serve(async (req) => {
 
     return new Response(JSON.stringify({ success: true }), {
       status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json" },
     });
   } catch (err) {
     console.error("triplea-webhook error:", err);
     return new Response(JSON.stringify({ error: "Internal error" }), {
       status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json" },
     });
   }
 });

@@ -1,10 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+import { getCorsHeaders, handleCorsOptions } from "../_shared/cors.ts";
 
 const TRIPLEA_API_BASE = "https://api.triple-a.io/api/v2";
 
@@ -37,11 +32,12 @@ async function getTripleAAccessToken(): Promise<string> {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return handleCorsOptions(req);
   }
 
+  const corsHeaders = getCorsHeaders(req);
+
   try {
-    // Authenticate user via JWT
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -75,13 +71,11 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Service client for privileged operations
     const serviceClient = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Get plan details
     const { data: plan, error: planError } = await serviceClient
       .from("subscription_plans")
       .select("*")
@@ -98,7 +92,6 @@ Deno.serve(async (req) => {
     const amountUsdCents = plan.monthly_price_cents;
     const amountUsd = (amountUsdCents / 100).toFixed(2);
 
-    // Get user's subscription
     const { data: subscription } = await serviceClient
       .from("account_subscriptions")
       .select("id")
@@ -107,7 +100,6 @@ Deno.serve(async (req) => {
 
     const internalOrderId = `TM-${crypto.randomUUID().slice(0, 8)}`;
 
-    // Create internal payment intent (status = 'pending' matches CHECK constraint)
     const { data: paymentIntent, error: piError } = await serviceClient
       .from("payment_intents")
       .insert({
@@ -132,7 +124,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Get Triple-A access token and create payment
     const accessToken = await getTripleAAccessToken();
     const merchantId = Deno.env.get("TRIPLEA_MERCHANT_ID");
     const webhookUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/triplea-webhook`;
@@ -152,7 +143,6 @@ Deno.serve(async (req) => {
       notify_secret: Deno.env.get("TRIPLEA_WEBHOOK_SECRET") || "",
     };
 
-    // Include payer email if available
     if (userEmail) {
       tripleAPayload.payer_email = userEmail;
     }
@@ -172,7 +162,6 @@ Deno.serve(async (req) => {
       const errBody = await tripleARes.text();
       console.error("Triple-A create payment failed:", errBody);
 
-      // Mark intent as failed
       await serviceClient
         .from("payment_intents")
         .update({ status: "failed" })
@@ -187,7 +176,6 @@ Deno.serve(async (req) => {
     const tripleAData = await tripleARes.json();
     const checkoutUrl = tripleAData.hosted_url || tripleAData.payment_url || null;
 
-    // Update payment intent with provider response
     await serviceClient
       .from("payment_intents")
       .update({
@@ -198,7 +186,6 @@ Deno.serve(async (req) => {
       })
       .eq("id", paymentIntent.id);
 
-    // Log creation event
     await serviceClient.from("payment_events").insert({
       payment_intent_id: paymentIntent.id,
       provider: "triple_a",

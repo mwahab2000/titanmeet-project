@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { AdminRoute } from "@/components/auth/AdminRoute";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { EventWorkspaceLayout } from "@/components/dashboard/EventWorkspaceLayout";
 import { getClientSlugFromHostname } from "@/lib/subdomain";
@@ -88,8 +89,8 @@ const App = () => (
                   <Route path="notifications" element={<NotificationsPage />} />
                   <Route path="support" element={<SupportPage />} />
                   <Route path="support/:ticketId" element={<SupportTicketDetail />} />
-                  <Route path="admin/billing" element={<AdminBillingPage />} />
-                  <Route path="admin/support" element={<AdminSupportPage />} />
+                  <Route path="admin/billing" element={<AdminRoute><AdminBillingPage /></AdminRoute>} />
+                  <Route path="admin/support" element={<AdminRoute><AdminSupportPage /></AdminRoute>} />
                   
                   <Route path="events/:id" element={<EventWorkspaceLayout />}>
                     <Route path="hero" element={<HeroSection />} />

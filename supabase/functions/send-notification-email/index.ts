@@ -1,18 +1,12 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import nodemailer from "npm:nodemailer@6";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
+import { getCorsHeaders, handleCorsOptions } from "../_shared/cors.ts";
 
 const SITE_NAME = "TitanMeet";
 const SITE_URL = "https://titanmeet.com";
 const LOGO_URL =
   "https://qclaciklevavttipztrv.supabase.co/storage/v1/object/public/email-assets/TitanMeetLogo.png";
 
-// ── Template renderer ──────────────────────────────────────────────
 interface EmailData {
   type: string;
   user_id: string;
@@ -35,11 +29,9 @@ function renderEmailHtml(data: EmailData): string {
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff">
     <tr><td align="center" style="padding:40px 20px">
       <table width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%">
-        <!-- Logo -->
         <tr><td align="center" style="padding-bottom:24px">
           <img src="${LOGO_URL}" alt="${SITE_NAME}" height="40" style="height:40px;display:block" />
         </td></tr>
-        <!-- Card -->
         <tr><td style="background:#f9fafb;border-radius:12px;padding:32px;border:1px solid #e5e7eb">
           <h1 style="margin:0 0 12px;font-size:20px;font-weight:600;color:#111827">${escapeHtml(data.title)}</h1>
           <p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#374151">${escapeHtml(data.message)}</p>
@@ -47,7 +39,6 @@ function renderEmailHtml(data: EmailData): string {
             <a href="${ctaUrl}" target="_blank" style="display:inline-block;padding:12px 28px;color:#ffffff;font-size:14px;font-weight:600;text-decoration:none;border-radius:8px">${ctaLabel}</a>
           </td></tr></table>
         </td></tr>
-        <!-- Footer -->
         <tr><td style="padding-top:24px;text-align:center">
           <p style="margin:0;font-size:12px;color:#9ca3af">
             This email was sent by ${SITE_NAME}. If you did not expect this, you can ignore it.
@@ -102,7 +93,6 @@ function escapeHtml(str: string): string {
     .replace(/"/g, "&quot;");
 }
 
-// ── Dedupe key builder ─────────────────────────────────────────────
 function dedupeKey(data: EmailData): string {
   const meta = data.metadata || {};
   switch (data.type) {
@@ -121,24 +111,21 @@ function dedupeKey(data: EmailData): string {
   }
 }
 
-// ── Main handler ───────────────────────────────────────────────────
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return handleCorsOptions(req);
   }
 
+  const corsHeaders = getCorsHeaders(req);
+
   try {
-    // Only allow calls from service role or internal
     const authHeader = req.headers.get("Authorization") || "";
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-    // Accept service_role bearer OR internal-secret header
     const internalSecret = req.headers.get("x-internal-secret");
     const isServiceRole = authHeader === `Bearer ${serviceKey}`;
     const isInternal = internalSecret === serviceKey;
-
-    // Also accept anon key from pg_net (DB triggers) — we validate payload instead
     const isFromDb = authHeader === `Bearer ${anonKey}` || authHeader === `Bearer ${serviceKey}`;
 
     if (!isServiceRole && !isInternal && !isFromDb) {
@@ -162,7 +149,6 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Dedupe: check if we already sent this exact email recently (last hour)
     const key = dedupeKey(data);
     const oneHourAgo = new Date(Date.now() - 3600000).toISOString();
     const { data: recentLog } = await serviceClient
@@ -182,7 +168,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Look up user email
     const { data: userData, error: userError } = await serviceClient.auth.admin.getUserById(data.user_id);
     if (userError || !userData?.user?.email) {
       console.error("Could not find user email for:", data.user_id);
@@ -194,7 +179,6 @@ Deno.serve(async (req) => {
 
     const recipientEmail = userData.user.email;
 
-    // Send via SMTP
     const GMAIL_USER = Deno.env.get("GMAIL_USER");
     const GMAIL_APP_PASSWORD = Deno.env.get("GMAIL_APP_PASSWORD");
 
@@ -225,7 +209,6 @@ Deno.serve(async (req) => {
 
     console.log("Notification email sent:", info.messageId, "to:", recipientEmail, "type:", data.type);
 
-    // Log for dedupe — event_id is nullable for notification emails
     await serviceClient.from("communications_log").insert({
       event_id: null,
       channel: "notification_email",

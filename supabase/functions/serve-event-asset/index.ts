@@ -1,9 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { getCorsHeaders, handleCorsOptions } from "../_shared/cors.ts";
 
 const CONTENT_TYPES: Record<string, string> = {
   jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png",
@@ -14,11 +10,9 @@ const CONTENT_TYPES: Record<string, string> = {
 function extractEventId(bucket: string, filePath: string): string | null {
   const parts = filePath.split("/");
   if (bucket === "event-assets") {
-    // events/{event_id}/... or speakers/{event_id}/...
     return parts.length >= 2 ? parts[1] : null;
   }
   if (bucket === "dress-code-images") {
-    // {event_id}/...
     return parts.length >= 1 ? parts[0] : null;
   }
   return null;
@@ -28,14 +22,15 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return handleCorsOptions(req);
   }
+
+  const corsHeaders = getCorsHeaders(req);
 
   try {
     const url = new URL(req.url);
     const pathParts = url.pathname.split("/").filter(Boolean);
 
-    // Find function name in path and extract bucket + file path
     const fnIdx = pathParts.indexOf("serve-event-asset");
     if (fnIdx === -1 || pathParts.length < fnIdx + 3) {
       return new Response("Bad request", { status: 400, headers: corsHeaders });
@@ -59,7 +54,6 @@ Deno.serve(async (req) => {
 
     const adminClient = createClient(supabaseUrl, serviceKey);
 
-    // Check event status and ownership
     const { data: event } = await adminClient
       .from("events")
       .select("id, status, created_by")
@@ -73,7 +67,6 @@ Deno.serve(async (req) => {
     const isPublic = event.status === "published" || event.status === "ongoing";
 
     if (!isPublic) {
-      // Draft/private — require ownership or admin
       const authHeader = req.headers.get("authorization");
       if (!authHeader) {
         return new Response("Forbidden", { status: 403, headers: corsHeaders });
@@ -90,7 +83,6 @@ Deno.serve(async (req) => {
 
       const isOwner = event.created_by === user.id;
       if (!isOwner) {
-        // Check admin role
         const { data: roleData } = await adminClient
           .from("user_roles")
           .select("role")
@@ -104,7 +96,6 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Serve the file using service role (bypasses storage RLS)
     const { data, error } = await adminClient.storage.from(bucket).download(filePath);
     if (error || !data) {
       return new Response("File not found", { status: 404, headers: corsHeaders });

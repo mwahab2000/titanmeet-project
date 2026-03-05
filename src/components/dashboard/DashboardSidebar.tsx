@@ -9,6 +9,7 @@ import { useState, useEffect, useCallback, useContext } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useEventWorkspaceOptional } from "@/contexts/EventWorkspaceContext";
 import { useBilling } from "@/hooks/useBilling";
+import { useAdminRole } from "@/hooks/useAdminRole";
 
 type CompletionStatus = "empty" | "partial" | "done";
 
@@ -65,22 +66,10 @@ export const DashboardSidebar = () => {
   const location = useLocation();
   const { signOut, user } = useAuth();
   const { currentPlan } = useBilling();
+  const { isAdmin } = useAdminRole();
   const [activeEventId, setActiveEventId] = useState<string | null>(null);
   const [activeEventTitle, setActiveEventTitle] = useState<string>("");
   const [localCompletionMap, setLocalCompletionMap] = useState<Record<string, CompletionStatus>>({});
-  const [isAdmin, setIsAdmin] = useState(false);
-
-  // Check admin role
-  useEffect(() => {
-    if (!user) return;
-    supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", user.id)
-      .eq("role", "admin")
-      .maybeSingle()
-      .then(({ data }) => setIsAdmin(!!data));
-  }, [user]);
 
   // Use workspace context when available (inside EventWorkspaceLayout)
   const workspaceCtx = useEventWorkspaceOptional();
