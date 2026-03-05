@@ -1,11 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import nodemailer from "npm:nodemailer@6";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+import { getCorsHeaders, handleCorsOptions } from "../_shared/cors.ts";
 
 const RATE_LIMIT_WINDOW_MS = 3600000; // 1 hour
 const RATE_LIMIT_MAX_PER_EVENT = 200;
@@ -120,8 +115,9 @@ async function checkRateLimit(eventId: string): Promise<boolean> {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method === "OPTIONS") return handleCorsOptions(req);
 
+  const corsHeaders = getCorsHeaders(req);
   let parsedBody: any = null;
 
   try {
@@ -154,7 +150,6 @@ Deno.serve(async (req) => {
       throw new AppError("Forbidden", 403);
     }
 
-    // Rate limiting per event
     if (await checkRateLimit(event_id)) {
       throw new AppError("Rate limit exceeded. Try again later.", 429);
     }
@@ -187,7 +182,6 @@ Deno.serve(async (req) => {
     }
 
     const status = err instanceof AppError ? err.status : 500;
-    // Only return AppError messages (controlled by us); generic message for unexpected errors
     const clientMessage = err instanceof AppError ? err.message : "An error occurred. Please try again.";
     if (!(err instanceof AppError)) {
       console.error("send-communication error:", err);

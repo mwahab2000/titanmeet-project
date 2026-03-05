@@ -1,16 +1,11 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import nodemailer from "npm:nodemailer@6";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+import { getCorsHeaders, handleCorsOptions } from "../_shared/cors.ts";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_SUBJECT_LENGTH = 200;
 const MAX_HTML_LENGTH = 50000;
-const RATE_LIMIT_WINDOW_MS = 3600000; // 1 hour
+const RATE_LIMIT_WINDOW_MS = 3600000;
 const RATE_LIMIT_MAX = 100;
 
 function sanitizeHtml(html: string): string {
@@ -22,8 +17,10 @@ function sanitizeHtml(html: string): string {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return handleCorsOptions(req);
   }
+
+  const corsHeaders = getCorsHeaders(req);
 
   try {
     const authHeader = req.headers.get("Authorization");
@@ -57,7 +54,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Validate email format (single recipient only)
     if (typeof to !== "string" || to.includes(",") || !EMAIL_REGEX.test(to.trim())) {
       return new Response(JSON.stringify({ error: "Invalid email address" }), {
         status: 400,
@@ -65,7 +61,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Validate subject length
     if (typeof subject !== "string" || subject.length > MAX_SUBJECT_LENGTH) {
       return new Response(JSON.stringify({ error: "Subject too long" }), {
         status: 400,
@@ -73,7 +68,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Validate HTML length
     if (typeof html !== "string" || html.length > MAX_HTML_LENGTH) {
       return new Response(JSON.stringify({ error: "Message body too large" }), {
         status: 400,
@@ -81,7 +75,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Rate limiting: check recent sends by this user
     const serviceClient = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
@@ -114,10 +107,7 @@ Deno.serve(async (req) => {
       host: "smtp.gmail.com",
       port: 465,
       secure: true,
-      auth: {
-        user: GMAIL_USER,
-        pass: GMAIL_APP_PASSWORD,
-      },
+      auth: { user: GMAIL_USER, pass: GMAIL_APP_PASSWORD },
     });
 
     const sanitizedHtml = sanitizeHtml(html);

@@ -1,15 +1,12 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
+import { getCorsHeaders, handleCorsOptions } from "../_shared/cors.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return handleCorsOptions(req);
   }
+
+  const corsHeaders = getCorsHeaders(req);
 
   const url = new URL(req.url);
   const token = url.searchParams.get("token");
@@ -26,7 +23,6 @@ Deno.serve(async (req) => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
   );
 
-  // Look up token
   const { data: rsvp, error } = await supabase
     .from("rsvp_tokens")
     .select("*")
@@ -47,7 +43,6 @@ Deno.serve(async (req) => {
     });
   }
 
-  // Check expiry
   if (rsvp.expires_at && new Date(rsvp.expires_at) < new Date()) {
     return new Response(html("This invitation link has expired."), {
       status: 410,
@@ -57,13 +52,11 @@ Deno.serve(async (req) => {
 
   const now = new Date().toISOString();
 
-  // Mark token used
   await supabase
     .from("rsvp_tokens")
     .update({ used_at: now })
     .eq("id", rsvp.id);
 
-  // Confirm attendee
   await supabase
     .from("attendees")
     .update({ confirmed: true, confirmed_at: now })
