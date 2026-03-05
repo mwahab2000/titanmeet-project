@@ -147,15 +147,18 @@ const DressCodeSection = () => {
           reference_images: entry.reference_images,
         };
         if (entry.id) {
-          await supabase.from("dress_codes" as any).update(payload as any).eq("id", entry.id);
+          const { error } = await supabase.from("dress_codes" as any).update(payload as any).eq("id", entry.id);
+          if (error) { toast.error(error.message); setSaving(false); return; }
         } else {
-          await supabase.from("dress_codes" as any).upsert(payload as any, { onConflict: "event_id,day_number" });
+          const { error } = await supabase.from("dress_codes" as any).insert(payload as any);
+          if (error) { toast.error(error.message); setSaving(false); return; }
         }
       }
       toast.success("Dress codes saved");
       refreshCounts();
       await load();
-    } catch {
+    } catch (err) {
+      console.error("Save dress code error:", err);
       toast.error("Failed to save");
     }
     setSaving(false);
