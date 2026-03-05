@@ -15,15 +15,8 @@ const themes = [
   { id: "bold", name: "Bold Immersive", desc: "Dark, dramatic gradients", color: "bg-[hsl(260,30%,15%)]" },
 ];
 
-export const PUBLISH_CHECKS = [
-  { key: "client", label: "Client selected", check: (e: any) => !!e.client_id },
-  { key: "title", label: "Event title", check: (e: any) => !!e.title?.trim() },
-  { key: "slug", label: "Event slug", check: (e: any) => !!e.slug?.trim() },
-  { key: "date", label: "Event date", check: (e: any) => !!e.event_date },
-  { key: "description", label: "Description", check: (e: any) => !!e.description?.trim() },
-  { key: "hero", label: "Hero image", check: (e: any) => Array.isArray(e.hero_images) && e.hero_images.length > 0 },
-  { key: "venue", label: "Venue or location", check: (e: any) => !!(e.venue_name?.trim() || e.venue?.trim() || e.location?.trim()) },
-];
+import { PUBLISH_CHECKS } from "@/lib/publishChecks";
+export { PUBLISH_CHECKS };
 
 const WebsiteSection = () => {
   const { event, autosave, isArchived } = useEventWorkspace();

@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { Link } from "react-router-dom";
-import { Calendar, Users, TrendingUp, Clock, AlertTriangle, ArrowUpRight, Zap } from "lucide-react";
+import { Calendar, Users, TrendingUp, Clock, AlertTriangle, ArrowUpRight, Zap, FileEdit } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
@@ -10,12 +10,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBilling } from "@/hooks/useBilling";
 import { usagePercent, formatCents } from "@/lib/billing";
+import { getPublishStatus } from "@/lib/publishChecks";
 
 const Dashboard = () => {
   const { user } = useAuth();
   const { currentPlan, usage, loading: billingLoading } = useBilling();
   const [stats, setStats] = useState({ events: 0, attendees: 0, upcoming: 0 });
   const [recentEvents, setRecentEvents] = useState<any[]>([]);
+  const [incompleteDrafts, setIncompleteDrafts] = useState(0);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -35,6 +37,11 @@ const Dashboard = () => {
       });
 
       setRecentEvents(events.slice(0, 5));
+
+      // Count incomplete drafts
+      const draftEvents = events.filter((e: any) => e.status === "draft");
+      const incomplete = draftEvents.filter((e: any) => !getPublishStatus(e).allPass).length;
+      setIncompleteDrafts(incomplete);
     };
 
     fetchStats();
@@ -116,25 +123,48 @@ const Dashboard = () => {
         </Alert>
       )}
 
-      {/* Quick Setup shortcut */}
-      <Card className="mb-8 border-primary/30 bg-primary/5">
-        <CardContent className="flex items-center justify-between p-5">
-          <div className="flex items-center gap-4">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-              <Zap className="h-5 w-5 text-primary" />
+      {/* Quick Setup + Drafts row */}
+      <div className="mb-8 grid gap-4 md:grid-cols-2">
+        <Card className="border-primary/30 bg-primary/5">
+          <CardContent className="flex items-center justify-between p-5">
+            <div className="flex items-center gap-4">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                <Zap className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <h3 className="font-display text-base font-semibold">Quick Event Setup</h3>
+                <p className="text-sm text-muted-foreground">Create an event in minutes</p>
+              </div>
             </div>
-            <div>
-              <h3 className="font-display text-base font-semibold">Quick Event Setup</h3>
-              <p className="text-sm text-muted-foreground">Create an event in minutes with our guided wizard</p>
-            </div>
-          </div>
-          <Button asChild>
-            <Link to="/dashboard/events/quick-setup">
-              Start Quick Setup <ArrowUpRight className="h-3.5 w-3.5 ml-1" />
-            </Link>
-          </Button>
-        </CardContent>
-      </Card>
+            <Button size="sm" asChild>
+              <Link to="/dashboard/events/quick-setup">
+                Start <ArrowUpRight className="h-3.5 w-3.5 ml-1" />
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+
+        {incompleteDrafts > 0 && (
+          <Card className="border-destructive/20 bg-destructive/5">
+            <CardContent className="flex items-center justify-between p-5">
+              <div className="flex items-center gap-4">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-destructive/10">
+                  <FileEdit className="h-5 w-5 text-destructive" />
+                </div>
+                <div>
+                  <h3 className="font-display text-base font-semibold">{incompleteDrafts} Incomplete Draft{incompleteDrafts !== 1 ? "s" : ""}</h3>
+                  <p className="text-sm text-muted-foreground">Events needing attention before publish</p>
+                </div>
+              </div>
+              <Button size="sm" variant="outline" asChild>
+                <Link to="/dashboard/events/drafts">
+                  View All <ArrowUpRight className="h-3.5 w-3.5 ml-1" />
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+      </div>
 
       <div className="mb-8 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {statCards.map((stat) => (
