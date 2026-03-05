@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { Link } from "react-router-dom";
-import { Calendar, Users, TrendingUp, Clock, AlertTriangle, ArrowUpRight } from "lucide-react";
+import { Calendar, Users, TrendingUp, Clock, AlertTriangle, ArrowUpRight, Zap } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
@@ -115,6 +115,26 @@ const Dashboard = () => {
           </AlertDescription>
         </Alert>
       )}
+
+      {/* Quick Setup shortcut */}
+      <Card className="mb-8 border-primary/30 bg-primary/5">
+        <CardContent className="flex items-center justify-between p-5">
+          <div className="flex items-center gap-4">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+              <Zap className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h3 className="font-display text-base font-semibold">Quick Event Setup</h3>
+              <p className="text-sm text-muted-foreground">Create an event in minutes with our guided wizard</p>
+            </div>
+          </div>
+          <Button asChild>
+            <Link to="/dashboard/events/quick-setup">
+              Start Quick Setup <ArrowUpRight className="h-3.5 w-3.5 ml-1" />
+            </Link>
+          </Button>
+        </CardContent>
+      </Card>
 
       <div className="mb-8 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {statCards.map((stat) => (
