@@ -10,7 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { buildTemplateFromEvent, SECTION_LABELS, IncludedSection } from "@/lib/template-api";
 import { toast } from "sonner";
 
-const ALL_SECTIONS: IncludedSection[] = ["website", "agenda", "speakers", "organizers", "dress_codes"];
+const ALL_SECTIONS: IncludedSection[] = ["website", "agenda", "speakers", "organizers", "dress_codes", "transport", "surveys"];
 
 interface Props {
   open: boolean;
@@ -24,7 +24,7 @@ export const SaveAsTemplateDialog = ({ open, onOpenChange, eventId, eventTitle, 
   const { user } = useAuth();
   const [name, setName] = useState(`${eventTitle} Template`);
   const [description, setDescription] = useState("");
-  const [sections, setSections] = useState<IncludedSection[]>(["website", "agenda", "speakers", "organizers"]);
+  const [sections, setSections] = useState<IncludedSection[]>(["website", "agenda", "speakers", "organizers", "transport", "surveys"]);
   const [saving, setSaving] = useState(false);
 
   const toggle = (s: IncludedSection) => {

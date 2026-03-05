@@ -21,9 +21,15 @@ export interface TemplateData {
   speakers?: any[];
   organizers?: any[];
   dress_codes?: any[];
+  // Transport
+  transport_settings?: any;
+  transport_routes?: any[];
+  transport_stops?: any[];
+  // Surveys
+  surveys?: any[];
 }
 
-export type IncludedSection = "website" | "agenda" | "speakers" | "organizers" | "dress_codes";
+export type IncludedSection = "website" | "agenda" | "speakers" | "organizers" | "dress_codes" | "transport" | "surveys";
 
 export const SECTION_LABELS: Record<IncludedSection, string> = {
   website: "Website Content",
@@ -31,6 +37,8 @@ export const SECTION_LABELS: Record<IncludedSection, string> = {
   speakers: "Speakers",
   organizers: "Organizers",
   dress_codes: "Dress Code",
+  transport: "Transport Routes",
+  surveys: "Surveys",
 };
 
 /**
@@ -98,6 +106,40 @@ export async function buildTemplateFromEvent(
       .select("dress_type, custom_instructions, day_number, reference_images")
       .eq("event_id", eventId);
     tpl.dress_codes = data || [];
+  }
+
+  if (sections.includes("transport")) {
+    const [sRes, rRes, pRes] = await Promise.all([
+      supabase.from("transport_settings" as any).select("enabled, mode, meetup_time, general_instructions").eq("event_id", eventId).maybeSingle(),
+      supabase.from("transport_routes" as any).select("name, vehicle_type, capacity, departure_time, driver_name, driver_mobile, day_number, notes").eq("event_id", eventId).order("created_at"),
+      supabase.from("transport_pickup_points" as any).select("name, address, pickup_time, map_url, notes, stop_type, destination, order_index, route_id").eq("event_id", eventId).order("order_index"),
+    ]);
+    tpl.transport_settings = sRes.data || null;
+    tpl.transport_routes = (rRes.data as any) || [];
+    // Store stops with a temporary route_index reference so we can re-link after cloning routes
+    const routeIds = ((rRes.data as any) || []).map((r: any) => r.id ?? null);
+    tpl.transport_stops = ((pRes.data as any) || []).map((s: any) => {
+      const routeIdx = s.route_id ? routeIds.indexOf(s.route_id) : -1;
+      const { route_id, ...rest } = s;
+      return { ...rest, _route_index: routeIdx };
+    });
+  }
+
+  if (sections.includes("surveys")) {
+    const { data: surveyRows } = await supabase
+      .from("surveys")
+      .select("title, description, status")
+      .eq("event_id", eventId);
+    const surveys: any[] = [];
+    for (const sv of surveyRows || []) {
+      const { data: qRows } = await supabase
+        .from("survey_questions")
+        .select("question_text, type, required, order_index, settings")
+        .eq("survey_id", (sv as any).id)
+        .order("order_index");
+      surveys.push({ ...sv, questions: qRows || [] });
+    }
+    tpl.surveys = surveys;
   }
 
   return tpl;
@@ -220,6 +262,68 @@ export async function createEventFromTemplate(
   }
 
   await Promise.all(cloneOps);
+
+  // Transport cloning (sequential because stops reference routes)
+  if (sections.includes("transport") && td.transport_settings) {
+    const ts = td.transport_settings;
+    await supabase.from("transport_settings" as any).upsert({
+      event_id: newEventId,
+      enabled: ts.enabled,
+      mode: ts.mode,
+      meetup_time: ts.meetup_time,
+      general_instructions: ts.general_instructions,
+    }, { onConflict: "event_id" });
+
+    if (td.transport_routes?.length) {
+      const routeInserts = td.transport_routes.map((r: any) => ({
+        event_id: newEventId,
+        name: r.name,
+        vehicle_type: r.vehicle_type,
+        capacity: r.capacity,
+        departure_time: r.departure_time,
+        driver_name: r.driver_name,
+        driver_mobile: r.driver_mobile,
+        day_number: r.day_number,
+        notes: r.notes,
+      }));
+      const { data: newRoutes } = await supabase.from("transport_routes" as any).insert(routeInserts).select("id");
+
+      if (td.transport_stops?.length && newRoutes) {
+        const stopInserts = td.transport_stops.map((s: any) => {
+          const { _route_index, ...rest } = s;
+          const newRouteId = _route_index >= 0 && newRoutes[_route_index] ? (newRoutes[_route_index] as any).id : null;
+          return { ...rest, event_id: newEventId, route_id: newRouteId };
+        });
+        await supabase.from("transport_pickup_points" as any).insert(stopInserts);
+      }
+    }
+  }
+
+  // Survey cloning (sequential because questions reference surveys)
+  if (sections.includes("surveys") && td.surveys?.length) {
+    for (const sv of td.surveys) {
+      const { data: newSurvey } = await supabase.from("surveys").insert({
+        event_id: newEventId,
+        created_by: userId,
+        title: sv.title,
+        description: sv.description,
+        status: "draft",
+      }).select("id").single();
+
+      if (newSurvey && sv.questions?.length) {
+        const qRows = sv.questions.map((q: any) => ({
+          survey_id: newSurvey.id,
+          event_id: newEventId,
+          question_text: q.question_text,
+          type: q.type,
+          required: q.required,
+          order_index: q.order_index,
+          settings: q.settings,
+        }));
+        await supabase.from("survey_questions").insert(qRows);
+      }
+    }
+  }
 
   return newEvent;
 }
