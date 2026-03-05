@@ -58,6 +58,33 @@ export type Database = {
           },
         ]
       }
+      admin_audit_log: {
+        Row: {
+          action_type: string
+          actor_user_id: string
+          created_at: string
+          details: Json | null
+          id: string
+          target_id: string | null
+        }
+        Insert: {
+          action_type: string
+          actor_user_id: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          target_id?: string | null
+        }
+        Update: {
+          action_type?: string
+          actor_user_id?: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          target_id?: string | null
+        }
+        Relationships: []
+      }
       agenda_items: {
         Row: {
           day_number: number | null
@@ -1477,6 +1504,15 @@ export type Database = {
       }
     }
     Functions: {
+      admin_confirm_payment_intent: {
+        Args: { _intent_id: string; _notes?: string }
+        Returns: Json
+      }
+      admin_update_ticket_status: {
+        Args: { _new_status: string; _resolved_at?: string; _ticket_id: string }
+        Returns: undefined
+      }
+      assert_admin: { Args: never; Returns: undefined }
       create_notification: {
         Args: {
           _link?: string
@@ -1495,6 +1531,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_admin: { Args: never; Returns: boolean }
       is_event_public: { Args: { _event_id: string }; Returns: boolean }
       owns_event: { Args: { _event_id: string }; Returns: boolean }
       storage_extract_event_id: {
