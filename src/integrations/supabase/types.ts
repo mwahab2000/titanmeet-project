@@ -93,6 +93,7 @@ export type Database = {
           event_id: string
           id: string
           order_index: number
+          room_id: string | null
           speaker_id: string | null
           start_time: string | null
           title: string
@@ -104,6 +105,7 @@ export type Database = {
           event_id: string
           id?: string
           order_index?: number
+          room_id?: string | null
           speaker_id?: string | null
           start_time?: string | null
           title: string
@@ -115,6 +117,7 @@ export type Database = {
           event_id?: string
           id?: string
           order_index?: number
+          room_id?: string | null
           speaker_id?: string | null
           start_time?: string | null
           title?: string
@@ -125,6 +128,13 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agenda_items_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "event_rooms"
             referencedColumns: ["id"]
           },
           {
@@ -420,6 +430,44 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "dress_codes_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_rooms: {
+        Row: {
+          capacity: number | null
+          created_at: string
+          days: Json
+          event_id: string
+          id: string
+          name: string
+          notes: string | null
+        }
+        Insert: {
+          capacity?: number | null
+          created_at?: string
+          days?: Json
+          event_id: string
+          id?: string
+          name: string
+          notes?: string | null
+        }
+        Update: {
+          capacity?: number | null
+          created_at?: string
+          days?: Json
+          event_id?: string
+          id?: string
+          name?: string
+          notes?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_rooms_event_id_fkey"
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
