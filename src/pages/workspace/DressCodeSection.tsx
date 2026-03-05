@@ -66,16 +66,19 @@ const DressCodeSection = () => {
   const load = useCallback(async () => {
     if (!event) return;
     setLoading(true);
-    const { data } = await supabase
-      .from("dress_codes" as any)
+    const { data, error } = await supabase
+      .from("dress_codes")
       .select("*")
       .eq("event_id", event.id)
       .order("day_number");
+    if (error) {
+      console.error("Load dress codes error:", error);
+    }
     setEntries(
-      ((data as any[]) ?? []).map((d: any) => ({
+      (data ?? []).map((d) => ({
         ...d,
         custom_instructions: d.custom_instructions || "",
-        reference_images: Array.isArray(d.reference_images) ? d.reference_images : [],
+        reference_images: Array.isArray(d.reference_images) ? (d.reference_images as string[]) : [],
       }))
     );
     setLoading(false);
@@ -113,7 +116,8 @@ const DressCodeSection = () => {
   const removeEntry = async (index: number) => {
     const entry = entries[index];
     if (entry.id) {
-      await supabase.from("dress_codes" as any).delete().eq("id", entry.id);
+      const { error } = await supabase.from("dress_codes").delete().eq("id", entry.id);
+      if (error) { console.error("Delete dress code error:", error); toast.error(error.message); return; }
     }
     setEntries((prev) => prev.filter((_, i) => i !== index));
     refreshCounts();
@@ -139,7 +143,7 @@ const DressCodeSection = () => {
     setSaving(true);
     try {
       for (const entry of entries) {
-        const payload = {
+        const payload: any = {
           event_id: event.id,
           day_number: entry.day_number,
           dress_type: entry.dress_type,
@@ -147,11 +151,14 @@ const DressCodeSection = () => {
           reference_images: entry.reference_images,
         };
         if (entry.id) {
-          const { error } = await supabase.from("dress_codes" as any).update(payload as any).eq("id", entry.id);
-          if (error) { toast.error(error.message); setSaving(false); return; }
+          console.log("Updating dress code:", entry.id, payload);
+          const { error } = await supabase.from("dress_codes").update(payload).eq("id", entry.id);
+          if (error) { console.error("Update error:", error); toast.error("Save failed: " + error.message); setSaving(false); return; }
         } else {
-          const { error } = await supabase.from("dress_codes" as any).insert(payload as any);
-          if (error) { toast.error(error.message); setSaving(false); return; }
+          console.log("Inserting dress code:", payload);
+          const { data, error } = await supabase.from("dress_codes").insert(payload).select();
+          if (error) { console.error("Insert error:", error); toast.error("Save failed: " + error.message); setSaving(false); return; }
+          console.log("Insert result:", data);
         }
       }
       toast.success("Dress codes saved");
