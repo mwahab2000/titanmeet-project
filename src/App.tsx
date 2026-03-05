@@ -39,6 +39,7 @@ import AssignGroupsSection from "./pages/workspace/AssignGroupsSection";
 import TransportationSection from "./pages/workspace/TransportationSection";
 import VenueSection from "./pages/workspace/VenueSection";
 import AnnouncementsSection from "./pages/workspace/AnnouncementsSection";
+import EventAnnouncementsSection from "./pages/workspace/EventAnnouncementsSection";
 import SurveySection from "./pages/workspace/SurveySection";
 import CommunicationsSection from "./pages/workspace/CommunicationsSection";
 import WebsiteSection from "./pages/workspace/WebsiteSection";
@@ -107,6 +108,7 @@ const App = () => (
                     <Route path="gallery" element={<GallerySection />} />
                     <Route path="venue" element={<VenueSection />} />
                     <Route path="announcements" element={<AnnouncementsSection />} />
+                    <Route path="event-announcements" element={<EventAnnouncementsSection />} />
                     <Route path="survey" element={<SurveySection />} />
                     <Route path="communications" element={<CommunicationsSection />} />
                     <Route path="website" element={<WebsiteSection />} />

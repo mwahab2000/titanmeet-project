@@ -3,6 +3,7 @@ import { PublicHeroSection } from "../sections/PublicHeroSection";
 import { PublicGallerySection } from "../sections/PublicGallerySection";
 import { PublicEventInfoSection } from "../sections/PublicEventInfoSection";
 import { PublicAnnouncementsSection } from "../sections/PublicAnnouncementsSection";
+import { PublicAnnouncementsTicker } from "../sections/PublicAnnouncementsTicker";
 import { PublicAgendaSection } from "../sections/PublicAgendaSection";
 import { PublicSpeakersSection } from "../sections/PublicSpeakersSection";
 import { PublicVenueSection } from "../sections/PublicVenueSection";
@@ -20,6 +21,7 @@ export const ThemePublicModern: React.FC<Props> = ({ data }) => (
   <div className="min-h-screen bg-[hsl(220,20%,97%)] text-[hsl(220,30%,15%)]">
     <PublicStickyNav data={data} className="[&_nav>div]:bg-[hsl(220,20%,97%)]/90 [&_nav>div]:backdrop-blur-md" />
     <PublicHeroSection data={data} parallax className="min-h-[480px] sm:min-h-[560px] flex items-end bg-[hsl(220,60%,50%)]" />
+    <PublicAnnouncementsTicker eventId={data.event.id} />
     <PublicCountdownSection data={data} className="bg-[hsl(220,20%,95%)]" />
     <PublicAnnouncementsSection data={data} className="[&_div]:border-[hsl(220,60%,80%)]/30 [&_div]:bg-[hsl(220,60%,96%)]" />
     <PublicStatsSection data={data} />

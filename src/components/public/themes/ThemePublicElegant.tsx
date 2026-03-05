@@ -3,6 +3,7 @@ import { PublicHeroSection } from "../sections/PublicHeroSection";
 import { PublicGallerySection } from "../sections/PublicGallerySection";
 import { PublicEventInfoSection } from "../sections/PublicEventInfoSection";
 import { PublicAnnouncementsSection } from "../sections/PublicAnnouncementsSection";
+import { PublicAnnouncementsTicker } from "../sections/PublicAnnouncementsTicker";
 import { PublicAgendaSection } from "../sections/PublicAgendaSection";
 import { PublicSpeakersSection } from "../sections/PublicSpeakersSection";
 import { PublicVenueSection } from "../sections/PublicVenueSection";
@@ -20,6 +21,7 @@ export const ThemePublicElegant: React.FC<Props> = ({ data }) => (
   <div className="min-h-screen bg-[hsl(30,20%,97%)] text-[hsl(30,10%,15%)]" style={{ fontFamily: "'Georgia', serif" }}>
     <PublicStickyNav data={data} className="[&_nav>div]:bg-[hsl(30,20%,97%)]/90 [&_nav>div]:backdrop-blur-md" />
     <PublicHeroSection data={data} parallax className="min-h-[480px] sm:min-h-[560px] flex items-end bg-[hsl(30,15%,92%)]" />
+    <PublicAnnouncementsTicker eventId={data.event.id} />
     <PublicCountdownSection data={data} className="bg-[hsl(30,15%,94%)]" />
     <PublicAnnouncementsSection data={data} className="[&_div]:border-[hsl(30,30%,70%)]/30 [&_div]:bg-[hsl(30,30%,95%)]" />
     <PublicStatsSection data={data} />

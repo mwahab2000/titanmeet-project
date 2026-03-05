@@ -27,6 +27,7 @@ const workspaceSections = [
   { icon: Images, label: "Gallery", path: "gallery" },
   { icon: MapPin, label: "Venue", path: "venue" },
   { icon: Megaphone, label: "Announcements", path: "announcements" },
+  { icon: Megaphone, label: "Event Alerts", path: "event-announcements" },
   { icon: ClipboardList, label: "Survey", path: "survey" },
   { icon: MessageSquare, label: "Communications", path: "communications" },
   { icon: Globe, label: "Website", path: "website" },
