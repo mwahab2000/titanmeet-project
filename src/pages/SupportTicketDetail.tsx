@@ -118,20 +118,38 @@ const SupportTicketDetail = () => {
 
   const handleResolve = async () => {
     if (!ticket) return;
-    await supabase
-      .from("support_tickets")
-      .update({ status: "resolved", resolved_at: new Date().toISOString() } as any)
-      .eq("id", ticket.id);
+    if (isAdmin) {
+      // Use server-side RPC for admin actions
+      const { error } = await supabase.rpc("admin_update_ticket_status", {
+        _ticket_id: ticket.id,
+        _new_status: "resolved",
+        _resolved_at: new Date().toISOString(),
+      });
+      if (error) { toast.error("Failed: " + error.message); return; }
+    } else {
+      await supabase
+        .from("support_tickets")
+        .update({ status: "resolved", resolved_at: new Date().toISOString() } as any)
+        .eq("id", ticket.id);
+    }
     toast.success("Ticket resolved");
     load();
   };
 
   const handleReopen = async () => {
     if (!ticket) return;
-    await supabase
-      .from("support_tickets")
-      .update({ status: "open", resolved_at: null } as any)
-      .eq("id", ticket.id);
+    if (isAdmin) {
+      const { error } = await supabase.rpc("admin_update_ticket_status", {
+        _ticket_id: ticket.id,
+        _new_status: "open",
+      });
+      if (error) { toast.error("Failed: " + error.message); return; }
+    } else {
+      await supabase
+        .from("support_tickets")
+        .update({ status: "open", resolved_at: null } as any)
+        .eq("id", ticket.id);
+    }
     toast.success("Ticket reopened");
     load();
   };

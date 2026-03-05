@@ -5,7 +5,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCents } from "@/lib/billing";
-import { Shield, Bitcoin, DollarSign } from "lucide-react";
+import { Shield, Bitcoin, DollarSign, CheckCircle2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 interface AdminAccount {
   user_id: string;
@@ -24,11 +26,28 @@ interface AdminAccount {
 
 const STATUS_BADGE: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
   pending: "outline",
+  awaiting_payment: "outline",
   processing: "secondary",
+  paid: "secondary",
   confirmed: "default",
   expired: "destructive",
   cancelled: "destructive",
   failed: "destructive",
+};
+
+/** Server-side admin RPC to confirm a payment intent and activate subscription */
+const confirmPaymentIntent = async (intentId: string) => {
+  const { data, error } = await supabase.rpc("admin_confirm_payment_intent", {
+    _intent_id: intentId,
+    _notes: "Manual confirmation from admin billing dashboard",
+  });
+  if (error) {
+    toast.error("Failed to confirm payment: " + error.message);
+    return false;
+  }
+  const result = data as any;
+  toast.success(result?.status === "already_confirmed" ? "Payment was already confirmed" : "Payment confirmed & subscription activated");
+  return true;
 };
 
 const AdminBillingPage = () => {
@@ -36,6 +55,17 @@ const AdminBillingPage = () => {
   const [payments, setPayments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalMRR, setTotalMRR] = useState(0);
+  const [confirming, setConfirming] = useState<string | null>(null);
+
+  const handleConfirmPayment = async (intentId: string) => {
+    setConfirming(intentId);
+    const ok = await confirmPaymentIntent(intentId);
+    setConfirming(null);
+    if (ok) {
+      // Reload data
+      window.location.reload();
+    }
+  };
 
   useEffect(() => {
     const load = async () => {
@@ -236,6 +266,7 @@ const AdminBillingPage = () => {
                       <TableHead>Provider</TableHead>
                       <TableHead>Order ID</TableHead>
                       <TableHead>Paid At</TableHead>
+                      <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -257,11 +288,25 @@ const AdminBillingPage = () => {
                         <TableCell className="text-xs text-muted-foreground">
                           {p.paid_at ? new Date(p.paid_at).toLocaleString() : "—"}
                         </TableCell>
+                        <TableCell>
+                          {p.status !== "confirmed" && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={confirming === p.id}
+                              onClick={(e) => { e.stopPropagation(); handleConfirmPayment(p.id); }}
+                              className="gap-1"
+                            >
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                              {confirming === p.id ? "…" : "Confirm"}
+                            </Button>
+                          )}
+                        </TableCell>
                       </TableRow>
                     ))}
                     {payments.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                        <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
                           No crypto payments yet.
                         </TableCell>
                       </TableRow>
