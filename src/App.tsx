@@ -47,6 +47,7 @@ import GallerySection from "./pages/workspace/GallerySection";
 import PreviewEventPage from "./pages/workspace/PreviewEventPage";
 import PublicEventPage from "./pages/public/PublicEventPage";
 import SubdomainEventPage from "./pages/public/SubdomainEventPage";
+import PublicSurveyPage from "./pages/public/PublicSurveyPage";
 
 const queryClient = new QueryClient();
 
@@ -112,6 +113,7 @@ const App = () => (
                   </Route>
                 </Route>
                 <Route path="/dashboard/events/:id/preview" element={<ProtectedRoute><PreviewEventPage /></ProtectedRoute>} />
+                <Route path="/s/:token" element={<PublicSurveyPage />} />
                 {/* Dev fallback: path-based public event routing */}
                 <Route path="/:clientSlug/:eventSlug" element={<PublicEventPage />} />
                 <Route path="*" element={<NotFound />} />

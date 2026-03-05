@@ -1174,6 +1174,67 @@ export type Database = {
           },
         ]
       }
+      survey_invites: {
+        Row: {
+          attendee_id: string
+          created_at: string
+          event_id: string
+          id: string
+          opened_at: string | null
+          sent_at: string | null
+          status: string
+          submitted_at: string | null
+          survey_id: string
+          token: string
+        }
+        Insert: {
+          attendee_id: string
+          created_at?: string
+          event_id: string
+          id?: string
+          opened_at?: string | null
+          sent_at?: string | null
+          status?: string
+          submitted_at?: string | null
+          survey_id: string
+          token?: string
+        }
+        Update: {
+          attendee_id?: string
+          created_at?: string
+          event_id?: string
+          id?: string
+          opened_at?: string | null
+          sent_at?: string | null
+          status?: string
+          submitted_at?: string | null
+          survey_id?: string
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "survey_invites_attendee_id_fkey"
+            columns: ["attendee_id"]
+            isOneToOne: false
+            referencedRelation: "attendees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "survey_invites_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "survey_invites_survey_id_fkey"
+            columns: ["survey_id"]
+            isOneToOne: false
+            referencedRelation: "surveys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       survey_questions: {
         Row: {
           created_at: string
