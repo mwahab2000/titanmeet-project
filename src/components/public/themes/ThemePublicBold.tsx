@@ -2,6 +2,7 @@ import type { PublicEventData } from "@/lib/publicSite/types";
 import { PublicHeroSection } from "../sections/PublicHeroSection";
 import { PublicGallerySection } from "../sections/PublicGallerySection";
 import { PublicEventInfoSection } from "../sections/PublicEventInfoSection";
+import { PublicAnnouncementsSection } from "../sections/PublicAnnouncementsSection";
 import { PublicAnnouncementsTicker } from "../sections/PublicAnnouncementsTicker";
 import { PublicAgendaSection } from "../sections/PublicAgendaSection";
 import { PublicSpeakersSection } from "../sections/PublicSpeakersSection";
@@ -22,6 +23,7 @@ export const ThemePublicBold: React.FC<Props> = ({ data }) => (
     <PublicHeroSection data={data} parallax className="min-h-[520px] sm:min-h-[600px] flex items-end bg-gradient-to-br from-[hsl(260,60%,30%)] to-[hsl(320,60%,25%)]" />
     <PublicAnnouncementsTicker eventId={data.event.id} />
     <PublicCountdownSection data={data} className="bg-[hsl(0,0%,8%)] text-[hsl(0,0%,90%)]" />
+    <PublicAnnouncementsSection data={data} className="[&_div]:border-[hsl(260,40%,30%)]/40 [&_div]:bg-[hsl(260,30%,12%)] [&_p]:text-[hsl(0,0%,80%)]" />
     <PublicStatsSection data={data} />
     <PublicEventInfoSection data={data} className="[&_p]:text-[hsl(0,0%,70%)]" />
     <PublicAgendaSection data={data} className="[&_div]:border-[hsl(0,0%,20%)] [&_div]:bg-[hsl(0,0%,10%)] [&_p]:text-[hsl(0,0%,65%)]" />
