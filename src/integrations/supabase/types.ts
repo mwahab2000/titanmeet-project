@@ -1513,6 +1513,7 @@ export type Database = {
         Returns: undefined
       }
       assert_admin: { Args: never; Returns: undefined }
+      assert_owner: { Args: never; Returns: undefined }
       create_notification: {
         Args: {
           _link?: string
@@ -1533,6 +1534,11 @@ export type Database = {
       }
       is_admin: { Args: never; Returns: boolean }
       is_event_public: { Args: { _event_id: string }; Returns: boolean }
+      is_owner: { Args: never; Returns: boolean }
+      owner_confirm_payment_intent: {
+        Args: { _intent_id: string; _notes?: string }
+        Returns: Json
+      }
       owns_event: { Args: { _event_id: string }; Returns: boolean }
       storage_extract_event_id: {
         Args: { bucket_name: string; object_name: string }
@@ -1544,7 +1550,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "moderator" | "user"
+      app_role: "admin" | "moderator" | "user" | "owner"
       attendee_status: "registered" | "confirmed" | "checked_in" | "cancelled"
       event_status:
         | "draft"
@@ -1707,7 +1713,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "moderator", "user"],
+      app_role: ["admin", "moderator", "user", "owner"],
       attendee_status: ["registered", "confirmed", "checked_in", "cancelled"],
       event_status: [
         "draft",
