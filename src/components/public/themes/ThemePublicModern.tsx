@@ -2,7 +2,6 @@ import type { PublicEventData } from "@/lib/publicSite/types";
 import { PublicHeroSection } from "../sections/PublicHeroSection";
 import { PublicGallerySection } from "../sections/PublicGallerySection";
 import { PublicEventInfoSection } from "../sections/PublicEventInfoSection";
-import { PublicAnnouncementsSection } from "../sections/PublicAnnouncementsSection";
 import { PublicAnnouncementsTicker } from "../sections/PublicAnnouncementsTicker";
 import { PublicAgendaSection } from "../sections/PublicAgendaSection";
 import { PublicSpeakersSection } from "../sections/PublicSpeakersSection";
@@ -23,7 +22,6 @@ export const ThemePublicModern: React.FC<Props> = ({ data }) => (
     <PublicHeroSection data={data} parallax className="min-h-[480px] sm:min-h-[560px] flex items-end bg-[hsl(220,60%,50%)]" />
     <PublicAnnouncementsTicker eventId={data.event.id} />
     <PublicCountdownSection data={data} className="bg-[hsl(220,20%,95%)]" />
-    <PublicAnnouncementsSection data={data} className="[&_div]:border-[hsl(220,60%,80%)]/30 [&_div]:bg-[hsl(220,60%,96%)]" />
     <PublicStatsSection data={data} />
     <PublicEventInfoSection data={data} />
     <PublicAgendaSection data={data} />
