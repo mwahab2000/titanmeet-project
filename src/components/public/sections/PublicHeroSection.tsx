@@ -13,6 +13,24 @@ interface Props {
 const SLIDE_INTERVAL = 5000;
 const fallbackImg = "/placeholder.svg";
 
+/** Preload images and resolve when all are cached (or failed) */
+function preloadImages(srcs: string[]): Promise<void> {
+  if (!srcs.length) return Promise.resolve();
+  return new Promise((resolve) => {
+    let loaded = 0;
+    const total = srcs.length;
+    const done = () => { loaded++; if (loaded >= total) resolve(); };
+    srcs.forEach((src) => {
+      const img = new Image();
+      img.onload = done;
+      img.onerror = done;
+      img.src = src;
+    });
+    // Safety timeout — don't block forever if an image is very slow
+    setTimeout(resolve, 8000);
+  });
+}
+
 export const PublicHeroSection: React.FC<Props> = ({ data, className = "", parallax = false }) => {
   const { hero } = data;
   const images = hero.images.length > 0 ? hero.images : [];
@@ -22,6 +40,14 @@ export const PublicHeroSection: React.FC<Props> = ({ data, className = "", paral
   const [activeIdx, setActiveIdx] = useState(0);
   const [prevIdx, setPrevIdx] = useState(0);
   const [transitioning, setTransitioning] = useState(false);
+  const [imagesReady, setImagesReady] = useState(false);
+
+  // Preload all hero images before starting the slideshow
+  useEffect(() => {
+    if (!images.length) { setImagesReady(true); return; }
+    setImagesReady(false);
+    preloadImages(images).then(() => setImagesReady(true));
+  }, [images.join("|")]);
 
   const goNext = useCallback(() => {
     if (images.length <= 1) return;
@@ -31,10 +57,10 @@ export const PublicHeroSection: React.FC<Props> = ({ data, className = "", paral
   }, [activeIdx, images.length]);
 
   useEffect(() => {
-    if (images.length <= 1) return;
+    if (images.length <= 1 || !imagesReady) return;
     const iv = setInterval(goNext, SLIDE_INTERVAL);
     return () => clearInterval(iv);
-  }, [goNext, images.length]);
+  }, [goNext, images.length, imagesReady]);
 
   // Reset transition flag after animation completes
   useEffect(() => {
@@ -48,13 +74,21 @@ export const PublicHeroSection: React.FC<Props> = ({ data, className = "", paral
       {/* Full-bleed slideshow background */}
       {hasImages ? (
         <div className="absolute inset-0">
+          {/* Loading shimmer while images preload */}
+          {!imagesReady && (
+            <div className="absolute inset-0 bg-gradient-to-br from-muted via-muted/80 to-muted animate-pulse" />
+          )}
           {images.map((src, i) => (
             <img
               key={src}
               src={src}
               alt=""
-              className="absolute inset-0 w-full h-full object-cover transition-opacity duration-[1200ms] ease-in-out"
-              style={{ opacity: i === activeIdx ? 1 : 0 }}
+              loading="eager"
+              decoding="async"
+              className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-[1200ms] ease-in-out ${
+                imagesReady ? "" : "opacity-0"
+              }`}
+              style={{ opacity: imagesReady ? (i === activeIdx ? 1 : 0) : 0 }}
               onError={(e) => { (e.target as HTMLImageElement).src = fallbackImg; }}
             />
           ))}
