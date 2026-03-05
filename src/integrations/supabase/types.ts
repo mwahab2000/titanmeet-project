@@ -437,6 +437,68 @@ export type Database = {
           },
         ]
       }
+      event_announcements: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          end_at: string | null
+          event_id: string
+          id: string
+          is_pinned: boolean
+          link_label: string | null
+          link_url: string | null
+          message: string
+          priority: number
+          start_at: string | null
+          target: string
+          title: string
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          end_at?: string | null
+          event_id: string
+          id?: string
+          is_pinned?: boolean
+          link_label?: string | null
+          link_url?: string | null
+          message: string
+          priority?: number
+          start_at?: string | null
+          target?: string
+          title: string
+          type?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          end_at?: string | null
+          event_id?: string
+          id?: string
+          is_pinned?: boolean
+          link_label?: string | null
+          link_url?: string | null
+          message?: string
+          priority?: number
+          start_at?: string | null
+          target?: string
+          title?: string
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_announcements_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_rooms: {
         Row: {
           capacity: number | null
