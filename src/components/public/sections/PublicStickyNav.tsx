@@ -1,10 +1,7 @@
 import { useState, useEffect } from "react";
 import type { PublicEventData } from "@/lib/publicSite/types";
 
-interface Props {
-  data: PublicEventData;
-  className?: string;
-}
+interface Props { data: PublicEventData; className?: string; }
 
 const sectionLinks = [
   { id: "about", label: "About" },
@@ -21,22 +18,16 @@ export const PublicStickyNav: React.FC<Props> = ({ data, className = "" }) => {
   const [visible, setVisible] = useState(false);
   const [active, setActive] = useState("");
 
-  // Show after scrolling past hero
   useEffect(() => {
     const onScroll = () => {
       setVisible(window.scrollY > 300);
-
-      // Find active section
       const sections = sectionLinks.map((l) => document.getElementById(l.id)).filter(Boolean);
       let current = "";
       for (const section of sections) {
-        if (section && section.getBoundingClientRect().top <= 120) {
-          current = section.id;
-        }
+        if (section && section.getBoundingClientRect().top <= 120) current = section.id;
       }
       setActive(current);
     };
-
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
@@ -59,17 +50,18 @@ export const PublicStickyNav: React.FC<Props> = ({ data, className = "" }) => {
 
   return (
     <nav className={`fixed top-0 left-0 right-0 z-40 animate-fade-in ${className}`}>
-      <div className="backdrop-blur-xl bg-background/80 border-b border-border/50 shadow-sm">
-        <div className="max-w-5xl mx-auto px-4 flex items-center h-12 gap-1 overflow-x-auto scrollbar-none">
-          <span className="font-display font-semibold text-sm mr-4 shrink-0 hidden sm:block">{data.event.title}</span>
+      <div className="backdrop-blur-xl bg-background/85 border-b border-border/40 shadow-sm">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 flex items-center h-14 gap-1 overflow-x-auto scrollbar-none">
+          <span className="font-display font-bold text-sm mr-6 shrink-0 hidden sm:block tracking-tight">{data.event.title}</span>
+          <div className="flex-1 h-px bg-border/30 mr-3 hidden sm:block" />
           {availableLinks.map((link) => (
             <a
               key={link.id}
               href={`#${link.id}`}
-              className={`text-xs sm:text-sm px-3 py-1.5 rounded-full transition-colors shrink-0 ${
+              className={`text-xs sm:text-sm px-3.5 py-1.5 rounded-lg transition-all duration-200 shrink-0 font-medium ${
                 active === link.id
-                  ? "bg-primary/10 text-primary font-medium"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                  ? "bg-primary/10 text-primary"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
               }`}
             >
               {link.label}

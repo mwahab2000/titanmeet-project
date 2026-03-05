@@ -19,8 +19,8 @@ interface Props { data: PublicEventData; }
 export const ThemePublicCorporate: React.FC<Props> = ({ data }) => (
   <div className="min-h-screen bg-background text-foreground">
     <PublicStickyNav data={data} />
-    <PublicHeroSection data={data} parallax className="bg-muted min-h-[420px] flex items-end" />
-    <PublicCountdownSection data={data} className="bg-muted/50 backdrop-blur-sm" />
+    <PublicHeroSection data={data} parallax className="min-h-[480px] sm:min-h-[560px] flex items-end" />
+    <PublicCountdownSection data={data} className="bg-muted/30 border-b border-border/30" />
     <PublicAnnouncementsSection data={data} />
     <PublicStatsSection data={data} />
     <PublicEventInfoSection data={data} />
