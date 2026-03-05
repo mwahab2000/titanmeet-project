@@ -1,0 +1,270 @@
+import { useParams } from "react-router-dom";
+import { useState, useEffect, useCallback } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { Loader2, CheckCircle2, AlertCircle, Star } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Checkbox } from "@/components/ui/checkbox";
+import { cn } from "@/lib/utils";
+
+interface Question {
+  id: string;
+  question_text: string;
+  type: string;
+  required: boolean;
+  order_index: number;
+  settings: Record<string, any>;
+}
+
+interface SurveyData {
+  survey: { id: string; title: string; description: string | null };
+  questions: Question[];
+  attendee: { name: string };
+  invite_id: string;
+}
+
+const PublicSurveyPage = () => {
+  const { token } = useParams<{ token: string }>();
+  const [loading, setLoading] = useState(true);
+  const [surveyData, setSurveyData] = useState<SurveyData | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [alreadySubmitted, setAlreadySubmitted] = useState(false);
+  const [answers, setAnswers] = useState<Record<string, any>>({});
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+
+  const fetchSurvey = useCallback(async () => {
+    if (!token) { setError("Invalid link"); setLoading(false); return; }
+    try {
+      const { data, error: fnErr } = await supabase.functions.invoke("survey-api", {
+        body: null,
+        method: "GET",
+        headers: {},
+      });
+      // supabase.functions.invoke doesn't support GET with query params well,
+      // so use fetch directly
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/survey-api?action=get&token=${token}`
+      );
+      const json = await res.json();
+      if (!res.ok) {
+        if (json.alreadySubmitted) { setAlreadySubmitted(true); }
+        else { setError(json.error || "Survey not found"); }
+      } else {
+        setSurveyData(json);
+      }
+    } catch {
+      setError("Failed to load survey");
+    }
+    setLoading(false);
+  }, [token]);
+
+  useEffect(() => { fetchSurvey(); }, [fetchSurvey]);
+
+  const setAnswer = (qId: string, val: any) => {
+    setAnswers((prev) => ({ ...prev, [qId]: val }));
+  };
+
+  const handleSubmit = async () => {
+    if (!surveyData || !token) return;
+    // Validate required
+    for (const q of surveyData.questions) {
+      if (q.required && (answers[q.id] === undefined || answers[q.id] === "" || answers[q.id] === null)) {
+        setError(`Please answer: "${q.question_text}"`);
+        return;
+      }
+    }
+    setError(null);
+    setSubmitting(true);
+    try {
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/survey-api?action=submit`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token, answers }),
+        }
+      );
+      const json = await res.json();
+      if (!res.ok) { setError(json.error || "Submit failed"); }
+      else { setSubmitted(true); }
+    } catch {
+      setError("Failed to submit");
+    }
+    setSubmitting(false);
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
+        <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
+      </div>
+    );
+  }
+
+  if (submitted || alreadySubmitted) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 p-4">
+        <div className="max-w-md w-full text-center space-y-4 bg-white rounded-2xl shadow-lg p-8">
+          <CheckCircle2 className="h-16 w-16 text-emerald-500 mx-auto" />
+          <h1 className="text-2xl font-bold text-slate-900">
+            {alreadySubmitted ? "Already Submitted" : "Thank You!"}
+          </h1>
+          <p className="text-slate-500">
+            {alreadySubmitted
+              ? "Your response has already been recorded."
+              : "Your response has been recorded. Thank you for your feedback!"}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error && !surveyData) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 p-4">
+        <div className="max-w-md w-full text-center space-y-4 bg-white rounded-2xl shadow-lg p-8">
+          <AlertCircle className="h-16 w-16 text-red-400 mx-auto" />
+          <h1 className="text-2xl font-bold text-slate-900">Survey Unavailable</h1>
+          <p className="text-slate-500">{error}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!surveyData) return null;
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 py-8 px-4">
+      <div className="max-w-2xl mx-auto space-y-6">
+        {/* Header */}
+        <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+          <div className="bg-gradient-to-r from-emerald-500 to-blue-500 p-6 text-white">
+            <h1 className="text-2xl font-bold">{surveyData.survey.title}</h1>
+            {surveyData.survey.description && (
+              <p className="mt-2 text-white/80 text-sm">{surveyData.survey.description}</p>
+            )}
+          </div>
+          <div className="p-4 border-b border-slate-100">
+            <p className="text-sm text-slate-500">
+              Hi <span className="font-medium text-slate-700">{surveyData.attendee.name}</span>, please complete this survey.
+            </p>
+          </div>
+        </div>
+
+        {/* Questions */}
+        {surveyData.questions.map((q, idx) => (
+          <div key={q.id} className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 space-y-3">
+            <Label className="text-base font-semibold text-slate-800">
+              <span className="text-emerald-500 mr-2">{idx + 1}.</span>
+              {q.question_text || "Untitled Question"}
+              {q.required && <span className="text-red-400 ml-1">*</span>}
+            </Label>
+            <QuestionInput question={q} value={answers[q.id]} onChange={(v) => setAnswer(q.id, v)} />
+          </div>
+        ))}
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-600">
+            {error}
+          </div>
+        )}
+
+        <Button
+          onClick={handleSubmit}
+          disabled={submitting}
+          className="w-full h-12 text-base font-semibold bg-gradient-to-r from-emerald-500 to-blue-500 hover:from-emerald-600 hover:to-blue-600 text-white rounded-xl shadow-lg"
+        >
+          {submitting ? <Loader2 className="h-5 w-5 animate-spin" /> : "Submit Response"}
+        </Button>
+
+        <p className="text-center text-xs text-slate-400">Powered by TitanMeet</p>
+      </div>
+    </div>
+  );
+};
+
+function QuestionInput({ question, value, onChange }: { question: Question; value: any; onChange: (v: any) => void }) {
+  const s = question.settings || {};
+
+  switch (question.type) {
+    case "yes_no":
+      return (
+        <RadioGroup value={value ?? ""} onValueChange={onChange}>
+          <div className="flex items-center gap-2"><RadioGroupItem value="yes" /><Label>Yes</Label></div>
+          <div className="flex items-center gap-2"><RadioGroupItem value="no" /><Label>No</Label></div>
+        </RadioGroup>
+      );
+    case "single_choice":
+      return (
+        <RadioGroup value={value ?? ""} onValueChange={onChange}>
+          {(s.options || []).map((opt: any) => (
+            <div key={opt.value} className="flex items-center gap-2">
+              <RadioGroupItem value={opt.value} /><Label>{opt.label}</Label>
+            </div>
+          ))}
+        </RadioGroup>
+      );
+    case "multi_choice":
+      return (
+        <div className="space-y-2">
+          {(s.options || []).map((opt: any) => (
+            <div key={opt.value} className="flex items-center gap-2">
+              <Checkbox
+                checked={(value || []).includes(opt.value)}
+                onCheckedChange={(checked) => {
+                  const cur = value || [];
+                  onChange(checked ? [...cur, opt.value] : cur.filter((v: string) => v !== opt.value));
+                }}
+              />
+              <Label>{opt.label}</Label>
+            </div>
+          ))}
+        </div>
+      );
+    case "rating_stars":
+      return (
+        <div className="flex gap-1">
+          {Array.from({ length: s.max || 5 }, (_, i) => (
+            <button key={i} type="button" onClick={() => onChange(i + 1)}>
+              <Star className={cn("h-7 w-7 transition-colors", (value ?? 0) > i ? "fill-yellow-400 text-yellow-400" : "text-slate-300")} />
+            </button>
+          ))}
+        </div>
+      );
+    case "likert":
+      return (
+        <div className="flex items-center gap-1 flex-wrap">
+          {Array.from({ length: (s.max || 5) - (s.min || 1) + 1 }, (_, i) => {
+            const v = (s.min || 1) + i;
+            const label = s.labels?.[String(v)];
+            return (
+              <div key={v} className="flex flex-col items-center gap-1">
+                <Button variant={value === v ? "default" : "outline"} size="sm" className="h-9 w-9 p-0" onClick={() => onChange(v)}>
+                  {v}
+                </Button>
+                {label && <span className="text-[10px] text-slate-500 max-w-[60px] text-center">{label}</span>}
+              </div>
+            );
+          })}
+        </div>
+      );
+    case "short_text":
+      return <Input placeholder={s.placeholder || "Your answer..."} value={value ?? ""} onChange={(e) => onChange(e.target.value)} />;
+    case "long_text":
+      return <Textarea placeholder={s.placeholder || "Your answer..."} value={value ?? ""} onChange={(e) => onChange(e.target.value)} rows={4} />;
+    case "number":
+      return <Input type="number" min={s.min} max={s.max} step={s.step} value={value ?? ""} onChange={(e) => onChange(Number(e.target.value))} className="w-40" />;
+    case "date":
+      return <Input type="date" value={value ?? ""} onChange={(e) => onChange(e.target.value)} className="w-52" />;
+    default:
+      return <Input value={value ?? ""} onChange={(e) => onChange(e.target.value)} />;
+  }
+}
+
+export default PublicSurveyPage;

@@ -55,15 +55,17 @@ export const PublicStatsSection: React.FC<Props> = ({ data, className = "" }) =>
 
   return (
     <div ref={sectionRef}>
-      <MotionReveal className={`max-w-4xl mx-auto px-6 py-12 ${className}`}>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
+      <MotionReveal className={`max-w-4xl mx-auto px-6 py-16 ${className}`}>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-8">
           {stats.map((s, i) => {
             const count = useCountUp(s.value, 1200, triggered);
             return (
-              <MotionRevealItem key={s.label} index={i} className="text-center space-y-2">
-                <s.icon className="h-7 w-7 mx-auto text-primary opacity-80" />
-                <p className="text-3xl sm:text-4xl font-bold font-display tabular-nums">{count}</p>
-                <p className="text-xs sm:text-sm text-muted-foreground uppercase tracking-wider">{s.label}</p>
+              <MotionRevealItem key={s.label} index={i} className="text-center space-y-3">
+                <div className="w-14 h-14 mx-auto rounded-2xl bg-primary/10 flex items-center justify-center">
+                  <s.icon className="h-7 w-7 text-primary" />
+                </div>
+                <p className="text-4xl sm:text-5xl font-bold font-display tabular-nums">{count}</p>
+                <p className="text-xs sm:text-sm text-muted-foreground uppercase tracking-widest font-medium">{s.label}</p>
               </MotionRevealItem>
             );
           })}

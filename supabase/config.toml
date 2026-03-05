@@ -17,3 +17,9 @@ verify_jwt = false
 
 [functions.send-notification-email]
 verify_jwt = false
+
+[functions.survey-api]
+verify_jwt = false
+
+[functions.send-survey-links]
+verify_jwt = false

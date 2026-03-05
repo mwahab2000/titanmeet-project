@@ -21,21 +21,21 @@ export const PublicGallerySection: React.FC<Props> = ({ data, className = "" }) 
 
   return (
     <>
-      <MotionReveal as="section" id="gallery" className={`py-16 sm:py-20 ${className}`}>
+      <MotionReveal as="section" id="gallery" className={`py-20 ${className}`}>
         <div className="max-w-5xl mx-auto px-4">
-          <h2 className="font-display text-2xl sm:text-3xl font-bold mb-8 text-center">Gallery</h2>
+          <h2 className="font-display text-3xl md:text-4xl font-bold mb-10 text-center tracking-tight">Gallery</h2>
 
           <div className="columns-2 sm:columns-3 lg:columns-4 gap-3 space-y-3">
             {data.gallery.map((url, i) => (
               <MotionRevealItem key={i} index={i}>
                 <button
                   onClick={() => openLightbox(i)}
-                  className="w-full rounded-lg overflow-hidden block group focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  className="w-full rounded-xl overflow-hidden block group focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 >
                   <img
                     src={url}
                     alt={`Gallery image ${i + 1}`}
-                    className="w-full h-auto object-cover transition-transform duration-300 group-hover:scale-105"
+                    className="w-full h-auto object-cover transition-transform duration-500 group-hover:scale-105"
                     loading="lazy"
                   />
                 </button>
