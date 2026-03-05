@@ -1,3 +1,4 @@
+import { useState, useEffect, useCallback } from "react";
 import type { PublicEventData } from "@/lib/publicSite/types";
 import { Calendar, MapPin, ArrowDown } from "lucide-react";
 import { format } from "date-fns";
@@ -9,48 +10,95 @@ interface Props {
   parallax?: boolean;
 }
 
+const SLIDE_INTERVAL = 5000;
 const fallbackImg = "/placeholder.svg";
 
 export const PublicHeroSection: React.FC<Props> = ({ data, className = "", parallax = false }) => {
   const { hero } = data;
-  const bgImage = hero.images.length > 0 ? hero.images[0] : null;
+  const images = hero.images.length > 0 ? hero.images : [];
+  const hasImages = images.length > 0;
   const formattedDate = hero.date ? format(new Date(hero.date), "EEEE, MMMM d, yyyy") : null;
 
+  const [activeIdx, setActiveIdx] = useState(0);
+  const [prevIdx, setPrevIdx] = useState(0);
+  const [transitioning, setTransitioning] = useState(false);
+
+  const goNext = useCallback(() => {
+    if (images.length <= 1) return;
+    setTransitioning(true);
+    setPrevIdx(activeIdx);
+    setActiveIdx((prev) => (prev + 1) % images.length);
+  }, [activeIdx, images.length]);
+
+  useEffect(() => {
+    if (images.length <= 1) return;
+    const iv = setInterval(goNext, SLIDE_INTERVAL);
+    return () => clearInterval(iv);
+  }, [goNext, images.length]);
+
+  // Reset transition flag after animation completes
+  useEffect(() => {
+    if (!transitioning) return;
+    const t = setTimeout(() => setTransitioning(false), 1200);
+    return () => clearTimeout(t);
+  }, [transitioning]);
+
   return (
-    <section className={`relative overflow-hidden ${className}`}>
-      {/* Background */}
-      {bgImage ? (
+    <section className={`relative w-full overflow-hidden min-h-[100svh] ${className}`}>
+      {/* Full-bleed slideshow background */}
+      {hasImages ? (
         <div className="absolute inset-0">
-          <img
-            src={bgImage}
-            alt=""
-            className={`w-full h-full object-cover ${parallax ? "scale-110" : ""}`}
-            style={parallax ? { position: "fixed", top: 0, left: 0, width: "100%", height: "100%", objectFit: "cover", zIndex: -1 } : undefined}
-            onError={(e) => { (e.target as HTMLImageElement).src = fallbackImg; }}
-          />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/50 to-black/90" />
+          {images.map((src, i) => (
+            <img
+              key={src}
+              src={src}
+              alt=""
+              className="absolute inset-0 w-full h-full object-cover transition-opacity duration-[1200ms] ease-in-out"
+              style={{ opacity: i === activeIdx ? 1 : 0 }}
+              onError={(e) => { (e.target as HTMLImageElement).src = fallbackImg; }}
+            />
+          ))}
+          {/* Dark gradient overlay for text readability */}
+          <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/40 to-black/80" />
         </div>
       ) : (
         <div className="absolute inset-0 bg-gradient-to-br from-[hsl(var(--primary)/0.15)] via-background to-background" />
       )}
 
-      {/* Decorative grid */}
-      <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E\")" }} />
+      {/* Subtle grid texture */}
+      <div
+        className="absolute inset-0 opacity-[0.03] pointer-events-none"
+        style={{
+          backgroundImage:
+            "url(\"data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E\")",
+        }}
+      />
 
-      <div className={`relative z-10 max-w-6xl mx-auto px-6 sm:px-8 py-32 md:py-40 lg:py-52 ${bgImage ? "text-white" : ""}`}>
+      {/* Content — centered vertically & horizontally */}
+      <div
+        className={`relative z-10 flex flex-col items-center justify-center text-center min-h-[100svh] px-6 sm:px-8 py-24 ${
+          hasImages ? "text-white" : ""
+        }`}
+      >
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
-          className="space-y-8 max-w-3xl"
+          className="space-y-6 max-w-4xl"
         >
-          {/* Eyebrow */}
+          {/* Eyebrow badge */}
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.1 }}
           >
-            <span className={`inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] px-4 py-1.5 rounded-full border ${bgImage ? "border-white/20 bg-white/10 backdrop-blur-md text-white/90" : "border-primary/20 bg-primary/5 text-primary"}`}>
+            <span
+              className={`inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] px-4 py-1.5 rounded-full border ${
+                hasImages
+                  ? "border-white/20 bg-white/10 backdrop-blur-md text-white/90"
+                  : "border-primary/20 bg-primary/5 text-primary"
+              }`}
+            >
               {data.client.name}
             </span>
           </motion.div>
@@ -66,31 +114,72 @@ export const PublicHeroSection: React.FC<Props> = ({ data, className = "", paral
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.7, delay: 0.2 }}
-              className={`text-lg md:text-xl max-w-2xl leading-relaxed ${bgImage ? "text-white/80" : "text-muted-foreground"}`}
+              className={`text-lg md:text-xl max-w-2xl mx-auto leading-relaxed ${
+                hasImages ? "text-white/80" : "text-muted-foreground"
+              }`}
             >
               {hero.description}
             </motion.p>
           )}
 
-          {/* Meta pills */}
+          {/* Date & Location pills */}
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.35 }}
-            className="flex flex-wrap gap-3 pt-2"
+            className="flex flex-wrap justify-center gap-3 pt-2"
           >
             {formattedDate && (
-              <span className={`inline-flex items-center gap-2.5 text-sm font-medium px-5 py-2.5 rounded-xl border ${bgImage ? "border-white/15 bg-white/10 backdrop-blur-md text-white/90" : "border-border bg-card text-foreground"}`}>
+              <span
+                className={`inline-flex items-center gap-2.5 text-sm font-medium px-5 py-2.5 rounded-xl border ${
+                  hasImages
+                    ? "border-white/15 bg-white/10 backdrop-blur-md text-white/90"
+                    : "border-border bg-card text-foreground"
+                }`}
+              >
                 <Calendar className="h-4 w-4 opacity-70" /> {formattedDate}
               </span>
             )}
             {hero.venueName && (
-              <span className={`inline-flex items-center gap-2.5 text-sm font-medium px-5 py-2.5 rounded-xl border ${bgImage ? "border-white/15 bg-white/10 backdrop-blur-md text-white/90" : "border-border bg-card text-foreground"}`}>
+              <span
+                className={`inline-flex items-center gap-2.5 text-sm font-medium px-5 py-2.5 rounded-xl border ${
+                  hasImages
+                    ? "border-white/15 bg-white/10 backdrop-blur-md text-white/90"
+                    : "border-border bg-card text-foreground"
+                }`}
+              >
                 <MapPin className="h-4 w-4 opacity-70" /> {hero.venueName}
               </span>
             )}
           </motion.div>
         </motion.div>
+
+        {/* Slide indicators */}
+        {images.length > 1 && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 1, duration: 0.6 }}
+            className="absolute bottom-20 md:bottom-24 left-1/2 -translate-x-1/2 flex gap-2"
+          >
+            {images.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => {
+                  setPrevIdx(activeIdx);
+                  setActiveIdx(i);
+                  setTransitioning(true);
+                }}
+                className={`h-1.5 rounded-full transition-all duration-500 ${
+                  i === activeIdx
+                    ? "w-8 bg-white/90"
+                    : "w-1.5 bg-white/30 hover:bg-white/50"
+                }`}
+                aria-label={`Go to slide ${i + 1}`}
+              />
+            ))}
+          </motion.div>
+        )}
 
         {/* Scroll indicator */}
         <motion.div
@@ -99,9 +188,18 @@ export const PublicHeroSection: React.FC<Props> = ({ data, className = "", paral
           transition={{ delay: 1.2, duration: 0.8 }}
           className="absolute bottom-8 left-1/2 -translate-x-1/2 hidden md:flex flex-col items-center gap-2"
         >
-          <span className={`text-[10px] uppercase tracking-[0.25em] font-medium ${bgImage ? "text-white/40" : "text-muted-foreground/40"}`}>Scroll</span>
-          <motion.div animate={{ y: [0, 6, 0] }} transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}>
-            <ArrowDown className={`h-4 w-4 ${bgImage ? "text-white/30" : "text-muted-foreground/30"}`} />
+          <span
+            className={`text-[10px] uppercase tracking-[0.25em] font-medium ${
+              hasImages ? "text-white/40" : "text-muted-foreground/40"
+            }`}
+          >
+            Scroll
+          </span>
+          <motion.div
+            animate={{ y: [0, 6, 0] }}
+            transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
+          >
+            <ArrowDown className={`h-4 w-4 ${hasImages ? "text-white/30" : "text-muted-foreground/30"}`} />
           </motion.div>
         </motion.div>
       </div>
