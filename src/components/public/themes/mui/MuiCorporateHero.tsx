@@ -2,6 +2,7 @@ import type { PublicEventData } from "@/lib/publicSite/types";
 import { Box, Container, Typography, Chip, Button, Stack } from "@mui/material";
 import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
 import PlaceIcon from "@mui/icons-material/Place";
+import InsightsIcon from "@mui/icons-material/Insights";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import { format } from "date-fns";
 
@@ -17,11 +18,11 @@ export const MuiCorporateHero: React.FC<Props> = ({ data }) => {
       component="section"
       sx={{
         position: "relative",
-        minHeight: { xs: 480, md: 580 },
+        minHeight: { xs: 520, md: 640 },
         display: "flex",
         alignItems: "center",
         overflow: "hidden",
-        bgcolor: bgImage ? "transparent" : "grey.100",
+        bgcolor: "#0a0f1e",
       }}
     >
       {bgImage && (
@@ -32,35 +33,54 @@ export const MuiCorporateHero: React.FC<Props> = ({ data }) => {
             alt=""
             sx={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
           />
-          <Box sx={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(15,23,42,0.82), rgba(15,23,42,0.55), rgba(15,23,42,0.88))" }} />
+          <Box sx={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(10,15,30,0.88) 0%, rgba(10,15,30,0.55) 40%, rgba(10,15,30,0.92) 100%)" }} />
         </>
       )}
 
-      <Container maxWidth="lg" sx={{ position: "relative", zIndex: 1, py: { xs: 10, md: 14 } }}>
-        <Stack spacing={3} sx={{ maxWidth: 700 }}>
+      {/* Decorative gradient orbs */}
+      {!bgImage && (
+        <>
+          <Box sx={{ position: "absolute", top: -120, right: -120, width: 400, height: 400, borderRadius: "50%", background: "radial-gradient(circle, rgba(201,168,76,0.08), transparent 70%)" }} />
+          <Box sx={{ position: "absolute", bottom: -80, left: -80, width: 300, height: 300, borderRadius: "50%", background: "radial-gradient(circle, rgba(59,130,246,0.06), transparent 70%)" }} />
+        </>
+      )}
+
+      <Container maxWidth="lg" sx={{ position: "relative", zIndex: 1, py: { xs: 12, md: 16 } }}>
+        <Stack spacing={3.5} sx={{ maxWidth: 720 }}>
+          {/* Client badge */}
           <Chip
-            label={data.client.name}
+            icon={<InsightsIcon sx={{ fontSize: 14, color: "#c9a84c !important" }} />}
+            label={data.client.name.toUpperCase()}
             size="small"
             sx={{
               alignSelf: "flex-start",
-              bgcolor: bgImage ? "rgba(255,255,255,0.12)" : "primary.50",
-              color: bgImage ? "#fff" : "primary.main",
-              backdropFilter: bgImage ? "blur(8px)" : undefined,
-              border: bgImage ? "1px solid rgba(255,255,255,0.18)" : "1px solid",
-              borderColor: bgImage ? undefined : "primary.200",
+              bgcolor: "rgba(201,168,76,0.1)",
+              color: "#c9a84c",
+              border: "1px solid rgba(201,168,76,0.2)",
               fontWeight: 700,
-              letterSpacing: "0.08em",
-              textTransform: "uppercase",
-              fontSize: "0.65rem",
+              letterSpacing: "0.12em",
+              fontSize: "0.6rem",
             }}
           />
+
+          {/* Section label */}
+          <Typography
+            variant="overline"
+            sx={{
+              color: "#c9a84c",
+              fontSize: "0.7rem",
+              letterSpacing: "0.2em",
+            }}
+          >
+            EXECUTIVE LEADERSHIP SERIES
+          </Typography>
 
           <Typography
             variant="h1"
             sx={{
-              fontSize: { xs: "2.25rem", sm: "3rem", md: "3.75rem" },
-              color: bgImage ? "#fff" : "text.primary",
-              lineHeight: 1.08,
+              fontSize: { xs: "2.5rem", sm: "3.25rem", md: "4rem" },
+              color: "#fff",
+              lineHeight: 1.06,
             }}
           >
             {hero.title}
@@ -68,12 +88,12 @@ export const MuiCorporateHero: React.FC<Props> = ({ data }) => {
 
           {hero.description && (
             <Typography
-              variant="h6"
+              variant="body1"
               sx={{
-                color: bgImage ? "rgba(255,255,255,0.78)" : "text.secondary",
+                color: "rgba(255,255,255,0.65)",
                 fontWeight: 400,
-                fontSize: { xs: "1rem", md: "1.15rem" },
-                lineHeight: 1.65,
+                fontSize: { xs: "1rem", md: "1.1rem" },
+                lineHeight: 1.7,
                 maxWidth: 560,
               }}
             >
@@ -84,27 +104,27 @@ export const MuiCorporateHero: React.FC<Props> = ({ data }) => {
           <Stack direction="row" spacing={1.5} flexWrap="wrap" useFlexGap>
             {formattedDate && (
               <Chip
-                icon={<CalendarTodayIcon sx={{ fontSize: 16, color: bgImage ? "rgba(255,255,255,0.7) !important" : undefined }} />}
+                icon={<CalendarTodayIcon sx={{ fontSize: 14, color: "rgba(255,255,255,0.5) !important" }} />}
                 label={formattedDate}
                 variant="outlined"
+                size="small"
                 sx={{
-                  borderColor: bgImage ? "rgba(255,255,255,0.2)" : "divider",
-                  color: bgImage ? "rgba(255,255,255,0.88)" : "text.primary",
-                  bgcolor: bgImage ? "rgba(255,255,255,0.08)" : "background.paper",
-                  backdropFilter: bgImage ? "blur(8px)" : undefined,
+                  borderColor: "rgba(255,255,255,0.12)",
+                  color: "rgba(255,255,255,0.8)",
+                  bgcolor: "rgba(255,255,255,0.04)",
                 }}
               />
             )}
             {hero.venueName && (
               <Chip
-                icon={<PlaceIcon sx={{ fontSize: 16, color: bgImage ? "rgba(255,255,255,0.7) !important" : undefined }} />}
+                icon={<PlaceIcon sx={{ fontSize: 14, color: "rgba(255,255,255,0.5) !important" }} />}
                 label={hero.venueName}
                 variant="outlined"
+                size="small"
                 sx={{
-                  borderColor: bgImage ? "rgba(255,255,255,0.2)" : "divider",
-                  color: bgImage ? "rgba(255,255,255,0.88)" : "text.primary",
-                  bgcolor: bgImage ? "rgba(255,255,255,0.08)" : "background.paper",
-                  backdropFilter: bgImage ? "blur(8px)" : undefined,
+                  borderColor: "rgba(255,255,255,0.12)",
+                  color: "rgba(255,255,255,0.8)",
+                  bgcolor: "rgba(255,255,255,0.04)",
                 }}
               />
             )}
@@ -122,14 +142,14 @@ export const MuiCorporateHero: React.FC<Props> = ({ data }) => {
       <Box
         sx={{
           position: "absolute",
-          bottom: 24,
+          bottom: 28,
           left: "50%",
           transform: "translateX(-50%)",
           display: { xs: "none", md: "flex" },
           flexDirection: "column",
           alignItems: "center",
           gap: 0.5,
-          color: bgImage ? "rgba(255,255,255,0.35)" : "text.disabled",
+          color: "rgba(255,255,255,0.2)",
           animation: "bounce 2s infinite",
           "@keyframes bounce": {
             "0%, 100%": { transform: "translateX(-50%) translateY(0)" },
@@ -137,7 +157,7 @@ export const MuiCorporateHero: React.FC<Props> = ({ data }) => {
           },
         }}
       >
-        <Typography variant="overline" sx={{ fontSize: "0.6rem", color: "inherit" }}>Scroll</Typography>
+        <Typography variant="overline" sx={{ fontSize: "0.55rem", color: "inherit" }}>Scroll</Typography>
         <KeyboardArrowDownIcon sx={{ fontSize: 20 }} />
       </Box>
     </Box>

@@ -18,13 +18,6 @@ interface Announcement {
 
 const ROTATION_MS = 5000;
 
-const typeColor: Record<string, string> = {
-  info: "#3b82f6",
-  warning: "#f59e0b",
-  urgent: "#ef4444",
-  success: "#10b981",
-};
-
 interface Props { eventId: string; }
 
 export const MuiCorporateAnnouncementsTicker: React.FC<Props> = ({ eventId }) => {
@@ -66,20 +59,19 @@ export const MuiCorporateAnnouncementsTicker: React.FC<Props> = ({ eventId }) =>
   if (items.length === 0) return null;
   const current = items[idx % items.length];
   if (!current) return null;
-  const color = typeColor[current.type] || typeColor.info;
 
   return (
     <Box
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
       sx={{
-        borderBottom: `1px solid ${color}22`,
-        bgcolor: `${color}08`,
+        borderBottom: "1px solid rgba(201,168,76,0.08)",
+        bgcolor: "rgba(201,168,76,0.03)",
       }}
     >
       <Container maxWidth="lg">
         <Stack direction="row" alignItems="center" spacing={1.5} sx={{ py: 1.5 }}>
-          <CampaignIcon sx={{ color, fontSize: 18, flexShrink: 0 }} />
+          <CampaignIcon sx={{ color: "#c9a84c", fontSize: 18, flexShrink: 0 }} />
           <Box
             sx={{
               flex: 1,
@@ -90,23 +82,23 @@ export const MuiCorporateAnnouncementsTicker: React.FC<Props> = ({ eventId }) =>
             }}
           >
             <Stack direction="row" spacing={1} alignItems="center">
-              <Typography variant="body2" sx={{ fontWeight: 600 }}>{current.title}</Typography>
-              {current.is_pinned && <Chip label="Pinned" size="small" sx={{ height: 18, fontSize: 10 }} />}
+              <Typography variant="body2" sx={{ fontWeight: 600, color: "#e8e6e1" }}>{current.title}</Typography>
+              {current.is_pinned && <Chip label="Pinned" size="small" sx={{ height: 18, fontSize: 10, bgcolor: "rgba(201,168,76,0.1)", color: "#c9a84c" }} />}
             </Stack>
-            <Typography variant="caption" color="text.secondary" sx={{ display: "block" }} noWrap>
+            <Typography variant="caption" sx={{ display: "block", color: "#6b7a90" }} noWrap>
               {current.message}
             </Typography>
           </Box>
           {current.link_url && (
-            <MuiLink href={current.link_url} target="_blank" rel="noopener" underline="hover" sx={{ fontSize: 12, display: "flex", alignItems: "center", gap: 0.5, flexShrink: 0 }}>
+            <MuiLink href={current.link_url} target="_blank" rel="noopener" underline="hover" sx={{ fontSize: 12, display: "flex", alignItems: "center", gap: 0.5, flexShrink: 0, color: "#c9a84c" }}>
               {current.link_label || "Learn more"} <OpenInNewIcon sx={{ fontSize: 12 }} />
             </MuiLink>
           )}
           {items.length > 1 && (
             <Stack direction="row" alignItems="center" spacing={0}>
-              <IconButton size="small" onClick={() => goTo("prev")}><ChevronLeftIcon sx={{ fontSize: 16 }} /></IconButton>
-              <Typography variant="caption" sx={{ minWidth: 28, textAlign: "center" }}>{idx + 1}/{items.length}</Typography>
-              <IconButton size="small" onClick={() => goTo("next")}><ChevronRightIcon sx={{ fontSize: 16 }} /></IconButton>
+              <IconButton size="small" onClick={() => goTo("prev")} sx={{ color: "#6b7a90" }}><ChevronLeftIcon sx={{ fontSize: 16 }} /></IconButton>
+              <Typography variant="caption" sx={{ minWidth: 28, textAlign: "center", color: "#6b7a90" }}>{idx + 1}/{items.length}</Typography>
+              <IconButton size="small" onClick={() => goTo("next")} sx={{ color: "#6b7a90" }}><ChevronRightIcon sx={{ fontSize: 16 }} /></IconButton>
             </Stack>
           )}
         </Stack>

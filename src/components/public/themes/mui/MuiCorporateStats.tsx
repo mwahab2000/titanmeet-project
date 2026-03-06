@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import type { PublicEventData } from "@/lib/publicSite/types";
-import { Container, Box, Typography, Grid, Paper } from "@mui/material";
-import MicIcon from "@mui/icons-material/Mic";
-import EventIcon from "@mui/icons-material/Event";
-import ApartmentIcon from "@mui/icons-material/Apartment";
+import { Container, Box, Typography, Grid, Stack } from "@mui/material";
+import RecordVoiceOverIcon from "@mui/icons-material/RecordVoiceOver";
+import EventNoteIcon from "@mui/icons-material/EventNote";
 import GroupsIcon from "@mui/icons-material/Groups";
+import ApartmentIcon from "@mui/icons-material/Apartment";
 
 interface Props { data: PublicEventData; }
 
@@ -39,16 +39,16 @@ export const MuiCorporateStats: React.FC<Props> = ({ data }) => {
 
   const agendaDays = new Set(data.agenda.map((a) => a.dayNumber)).size;
   const stats = [
-    { icon: MicIcon, label: "Speakers", value: data.speakers.length },
-    { icon: EventIcon, label: "Sessions", value: data.agenda.length },
-    ...(agendaDays > 1 ? [{ icon: ApartmentIcon, label: "Days", value: agendaDays }] : []),
-    ...(data.organizers.length > 0 ? [{ icon: GroupsIcon, label: "Organizers", value: data.organizers.length }] : []),
+    { icon: RecordVoiceOverIcon, label: "Distinguished Speakers", value: data.speakers.length },
+    { icon: EventNoteIcon, label: "Strategic Sessions", value: data.agenda.length },
+    ...(agendaDays > 1 ? [{ icon: ApartmentIcon, label: "Event Days", value: agendaDays }] : []),
+    ...(data.organizers.length > 0 ? [{ icon: GroupsIcon, label: "Lead Organizers", value: data.organizers.length }] : []),
   ].filter((s) => s.value > 0);
 
   if (stats.length < 2) return null;
 
   return (
-    <Box ref={sectionRef} sx={{ py: { xs: 6, md: 10 } }}>
+    <Box ref={sectionRef} sx={{ py: { xs: 7, md: 10 }, bgcolor: "#0a0f1e" }}>
       <Container maxWidth="lg">
         <Grid container spacing={3} justifyContent="center">
           {stats.map((s) => {
@@ -56,16 +56,21 @@ export const MuiCorporateStats: React.FC<Props> = ({ data }) => {
             const count = useCountUp(s.value, 1200, triggered);
             return (
               <Grid size={{ xs: 6, sm: 3 }} key={s.label}>
-                <Paper
-                  variant="outlined"
-                  sx={{ textAlign: "center", py: 4, px: 2, borderColor: "grey.200" }}
-                >
-                  <Box sx={{ width: 48, height: 48, borderRadius: 3, bgcolor: "primary.50", display: "inline-flex", alignItems: "center", justifyContent: "center", mb: 2 }}>
-                    <Icon sx={{ color: "primary.main", fontSize: 24 }} />
+                <Stack alignItems="center" spacing={1.5} sx={{ textAlign: "center" }}>
+                  <Box sx={{
+                    width: 52, height: 52, borderRadius: "50%",
+                    bgcolor: "rgba(201,168,76,0.08)", border: "1px solid rgba(201,168,76,0.15)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                  }}>
+                    <Icon sx={{ color: "#c9a84c", fontSize: 22 }} />
                   </Box>
-                  <Typography variant="h3" sx={{ fontSize: { xs: "2rem", md: "2.5rem" }, fontWeight: 700 }}>{count}</Typography>
-                  <Typography variant="overline" sx={{ color: "text.secondary" }}>{s.label}</Typography>
-                </Paper>
+                  <Typography sx={{ fontFamily: "'Playfair Display', serif", fontSize: { xs: "2rem", md: "2.5rem" }, fontWeight: 700, color: "#fff", lineHeight: 1 }}>
+                    {count}
+                  </Typography>
+                  <Typography variant="overline" sx={{ color: "#6b7a90", fontSize: "0.55rem" }}>
+                    {s.label}
+                  </Typography>
+                </Stack>
               </Grid>
             );
           })}
