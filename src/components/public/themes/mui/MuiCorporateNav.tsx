@@ -51,16 +51,17 @@ export const MuiCorporateNav: React.FC<Props> = ({ data }) => {
             variant="subtitle2"
             sx={{
               fontWeight: 700,
-              color: "text.primary",
+              color: "#c9a84c",
               mr: 3,
               flexShrink: 0,
               display: { xs: "none", sm: "block" },
               fontSize: "0.8rem",
+              letterSpacing: "0.05em",
             }}
           >
             {data.event.title}
           </Typography>
-          <Box sx={{ height: 20, width: "1px", bgcolor: "divider", mr: 1, display: { xs: "none", sm: "block" } }} />
+          <Box sx={{ height: 20, width: "1px", bgcolor: "rgba(255,255,255,0.1)", mr: 1, display: { xs: "none", sm: "block" } }} />
           {availableLinks.map((link) => (
             <Chip
               key={link.id}
@@ -69,15 +70,14 @@ export const MuiCorporateNav: React.FC<Props> = ({ data }) => {
               href={`#${link.id}`}
               clickable
               size="small"
-              variant={active === link.id ? "filled" : "outlined"}
-              color={active === link.id ? "primary" : "default"}
+              variant="outlined"
               sx={{
                 fontWeight: 500,
                 fontSize: "0.75rem",
-                borderColor: active === link.id ? undefined : "transparent",
-                bgcolor: active === link.id ? "primary.50" : "transparent",
-                color: active === link.id ? "primary.dark" : "text.secondary",
-                "&:hover": { bgcolor: active === link.id ? "primary.100" : "grey.100" },
+                borderColor: active === link.id ? "rgba(201,168,76,0.4)" : "transparent",
+                bgcolor: active === link.id ? "rgba(201,168,76,0.1)" : "transparent",
+                color: active === link.id ? "#c9a84c" : "#8b95a8",
+                "&:hover": { bgcolor: "rgba(255,255,255,0.05)" },
               }}
             />
           ))}

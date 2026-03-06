@@ -4,7 +4,6 @@ import { muiCorporateTheme } from "./mui/muiCorporateTheme";
 import { MuiCorporateNav } from "./mui/MuiCorporateNav";
 import { MuiCorporateHero } from "./mui/MuiCorporateHero";
 import { MuiCorporateCountdown } from "./mui/MuiCorporateCountdown";
-import { MuiCorporateAnnouncements } from "./mui/MuiCorporateAnnouncements";
 import { MuiCorporateAnnouncementsTicker } from "./mui/MuiCorporateAnnouncementsTicker";
 import { MuiCorporateStats } from "./mui/MuiCorporateStats";
 import { MuiCorporateAbout } from "./mui/MuiCorporateAbout";
@@ -22,12 +21,11 @@ interface Props { data: PublicEventData; }
 export const ThemePublicCorporateMui: React.FC<Props> = ({ data }) => (
   <ThemeProvider theme={muiCorporateTheme}>
     <CssBaseline />
-    <div style={{ minHeight: "100vh", backgroundColor: muiCorporateTheme.palette.background.default }}>
+    <div style={{ minHeight: "100vh", backgroundColor: "#0a0f1e" }}>
       <MuiCorporateNav data={data} />
       <MuiCorporateHero data={data} />
       <MuiCorporateAnnouncementsTicker eventId={data.event.id} />
       <MuiCorporateCountdown data={data} />
-      <MuiCorporateAnnouncements data={data} />
       <MuiCorporateStats data={data} />
       <MuiCorporateAbout data={data} />
       <MuiCorporateAgenda data={data} />

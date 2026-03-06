@@ -12,10 +12,10 @@ export const MuiCorporateGallery: React.FC<Props> = ({ data }) => {
   if (!data.gallery || data.gallery.length === 0) return null;
 
   return (
-    <Box component="section" id="gallery" sx={{ py: { xs: 8, md: 12 } }}>
+    <Box component="section" id="gallery" sx={{ py: { xs: 8, md: 12 }, bgcolor: "#0d1528" }}>
       <Container maxWidth="lg">
         <Box sx={{ display: "flex", alignItems: "center", gap: 3, mb: 6 }}>
-          <Typography variant="h3" sx={{ fontSize: { xs: "1.75rem", md: "2.25rem" } }}>Gallery</Typography>
+          <Typography variant="h3" sx={{ fontSize: { xs: "1.75rem", md: "2.25rem" }, color: "#fff" }}>Gallery</Typography>
           <Divider sx={{ flex: 1 }} />
         </Box>
         <ImageList variant="masonry" cols={window.innerWidth < 600 ? 2 : 3} gap={12}>
