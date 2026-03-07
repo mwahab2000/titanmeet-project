@@ -1014,6 +1014,7 @@ export type Database = {
           bio: string | null
           day_number: number | null
           event_id: string
+          gender: string
           id: string
           linkedin_url: string | null
           name: string
@@ -1024,6 +1025,7 @@ export type Database = {
           bio?: string | null
           day_number?: number | null
           event_id: string
+          gender?: string
           id?: string
           linkedin_url?: string | null
           name: string
@@ -1034,6 +1036,7 @@ export type Database = {
           bio?: string | null
           day_number?: number | null
           event_id?: string
+          gender?: string
           id?: string
           linkedin_url?: string | null
           name?: string
