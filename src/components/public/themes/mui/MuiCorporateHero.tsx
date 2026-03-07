@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import type { PublicEventData } from "@/lib/publicSite/types";
 import { Box, Container, Typography, Chip, Button, Stack } from "@mui/material";
 import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
@@ -5,6 +6,8 @@ import PlaceIcon from "@mui/icons-material/Place";
 import InsightsIcon from "@mui/icons-material/Insights";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import { format } from "date-fns";
+
+const AnimatedShaderBackground = lazy(() => import("@/components/ui/animated-shader-background"));
 
 interface Props { data: PublicEventData; }
 
