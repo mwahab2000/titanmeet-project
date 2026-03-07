@@ -3,7 +3,7 @@ import { useParams, Outlet, useLocation, Link } from "react-router-dom";
 import { EventWorkspaceProvider, useEventWorkspace } from "@/contexts/EventWorkspaceContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Save, Loader2, Check, AlertCircle, ChevronRight, Copy } from "lucide-react";
+import { Loader2, Check, AlertCircle, ChevronRight, Copy } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
