@@ -1,8 +1,10 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, lazy, Suspense } from "react";
 import type { PublicEventData } from "@/lib/publicSite/types";
 import { Calendar, MapPin, ArrowDown } from "lucide-react";
 import { format } from "date-fns";
 import { motion } from "framer-motion";
+
+const AnimatedShaderBackground = lazy(() => import("@/components/ui/animated-shader-background"));
 
 interface Props {
   data: PublicEventData;
@@ -96,7 +98,12 @@ export const PublicHeroSection: React.FC<Props> = ({ data, className = "", paral
           <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/40 to-black/80" />
         </div>
       ) : (
-        <div className="absolute inset-0 bg-gradient-to-br from-[hsl(var(--primary)/0.15)] via-background to-background" />
+        <>
+          <Suspense fallback={null}>
+            <AnimatedShaderBackground />
+          </Suspense>
+          <div className="absolute inset-0 bg-black/40" />
+        </>
       )}
 
       {/* Subtle grid texture */}
