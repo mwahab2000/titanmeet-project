@@ -3,7 +3,7 @@ import { useParams, Outlet, useLocation, Link } from "react-router-dom";
 import { EventWorkspaceProvider, useEventWorkspace } from "@/contexts/EventWorkspaceContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Save, Loader2, Check, AlertCircle, ChevronRight, Copy } from "lucide-react";
+import { Loader2, Check, AlertCircle, ChevronRight, Copy } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -83,9 +83,6 @@ const WorkspaceHeader = () => {
           </span>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={manualSave} disabled={isArchived}>
-            <Save className="h-4 w-4 mr-1" /> Save
-          </Button>
           <Button variant="outline" size="sm" onClick={() => setTemplateDialogOpen(true)}>
             <Copy className="h-4 w-4 mr-1" /> Save as Template
           </Button>
