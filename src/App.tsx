@@ -85,8 +85,10 @@ const App = () => (
                   <Route path="events/new" element={<CreateEvent />} />
                   <Route path="events/quick-setup" element={<QuickEventWizard />} />
                   <Route path="events/drafts" element={<DraftsPage />} />
-                  <Route path="templates" element={<TemplatesPage />} />
+                  <Route path="clients" element={<ClientsPage />} />
                   <Route path="clients/new" element={<CreateClient />} />
+                  <Route path="clients/:clientId/edit" element={<EditClient />} />
+                  <Route path="templates" element={<TemplatesPage />} />
                   <Route path="attendees" element={<Attendees />} />
                   <Route path="settings" element={<DashboardSettings />} />
                   <Route path="billing" element={<BillingPage />} />
