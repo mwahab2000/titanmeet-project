@@ -1,8 +1,10 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, lazy, Suspense } from "react";
 import type { PublicEventData } from "@/lib/publicSite/types";
 import { Calendar, MapPin, ArrowDown } from "lucide-react";
 import { format } from "date-fns";
 import { motion } from "framer-motion";
+
+const AnimatedShaderBackground = lazy(() => import("@/components/ui/animated-shader-background"));
 
 interface Props {
   data: PublicEventData;
