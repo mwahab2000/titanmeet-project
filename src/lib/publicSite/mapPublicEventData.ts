@@ -72,6 +72,7 @@ export function mapPublicEventData(
       bio: s.bio ?? null,
       photoUrl: s.photo_url ? getPublicAssetUrl("event-assets", s.photo_url) : null,
       linkedinUrl: s.linkedin_url ?? null,
+      gender: s.gender ?? "male",
     })),
     venue: {
       name: event.venue_name ?? null,
