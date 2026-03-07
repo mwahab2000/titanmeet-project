@@ -27,7 +27,7 @@ export const MuiCorporateSpeakers: React.FC<Props> = ({ data }) => {
               <Card variant="outlined" sx={{ height: "100%", textAlign: "center", bgcolor: "#111b30", borderColor: "rgba(255,255,255,0.06)" }}>
                 <CardContent sx={{ p: { xs: 3, sm: 4 }, display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
                   <Avatar
-                    src={s.photoUrl || fallback}
+                    src={s.photoUrl || getDefaultAvatar(s.gender)}
                     alt={s.name}
                     sx={{
                       width: 96,
@@ -36,7 +36,7 @@ export const MuiCorporateSpeakers: React.FC<Props> = ({ data }) => {
                       transition: "border-color 0.3s",
                       ".MuiCard-root:hover &": { borderColor: "rgba(201,168,76,0.5)" },
                     }}
-                    imgProps={{ onError: (e: any) => { e.target.src = fallback; } }}
+                    imgProps={{ onError: (e: any) => { e.target.src = getDefaultAvatar(s.gender); } }}
                   />
                   <Box>
                     <Typography variant="h6" sx={{ fontSize: "1.05rem", color: "#fff" }}>{s.name}</Typography>
