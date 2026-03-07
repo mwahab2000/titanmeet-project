@@ -12,7 +12,6 @@ const themes = [
   { id: "corporate", name: "Corporate Clean", desc: "Structured, business-focused", color: "bg-[hsl(210,20%,95%)]" },
   { id: "elegant", name: "Elegant Premium", desc: "Warm tones, refined serif", color: "bg-[hsl(30,20%,95%)]" },
   { id: "modern", name: "Modern Conference", desc: "Tech-forward, bold primary", color: "bg-[hsl(220,60%,95%)]" },
-  { id: "bold", name: "Bold Immersive", desc: "Dark, dramatic gradients", color: "bg-[hsl(260,30%,15%)]" },
 ];
 
 import { PUBLISH_CHECKS } from "@/lib/publishChecks";
