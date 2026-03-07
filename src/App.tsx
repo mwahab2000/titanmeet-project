@@ -21,6 +21,7 @@ import TemplatesPage from "./pages/TemplatesPage";
 import CreateClient from "./pages/CreateClient";
 import EditClient from "./pages/EditClient";
 import ClientsPage from "./pages/ClientsPage";
+import Attendees from "./pages/Attendees";
 import DashboardSettings from "./pages/DashboardSettings";
 import BillingPage from "./pages/BillingPage";
 import AdminBillingPage from "./pages/AdminBillingPage";
