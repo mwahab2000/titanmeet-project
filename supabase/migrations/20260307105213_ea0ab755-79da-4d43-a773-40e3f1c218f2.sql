@@ -1,0 +1,1 @@
+ALTER TABLE public.speakers ADD COLUMN IF NOT EXISTS day_number integer DEFAULT 1;
