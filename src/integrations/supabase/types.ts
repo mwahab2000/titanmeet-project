@@ -1012,6 +1012,7 @@ export type Database = {
       speakers: {
         Row: {
           bio: string | null
+          day_number: number | null
           event_id: string
           id: string
           linkedin_url: string | null
@@ -1021,6 +1022,7 @@ export type Database = {
         }
         Insert: {
           bio?: string | null
+          day_number?: number | null
           event_id: string
           id?: string
           linkedin_url?: string | null
@@ -1030,6 +1032,7 @@ export type Database = {
         }
         Update: {
           bio?: string | null
+          day_number?: number | null
           event_id?: string
           id?: string
           linkedin_url?: string | null
