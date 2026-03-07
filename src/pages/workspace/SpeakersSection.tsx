@@ -12,6 +12,8 @@ import { useSignedUrl } from "@/hooks/useSignedUrls";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import avatarMale from "@/assets/avatar-male.png";
+import avatarFemale from "@/assets/avatar-female.png";
 
 interface Speaker {
   id: string;
@@ -21,12 +23,26 @@ interface Speaker {
   photo_url: string | null;
   linkedin_url: string | null;
   day_number: number;
+  gender: string;
   event_id: string;
 }
 
-const DAY_OPTIONS = Array.from({ length: 10 }, (_, i) => i + 1);
+interface DraftRow {
+  day_number: number;
+  name: string;
+  title: string;
+  gender: string;
+  linkedin_url: string;
+}
 
+const EMPTY_DRAFT: DraftRow = { day_number: 1, name: "", title: "", gender: "male", linkedin_url: "" };
+
+const DAY_OPTIONS = Array.from({ length: 10 }, (_, i) => i + 1);
 const LINKEDIN_REGEX = /^https:\/\/(www\.)?linkedin\.com\//;
+
+function getDefaultAvatar(gender: string) {
+  return gender === "female" ? avatarFemale : avatarMale;
+}
 
 /* ── Inline-editable text cell ── */
 const EditableCell = ({
@@ -37,6 +53,7 @@ const EditableCell = ({
   className = "",
   error = false,
   validate,
+  onEnter,
   onTabNext,
   onTabPrev,
 }: {
@@ -47,6 +64,7 @@ const EditableCell = ({
   className?: string;
   error?: boolean;
   validate?: (v: string) => boolean;
+  onEnter?: () => void;
   onTabNext?: () => void;
   onTabPrev?: () => void;
 }) => {
@@ -85,7 +103,11 @@ const EditableCell = ({
       onChange={(e) => setDraft(e.target.value)}
       onBlur={() => commit(draft)}
       onKeyDown={(e) => {
-        if (e.key === "Enter") { commit(draft); }
+        if (e.key === "Enter") {
+          e.preventDefault();
+          commit(draft);
+          onEnter?.();
+        }
         if (e.key === "Escape") { setDraft(value); setEditing(false); }
         if (e.key === "Tab") {
           e.preventDefault();
@@ -104,10 +126,12 @@ const ImageCell = ({
   speaker,
   disabled,
   onUpload,
+  onRemove,
 }: {
   speaker: Speaker;
   disabled: boolean;
   onUpload: (id: string, file: File) => void;
+  onRemove: (id: string) => void;
 }) => {
   const fileRef = useRef<HTMLInputElement>(null);
   const signedUrl = useSignedUrl("event-assets", speaker.photo_url);
@@ -136,13 +160,67 @@ const ImageCell = ({
         {hasImage ? "Replace" : "Upload"}
       </Button>
       {hasImage && signedUrl && (
-        <a href={signedUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-0.5">
-          View <ExternalLink className="h-3 w-3" />
-        </a>
+        <>
+          <a href={signedUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-0.5">
+            View <ExternalLink className="h-3 w-3" />
+          </a>
+          {!disabled && (
+            <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => onRemove(speaker.id)} title="Remove image">
+              <X className="h-3 w-3 text-destructive" />
+            </Button>
+          )}
+        </>
       )}
     </div>
   );
 };
+
+/* ── Avatar preview ── */
+const AvatarPreview = ({ speaker }: { speaker: Speaker }) => {
+  const signedUrl = useSignedUrl("event-assets", speaker.photo_url);
+  const src = speaker.photo_url && signedUrl ? signedUrl : getDefaultAvatar(speaker.gender);
+
+  return (
+    <img
+      src={src}
+      alt={speaker.name || "Speaker"}
+      className="h-8 w-8 rounded-full object-cover border border-border"
+    />
+  );
+};
+
+/* ── Draft row inline editor cell ── */
+const DraftCell = ({
+  value,
+  onChange,
+  placeholder,
+  onEnter,
+  onTabNext,
+  onTabPrev,
+  error = false,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder: string;
+  onEnter?: () => void;
+  onTabNext?: () => void;
+  onTabPrev?: () => void;
+  error?: boolean;
+}) => (
+  <Input
+    value={value}
+    onChange={(e) => onChange(e.target.value)}
+    placeholder={placeholder}
+    className={`h-8 text-sm px-2 ${error ? "border-destructive" : ""}`}
+    onKeyDown={(e) => {
+      if (e.key === "Enter") { e.preventDefault(); onEnter?.(); }
+      if (e.key === "Tab") {
+        e.preventDefault();
+        if (e.shiftKey) onTabPrev?.(); else onTabNext?.();
+      }
+    }}
+  />
+);
 
 /* ── Main component ── */
 const SpeakersSection = () => {
@@ -150,6 +228,7 @@ const SpeakersSection = () => {
   const [speakers, setSpeakers] = useState<Speaker[]>([]);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [filterDay, setFilterDay] = useState<string>("all");
+  const [draft, setDraft] = useState<DraftRow>({ ...EMPTY_DRAFT });
 
   const load = useCallback(async () => {
     if (!event) return;
@@ -165,15 +244,6 @@ const SpeakersSection = () => {
   useEffect(() => { load(); }, [load]);
 
   /* ── CRUD ── */
-  const addSpeaker = async () => {
-    if (!event) return;
-    const { error } = await supabase
-      .from("speakers" as any)
-      .insert({ event_id: event.id, name: "", title: "", day_number: 1 } as any);
-    if (error) toast.error(error.message);
-    else { load(); refreshCounts(); }
-  };
-
   const updateField = async (id: string, field: string, value: any) => {
     await supabase.from("speakers" as any).update({ [field]: value } as any).eq("id", id);
     setSpeakers((prev) => prev.map((s) => (s.id === id ? { ...s, [field]: value } : s)));
@@ -190,6 +260,7 @@ const SpeakersSection = () => {
         bio: speaker.bio,
         linkedin_url: speaker.linkedin_url,
         day_number: speaker.day_number,
+        gender: speaker.gender,
       } as any);
     if (error) toast.error(error.message);
     else { load(); refreshCounts(); }
@@ -214,14 +285,39 @@ const SpeakersSection = () => {
     toast.success("Photo uploaded");
   };
 
+  const removePhoto = async (speakerId: string) => {
+    await updateField(speakerId, "photo_url", null);
+    toast.success("Photo removed");
+  };
+
+  /* ── Draft row: create speaker on Enter ── */
+  const commitDraft = async () => {
+    if (!event || !draft.name.trim() || !draft.title.trim()) {
+      toast.error("Name and Title are required");
+      return;
+    }
+    const { error } = await supabase.from("speakers" as any).insert({
+      event_id: event.id,
+      name: draft.name.trim(),
+      title: draft.title.trim(),
+      day_number: draft.day_number,
+      gender: draft.gender,
+      linkedin_url: draft.linkedin_url.trim() || null,
+    } as any);
+    if (error) { toast.error(error.message); return; }
+    setDraft({ ...EMPTY_DRAFT });
+    load();
+    refreshCounts();
+    toast.success("Speaker added");
+  };
+
   /* ── Bulk paste ── */
   const handlePaste = useCallback(async (e: React.ClipboardEvent) => {
     if (!event) return;
     const text = e.clipboardData.getData("text/plain");
     const lines = text.split("\n").filter((l) => l.trim());
-    if (lines.length < 2) return; // only bulk‐paste when ≥2 lines
+    if (lines.length < 2) return;
     e.preventDefault();
-
     const rows = lines.map((line) => {
       const cols = line.split("\t");
       return {
@@ -229,10 +325,10 @@ const SpeakersSection = () => {
         day_number: parseInt(cols[0]) || 1,
         name: cols[1]?.trim() || "",
         title: cols[2]?.trim() || "",
-        linkedin_url: cols[3]?.trim() || null,
+        gender: (cols[3]?.trim().toLowerCase() === "female") ? "female" : "male",
+        linkedin_url: cols[4]?.trim() || null,
       };
     }).filter((r) => r.name);
-
     if (!rows.length) return;
     const { error } = await supabase.from("speakers" as any).insert(rows as any);
     if (error) toast.error(error.message);
@@ -269,137 +365,252 @@ const SpeakersSection = () => {
               ))}
             </SelectContent>
           </Select>
-          {!isArchived && (
-            <Button size="sm" variant="outline" className="gap-1" onClick={addSpeaker}>
-              <Plus className="h-4 w-4" /> Add Speaker
-            </Button>
-          )}
         </div>
       </CardHeader>
 
       <CardContent>
-        {speakers.length === 0 && (
-          <p className="text-sm text-muted-foreground py-4 text-center">
-            No speakers yet. Click "Add Speaker" or paste rows (Day, Name, Title, LinkedIn — tab-separated).
-          </p>
-        )}
+        <ScrollArea className="w-full" onPaste={handlePaste}>
+          <div className="min-w-[900px]">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/40">
+                  <TableHead className="w-[80px]">Day</TableHead>
+                  <TableHead className="w-[170px]">Name *</TableHead>
+                  <TableHead className="w-[170px]">Title *</TableHead>
+                  <TableHead className="w-[100px]">Gender</TableHead>
+                  <TableHead className="w-[180px]">LinkedIn</TableHead>
+                  <TableHead className="w-[150px]">Image</TableHead>
+                  <TableHead className="w-[50px]">Preview</TableHead>
+                  <TableHead className="w-[100px] text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {/* ── Existing rows ── */}
+                {filtered.map((speaker) => {
+                  const errs = validate(speaker);
+                  return (
+                    <TableRow key={speaker.id} className="group hover:bg-muted/20">
+                      {/* Day */}
+                      <TableCell className="p-1">
+                        <Select
+                          value={String(speaker.day_number ?? 1)}
+                          onValueChange={(v) => updateField(speaker.id, "day_number", parseInt(v))}
+                          disabled={isArchived}
+                        >
+                          <SelectTrigger className="h-8 text-xs border-0 shadow-none">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {DAY_OPTIONS.map((d) => (
+                              <SelectItem key={d} value={String(d)}>Day {d}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
 
-        {speakers.length > 0 && (
-          <ScrollArea className="w-full" onPaste={handlePaste}>
-            <div className="min-w-[700px]">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/40">
-                    <TableHead className="w-[80px]">Day</TableHead>
-                    <TableHead className="w-[180px]">Name *</TableHead>
-                    <TableHead className="w-[180px]">Title *</TableHead>
-                    <TableHead className="w-[160px]">Image</TableHead>
-                    <TableHead className="w-[200px]">LinkedIn</TableHead>
-                    <TableHead className="w-[100px] text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filtered.map((speaker) => {
-                    const errs = validate(speaker);
-                    return (
-                      <TableRow key={speaker.id} className="group">
-                        {/* Day */}
-                        <TableCell className="p-1">
-                          <Select
-                            value={String(speaker.day_number ?? 1)}
-                            onValueChange={(v) => updateField(speaker.id, "day_number", parseInt(v))}
-                            disabled={isArchived}
-                          >
-                            <SelectTrigger className="h-8 text-xs border-0 shadow-none">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {DAY_OPTIONS.map((d) => (
-                                <SelectItem key={d} value={String(d)}>Day {d}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
+                      {/* Name */}
+                      <TableCell className="p-1">
+                        <EditableCell
+                          value={speaker.name}
+                          onChange={(v) => updateField(speaker.id, "name", v)}
+                          disabled={isArchived}
+                          placeholder="Speaker name"
+                          error={errs.name}
+                        />
+                      </TableCell>
 
-                        {/* Name */}
-                        <TableCell className="p-1">
+                      {/* Title */}
+                      <TableCell className="p-1">
+                        <EditableCell
+                          value={speaker.title || ""}
+                          onChange={(v) => updateField(speaker.id, "title", v)}
+                          disabled={isArchived}
+                          placeholder="Title / Role"
+                          error={errs.title}
+                        />
+                      </TableCell>
+
+                      {/* Gender */}
+                      <TableCell className="p-1">
+                        <Select
+                          value={speaker.gender || "male"}
+                          onValueChange={(v) => updateField(speaker.id, "gender", v)}
+                          disabled={isArchived}
+                        >
+                          <SelectTrigger className="h-8 text-xs border-0 shadow-none">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="male">Male</SelectItem>
+                            <SelectItem value="female">Female</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+
+                      {/* LinkedIn */}
+                      <TableCell className="p-1">
+                        <div className="flex items-center gap-1">
                           <EditableCell
-                            value={speaker.name}
-                            onChange={(v) => updateField(speaker.id, "name", v)}
+                            value={speaker.linkedin_url || ""}
+                            onChange={(v) => updateField(speaker.id, "linkedin_url", v || null)}
                             disabled={isArchived}
-                            placeholder="Speaker name"
-                            error={errs.name}
+                            placeholder="https://linkedin.com/..."
+                            error={errs.linkedin}
+                            validate={(v) => !v || LINKEDIN_REGEX.test(v)}
+                            className="flex-1"
                           />
-                        </TableCell>
+                          {speaker.linkedin_url && LINKEDIN_REGEX.test(speaker.linkedin_url) && (
+                            <a href={speaker.linkedin_url} target="_blank" rel="noopener noreferrer">
+                              <ExternalLink className="h-3.5 w-3.5 text-muted-foreground hover:text-primary" />
+                            </a>
+                          )}
+                        </div>
+                      </TableCell>
 
-                        {/* Title */}
-                        <TableCell className="p-1">
-                          <EditableCell
-                            value={speaker.title || ""}
-                            onChange={(v) => updateField(speaker.id, "title", v)}
-                            disabled={isArchived}
-                            placeholder="Title / Role"
-                            error={errs.title}
-                          />
-                        </TableCell>
+                      {/* Image */}
+                      <TableCell className="p-1">
+                        <ImageCell speaker={speaker} disabled={isArchived} onUpload={uploadPhoto} onRemove={removePhoto} />
+                      </TableCell>
 
-                        {/* Image */}
-                        <TableCell className="p-1">
-                          <ImageCell speaker={speaker} disabled={isArchived} onUpload={uploadPhoto} />
-                        </TableCell>
+                      {/* Preview Avatar */}
+                      <TableCell className="p-1">
+                        <AvatarPreview speaker={speaker} />
+                      </TableCell>
 
-                        {/* LinkedIn */}
-                        <TableCell className="p-1">
-                          <div className="flex items-center gap-1">
-                            <EditableCell
-                              value={speaker.linkedin_url || ""}
-                              onChange={(v) => updateField(speaker.id, "linkedin_url", v || null)}
-                              disabled={isArchived}
-                              placeholder="https://www.linkedin.com/..."
-                              error={errs.linkedin}
-                              validate={(v) => !v || LINKEDIN_REGEX.test(v)}
-                              className="flex-1"
-                            />
-                            {speaker.linkedin_url && LINKEDIN_REGEX.test(speaker.linkedin_url) && (
-                              <a href={speaker.linkedin_url} target="_blank" rel="noopener noreferrer">
-                                <ExternalLink className="h-3.5 w-3.5 text-muted-foreground hover:text-primary" />
-                              </a>
-                            )}
-                          </div>
-                        </TableCell>
-
-                        {/* Actions */}
-                        <TableCell className="p-1 text-right">
-                          {deleteConfirm === speaker.id ? (
-                            <span className="flex items-center justify-end gap-1">
-                              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => deleteRow(speaker.id)}>
-                                <Check className="h-4 w-4 text-destructive" />
+                      {/* Actions */}
+                      <TableCell className="p-1 text-right">
+                        {deleteConfirm === speaker.id ? (
+                          <span className="flex items-center justify-end gap-1">
+                            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => deleteRow(speaker.id)}>
+                              <Check className="h-4 w-4 text-destructive" />
+                            </Button>
+                            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setDeleteConfirm(null)}>
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </span>
+                        ) : (
+                          !isArchived && (
+                            <span className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => duplicateRow(speaker)} title="Duplicate">
+                                <Copy className="h-4 w-4" />
                               </Button>
-                              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setDeleteConfirm(null)}>
-                                <X className="h-4 w-4" />
+                              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setDeleteConfirm(speaker.id)} title="Delete">
+                                <Trash2 className="h-4 w-4 text-destructive" />
                               </Button>
                             </span>
-                          ) : (
-                            !isArchived && (
-                              <span className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => duplicateRow(speaker)} title="Duplicate">
-                                  <Copy className="h-4 w-4" />
-                                </Button>
-                                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setDeleteConfirm(speaker.id)} title="Delete">
-                                  <Trash2 className="h-4 w-4 text-destructive" />
-                                </Button>
-                              </span>
-                            )
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-            <ScrollBar orientation="horizontal" />
-          </ScrollArea>
+                          )
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+
+                {/* ── Always-empty draft row ── */}
+                {!isArchived && (
+                  <TableRow className="bg-muted/10 border-t-2 border-dashed border-border">
+                    {/* Day */}
+                    <TableCell className="p-1">
+                      <Select
+                        value={String(draft.day_number)}
+                        onValueChange={(v) => setDraft((d) => ({ ...d, day_number: parseInt(v) }))}
+                      >
+                        <SelectTrigger className="h-8 text-xs border-0 shadow-none">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {DAY_OPTIONS.map((d) => (
+                            <SelectItem key={d} value={String(d)}>Day {d}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+
+                    {/* Name */}
+                    <TableCell className="p-1">
+                      <DraftCell
+                        value={draft.name}
+                        onChange={(v) => setDraft((d) => ({ ...d, name: v }))}
+                        placeholder="New speaker name..."
+                        onEnter={commitDraft}
+                        error={false}
+                      />
+                    </TableCell>
+
+                    {/* Title */}
+                    <TableCell className="p-1">
+                      <DraftCell
+                        value={draft.title}
+                        onChange={(v) => setDraft((d) => ({ ...d, title: v }))}
+                        placeholder="Title / Role..."
+                        onEnter={commitDraft}
+                        error={false}
+                      />
+                    </TableCell>
+
+                    {/* Gender */}
+                    <TableCell className="p-1">
+                      <Select
+                        value={draft.gender}
+                        onValueChange={(v) => setDraft((d) => ({ ...d, gender: v }))}
+                      >
+                        <SelectTrigger className="h-8 text-xs border-0 shadow-none">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="male">Male</SelectItem>
+                          <SelectItem value="female">Female</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+
+                    {/* LinkedIn */}
+                    <TableCell className="p-1">
+                      <DraftCell
+                        value={draft.linkedin_url}
+                        onChange={(v) => setDraft((d) => ({ ...d, linkedin_url: v }))}
+                        placeholder="https://linkedin.com/..."
+                        onEnter={commitDraft}
+                      />
+                    </TableCell>
+
+                    {/* Image — not available for draft */}
+                    <TableCell className="p-1">
+                      <span className="text-xs text-muted-foreground italic px-2">Save first</span>
+                    </TableCell>
+
+                    {/* Preview Avatar */}
+                    <TableCell className="p-1">
+                      <img
+                        src={getDefaultAvatar(draft.gender)}
+                        alt="Preview"
+                        className="h-8 w-8 rounded-full object-cover border border-border"
+                      />
+                    </TableCell>
+
+                    {/* Actions */}
+                    <TableCell className="p-1 text-right">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs gap-1"
+                        onClick={commitDraft}
+                        disabled={!draft.name.trim() || !draft.title.trim()}
+                      >
+                        <Plus className="h-3 w-3" /> Add
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+          <ScrollBar orientation="horizontal" />
+        </ScrollArea>
+
+        {speakers.length === 0 && (
+          <p className="text-sm text-muted-foreground py-2 text-center">
+            Start typing in the row above, or paste rows (Day, Name, Title, Gender, LinkedIn — tab-separated).
+          </p>
         )}
       </CardContent>
     </Card>
