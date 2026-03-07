@@ -74,7 +74,7 @@ export const PublicVenueSection: React.FC<Props> = ({ data, className = "" }) =>
                   key={src}
                   src={src}
                   alt={venue.name ?? "Venue"}
-                  className="absolute inset-0 w-full h-full object-cover transition-opacity duration-[1000ms] ease-in-out"
+                  className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ease-in-out"
                   style={{ opacity: i === activeIdx ? 1 : 0 }}
                   onError={(e) => { (e.target as HTMLImageElement).src = fallback; }}
                 />
