@@ -1,10 +1,14 @@
 import type { PublicEventData } from "@/lib/publicSite/types";
 import { Container, Typography, Box, Divider, Card, CardContent, Avatar, Grid, IconButton, Chip } from "@mui/material";
 import LinkedInIcon from "@mui/icons-material/LinkedIn";
+import avatarMale from "@/assets/avatar-male.png";
+import avatarFemale from "@/assets/avatar-female.png";
 
 interface Props { data: PublicEventData; }
 
-const fallback = "/placeholder.svg";
+function getDefaultAvatar(gender: string) {
+  return gender === "female" ? avatarFemale : avatarMale;
+}
 
 export const MuiCorporateSpeakers: React.FC<Props> = ({ data }) => {
   if (data.speakers.length === 0) return null;
