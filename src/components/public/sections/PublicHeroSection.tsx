@@ -87,10 +87,10 @@ export const PublicHeroSection: React.FC<Props> = ({ data, className = "", paral
               alt=""
               loading="eager"
               decoding="async"
-              className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-[1200ms] ease-in-out ${
+              className={`absolute inset-0 w-full h-full object-cover transition-opacity ease-in-out ${
                 imagesReady ? "" : "opacity-0"
               }`}
-              style={{ opacity: imagesReady ? (i === activeIdx ? 1 : 0) : 0 }}
+              style={{ opacity: imagesReady ? (i === activeIdx ? 1 : 0) : 0, transitionDuration: '1200ms' }}
               onError={(e) => { (e.target as HTMLImageElement).src = fallbackImg; }}
             />
           ))}
