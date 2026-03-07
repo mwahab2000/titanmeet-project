@@ -40,12 +40,11 @@ export const MuiCorporateHero: React.FC<Props> = ({ data }) => {
         </>
       )}
 
-      {/* Decorative gradient orbs */}
+      {/* Animated shader background when no image */}
       {!bgImage && (
-        <>
-          <Box sx={{ position: "absolute", top: -120, right: -120, width: 400, height: 400, borderRadius: "50%", background: "radial-gradient(circle, rgba(201,168,76,0.08), transparent 70%)" }} />
-          <Box sx={{ position: "absolute", bottom: -80, left: -80, width: 300, height: 300, borderRadius: "50%", background: "radial-gradient(circle, rgba(59,130,246,0.06), transparent 70%)" }} />
-        </>
+        <Suspense fallback={null}>
+          <AnimatedShaderBackground />
+        </Suspense>
       )}
 
       <Container maxWidth="lg" sx={{ position: "relative", zIndex: 1, py: { xs: 12, md: 16 } }}>
