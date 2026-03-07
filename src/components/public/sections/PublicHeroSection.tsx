@@ -98,10 +98,12 @@ export const PublicHeroSection: React.FC<Props> = ({ data, className = "", paral
           <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/40 to-black/80" />
         </div>
       ) : (
-        <Suspense fallback={null}>
-          <AnimatedShaderBackground />
-        </Suspense>
-        <div className="absolute inset-0 bg-black/40" />
+        <>
+          <Suspense fallback={null}>
+            <AnimatedShaderBackground />
+          </Suspense>
+          <div className="absolute inset-0 bg-black/40" />
+        </>
       )}
 
       {/* Subtle grid texture */}
