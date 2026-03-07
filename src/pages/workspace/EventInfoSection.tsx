@@ -9,9 +9,20 @@ import { Button } from "@/components/ui/button";
 import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { Lock, Copy, Check } from "lucide-react";
+import { useState } from "react";
 
 const EventInfoSection = () => {
   const { event, autosave, isArchived } = useEventWorkspace();
+  const [copied, setCopied] = useState(false);
+
+  const copySlug = () => {
+    if (event?.slug) {
+      navigator.clipboard.writeText(event.slug);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
   if (!event) return null;
 
   const date = event.event_date ? new Date(event.event_date + "T00:00:00") : undefined;
