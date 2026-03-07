@@ -37,7 +37,7 @@ export interface PublicEventData {
   event: { id: string; title: string; slug: string; description: string | null; date: string | null; status: string; themeId: string };
   hero: { title: string; description: string | null; images: string[]; date: string | null; venueName: string | null };
   agenda: Array<{ id: string; title: string; description: string | null; startTime: string | null; endTime: string | null; dayNumber: number; speakerName: string | null }>;
-  speakers: Array<{ id: string; name: string; title: string | null; bio: string | null; photoUrl: string | null; linkedinUrl: string | null }>;
+  speakers: Array<{ id: string; name: string; title: string | null; bio: string | null; photoUrl: string | null; linkedinUrl: string | null; gender: string }>;
   venue: { name: string | null; address: string | null; notes: string | null; mapLink: string | null; images: string[] };
   organizers: Array<{ id: string; name: string; role: string | null; email: string | null; mobile: string | null; photoUrl: string | null }>;
   announcements: Array<{ id: string; text: string }>;

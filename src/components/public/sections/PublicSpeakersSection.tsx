@@ -1,10 +1,14 @@
 import type { PublicEventData } from "@/lib/publicSite/types";
 import { Linkedin } from "lucide-react";
 import { MotionReveal, MotionRevealItem } from "./MotionReveal";
+import avatarMale from "@/assets/avatar-male.png";
+import avatarFemale from "@/assets/avatar-female.png";
 
 interface Props { data: PublicEventData; className?: string; }
 
-const fallback = "/placeholder.svg";
+function getDefaultAvatar(gender: string) {
+  return gender === "female" ? avatarFemale : avatarMale;
+}
 
 export const PublicSpeakersSection: React.FC<Props> = ({ data, className = "" }) => {
   if (data.speakers.length === 0) return null;
@@ -27,10 +31,10 @@ export const PublicSpeakersSection: React.FC<Props> = ({ data, className = "" })
               <div className="relative">
                 <div className="w-24 h-24 rounded-2xl overflow-hidden ring-2 ring-border group-hover:ring-primary/20 transition-all duration-300 rotate-3 group-hover:rotate-0">
                   <img
-                    src={s.photoUrl || fallback}
+                    src={s.photoUrl || getDefaultAvatar(s.gender)}
                     alt={s.name}
                     className="w-full h-full object-cover"
-                    onError={(e) => { (e.target as HTMLImageElement).src = fallback; }}
+                    onError={(e) => { (e.target as HTMLImageElement).src = getDefaultAvatar(s.gender); }}
                   />
                 </div>
               </div>
