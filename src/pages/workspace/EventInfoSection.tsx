@@ -54,9 +54,26 @@ const EventInfoSection = () => {
           </Popover>
         </div>
         <div className="space-y-2">
-          <Label>Event Slug</Label>
-          <Input value={event.slug || ""} onChange={e => autosave({ slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-") })} disabled={isArchived} />
-          <p className="text-xs text-muted-foreground">Used in the public URL</p>
+          <Label className="flex items-center gap-1.5">
+            Event Slug
+            {event.slug && <Lock className="h-3 w-3 text-muted-foreground" />}
+          </Label>
+          {event.slug ? (
+            <>
+              <div className="flex gap-2">
+                <Input value={event.slug} disabled className="font-mono bg-muted" />
+                <Button type="button" variant="outline" size="icon" onClick={copySlug} className="shrink-0">
+                  {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">Event slug cannot be changed after creation.</p>
+            </>
+          ) : (
+            <>
+              <Input value="" onChange={e => autosave({ slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-") })} disabled={isArchived} placeholder="enter-slug" />
+              <p className="text-xs text-muted-foreground">Used in the public URL. Cannot be changed once set.</p>
+            </>
+          )}
         </div>
       </CardContent>
     </Card>
