@@ -83,9 +83,6 @@ const WorkspaceHeader = () => {
           </span>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={manualSave} disabled={isArchived}>
-            <Save className="h-4 w-4 mr-1" /> Save
-          </Button>
           <Button variant="outline" size="sm" onClick={() => setTemplateDialogOpen(true)}>
             <Copy className="h-4 w-4 mr-1" /> Save as Template
           </Button>
