@@ -2,7 +2,6 @@ import type { PublicEventData } from "@/lib/publicSite/types";
 import { ThemePublicCorporate } from "./themes/ThemePublicCorporate";
 import { ThemePublicElegant } from "./themes/ThemePublicElegant";
 import { ThemePublicModern } from "./themes/ThemePublicModern";
-import { ThemePublicBold } from "./themes/ThemePublicBold";
 import { ThemePublicCorporateMui } from "./themes/ThemePublicCorporateMui";
 
 interface Props {
@@ -13,7 +12,6 @@ const themeMap: Record<string, React.FC<Props>> = {
   corporate: ThemePublicCorporate,
   elegant: ThemePublicElegant,
   modern: ThemePublicModern,
-  bold: ThemePublicBold,
   "corporate-mui": ThemePublicCorporateMui,
 };
 
