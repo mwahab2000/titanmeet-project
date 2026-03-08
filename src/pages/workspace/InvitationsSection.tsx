@@ -32,6 +32,7 @@ const InvitationsSection = () => {
   const [sending, setSending] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [selectedChannels, setSelectedChannels] = useState<SendChannel[]>(["email"]);
+  const [rowSending, setRowSending] = useState<Record<string, "email" | "whatsapp" | null>>({});
 
   const loadInvites = useCallback(async () => {
     if (!event) return;
@@ -91,6 +92,29 @@ const InvitationsSection = () => {
     } catch {
       toast.error("Failed to resend");
     }
+  };
+
+  const handleSendSingle = async (attendeeId: string, channel: SendChannel) => {
+    if (!event) return;
+    setRowSending((prev) => ({ ...prev, [attendeeId]: channel }));
+    try {
+      const result = await sendEventInvitations(event.id, [channel], [attendeeId]);
+      if (channel === "email" && result.sent_email > 0) {
+        toast.success("Email invite sent");
+      } else if (channel === "whatsapp" && result.sent_whatsapp > 0) {
+        toast.success("WhatsApp invite sent");
+      } else if (channel === "email" && result.skipped_no_email > 0) {
+        toast.error("No email address for this attendee");
+      } else if (channel === "whatsapp" && result.skipped_no_phone > 0) {
+        toast.error("No WhatsApp number for this attendee");
+      } else {
+        toast.error("Failed to send");
+      }
+      loadInvites();
+    } catch {
+      toast.error(`Failed to send via ${channel}`);
+    }
+    setRowSending((prev) => ({ ...prev, [attendeeId]: null }));
   };
 
   const copyLink = (token: string) => {
@@ -269,13 +293,40 @@ const InvitationsSection = () => {
                         )}
                       </TableCell>
                       <TableCell className="text-right">
-                        <div className="flex gap-1 justify-end">
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => copyLink(inv.token)} title="Copy link">
+                        <div className="flex gap-2 justify-end">
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => copyLink(inv.token)} title="Copy invitation link">
                             <Link2 className="h-3.5 w-3.5" />
                           </Button>
-                          {!inv.attendee_confirmed && !isArchived && (
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleResend(inv.attendee_id)} title="Resend">
-                              <Send className="h-3.5 w-3.5" />
+                          {!isArchived && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={() => handleSendSingle(inv.attendee_id, "email")}
+                              disabled={!inv.attendee_email || rowSending[inv.attendee_id] === "email"}
+                              title={inv.attendee_email ? "Send invite by email" : "No email address"}
+                            >
+                              {rowSending[inv.attendee_id] === "email" ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <Mail className="h-3.5 w-3.5" />
+                              )}
+                            </Button>
+                          )}
+                          {!isArchived && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={() => handleSendSingle(inv.attendee_id, "whatsapp")}
+                              disabled={!inv.attendee_mobile || rowSending[inv.attendee_id] === "whatsapp"}
+                              title={inv.attendee_mobile ? "Send invite by WhatsApp" : "No WhatsApp number"}
+                            >
+                              {rowSending[inv.attendee_id] === "whatsapp" ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <img src="/images/whatsapp-icon.svg" alt="WhatsApp" className="h-3.5 w-3.5" />
+                              )}
                             </Button>
                           )}
                         </div>
