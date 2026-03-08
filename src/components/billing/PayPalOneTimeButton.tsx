@@ -1,15 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
-// PayPal Sandbox Client ID - publishable key, safe for frontend
-const PAYPAL_CLIENT_ID = "AVZxi-ykDACzyXDxwnTeiQoHQFh-_PmShWmC6aeToqxjdnNqOTWGWHJYkCy_ZnGvZvJM-PZs_NfGIMi-";
+const PAYPAL_CLIENT_ID = import.meta.env.VITE_PAYPAL_CLIENT_ID || "AVZxi-ykDACzyXDxwnTeiQoHQFh-_PmShWmC6aeToqxjdnNqOTWGWHJYkCy_ZnGvZvJM-PZs_NfGIMi-";
 
-const SDK_SRC = `https://www.paypal.com/sdk/js?client-id=${PAYPAL_CLIENT_ID}&currency=USD`;
+const SDK_SRC = `https://www.paypal.com/sdk/js?client-id=${PAYPAL_CLIENT_ID}&currency=USD&debug=${import.meta.env.DEV}&components=buttons`;
 
 let sdkLoadPromise: Promise<void> | null = null;
 
 function loadPayPalOrderSdk(): Promise<void> {
-  // If subscription SDK is already loaded, we can reuse it
   if ((window as any).paypal) return Promise.resolve();
   if (sdkLoadPromise) return sdkLoadPromise;
 
@@ -66,22 +64,46 @@ const PayPalOneTimeButton = ({ planId, onCreateOrder, onCaptureOrder, disabled }
             layout: "vertical",
             label: "pay",
           },
+          onClick: (data: any) => {
+            console.log("[PayPal Order] Button clicked, plan:", planId, data);
+          },
           createOrder: async () => {
-            return await onCreateOrder(planId);
+            try {
+              return await onCreateOrder(planId);
+            } catch (err: any) {
+              console.error("[PayPal Order] createOrder failed:", err);
+              const msg = err?.message || String(err);
+              if (import.meta.env.DEV) {
+                toast.error(`Order creation failed: ${msg.slice(0, 200)}`);
+              } else {
+                toast.error("Failed to create order. Please try again.");
+              }
+              throw err;
+            }
           },
           onApprove: async (data: any) => {
+            console.log("[PayPal Order] Approved:", data);
             await onCaptureOrder(data.orderID);
           },
+          onCancel: (data: any) => {
+            console.log("[PayPal Order] Cancelled:", data);
+            toast.info("Payment was cancelled.");
+          },
           onError: (err: any) => {
-            console.error("PayPal button error:", err);
-            toast.error("PayPal checkout error. Please try again.");
+            console.error("[PayPal Order] Checkout error:", err);
+            const msg = err?.message || String(err);
+            if (import.meta.env.DEV) {
+              toast.error(`PayPal error: ${msg.slice(0, 200)}`);
+            } else {
+              toast.error("PayPal checkout error. Please try again.");
+            }
           },
         }).render(containerRef.current);
 
         setLoading(false);
       } catch (err: any) {
         if (!cancelled) {
-          console.error("PayPal SDK load error:", err);
+          console.error("[PayPal Order] SDK load error:", err);
           setError(err.message || "Failed to load PayPal");
           setLoading(false);
         }
