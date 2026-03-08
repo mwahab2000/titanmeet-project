@@ -3,7 +3,8 @@ import { useEventWorkspace } from "@/contexts/EventWorkspaceContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { SurveyEditor } from "@/components/surveys/SurveyEditor";
 import { type Survey, listSurveys, createSurvey, deleteSurvey, duplicateSurvey, listQuestions } from "@/lib/survey-api";
-import { listInvites, generateInvites, sendSurveyLinks, type SurveyInvite } from "@/lib/survey-invite-api";
+import { listInvites, generateInvites, sendSurveyLinks, type SurveyInvite, type SendChannel } from "@/lib/survey-invite-api";
+import { exportSurveyToExcel } from "@/lib/survey-export";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,7 +12,8 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
-import { Plus, Pencil, Copy, Trash2, Send, Link2, Users, BarChart3, Mail, CheckCircle2, Clock, Eye, Loader2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Plus, Pencil, Copy, Trash2, Send, Link2, Users, BarChart3, Mail, CheckCircle2, Clock, Eye, Loader2, MessageSquare, Download, Phone } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
@@ -28,11 +30,12 @@ const SurveySection = () => {
   const [search, setSearch] = useState("");
   const [sending, setSending] = useState(false);
   const [generating, setGenerating] = useState(false);
-  const [stats, setStats] = useState<{ questions: any[]; answers: any[] }>({ questions: [], answers: [] });
-
-  if (!event || !user) return null;
+  const [stats, setStats] = useState<{ questions: any[]; answers: any[]; responses: any[] }>({ questions: [], answers: [], responses: [] });
+  const [selectedChannels, setSelectedChannels] = useState<SendChannel[]>(["email"]);
+  const [exporting, setExporting] = useState(false);
 
   const loadSurveys = useCallback(async () => {
+    if (!event) return;
     try { setSurveys(await listSurveys(event.id)); } catch { toast.error("Failed to load surveys"); }
     setLoading(false);
   }, [event.id]);
@@ -51,10 +54,9 @@ const SurveySection = () => {
   const loadStats = useCallback(async (surveyId: string) => {
     try {
       const qs = await listQuestions(surveyId);
-      // Get responses+answers via survey_responses
       const { data: responses } = await supabase
         .from("survey_responses" as any)
-        .select("id")
+        .select("id, respondent_id")
         .eq("survey_id", surveyId);
       const responseIds = (responses || []).map((r: any) => r.id);
 
@@ -62,12 +64,12 @@ const SurveySection = () => {
       if (responseIds.length > 0) {
         const { data: answersData } = await supabase
           .from("survey_answers" as any)
-          .select("question_id, value_text, value_number, value_json")
+          .select("question_id, value_text, value_number, value_json, response_id")
           .in("response_id", responseIds);
         allAnswers = (answersData || []) as any[];
       }
 
-      setStats({ questions: qs, answers: allAnswers });
+      setStats({ questions: qs, answers: allAnswers, responses: (responses || []) as any[] });
     } catch { /* silent */ }
   }, []);
 
@@ -102,21 +104,31 @@ const SurveySection = () => {
   };
 
   const handleSendAll = async () => {
-    if (!selectedSurvey) return;
+    if (!selectedSurvey || selectedChannels.length === 0) {
+      toast.error("Select at least one channel");
+      return;
+    }
     setSending(true);
     try {
-      const result = await sendSurveyLinks(selectedSurvey.id, event.id);
-      toast.success(`${result.sent} email(s) sent`);
+      const result = await sendSurveyLinks(selectedSurvey.id, event.id, selectedChannels);
+      const parts: string[] = [];
+      if (result.sent_email > 0) parts.push(`${result.sent_email} email(s)`);
+      if (result.sent_whatsapp > 0) parts.push(`${result.sent_whatsapp} WhatsApp`);
+      if (result.failed_email > 0) parts.push(`${result.failed_email} email failed`);
+      if (result.failed_whatsapp > 0) parts.push(`${result.failed_whatsapp} WhatsApp failed`);
+      if (result.skipped_no_phone > 0) parts.push(`${result.skipped_no_phone} skipped (no phone)`);
+      if (result.skipped_no_email > 0) parts.push(`${result.skipped_no_email} skipped (no email)`);
+      toast.success(`Sent: ${parts.join(", ") || "0"}`);
       loadInvites(selectedSurvey.id);
     } catch { toast.error("Failed to send"); }
     setSending(false);
   };
 
   const handleResend = async (inviteId: string) => {
-    if (!selectedSurvey) return;
+    if (!selectedSurvey || selectedChannels.length === 0) return;
     try {
-      await sendSurveyLinks(selectedSurvey.id, event.id, [inviteId]);
-      toast.success("Email resent");
+      await sendSurveyLinks(selectedSurvey.id, event.id, selectedChannels, [inviteId]);
+      toast.success("Resent");
       loadInvites(selectedSurvey.id);
     } catch { toast.error("Failed to resend"); }
   };
@@ -125,6 +137,34 @@ const SurveySection = () => {
     navigator.clipboard.writeText(`${window.location.origin}/s/${token}`);
     toast.success("Link copied");
   };
+
+  const handleExport = async () => {
+    if (!selectedSurvey) return;
+    setExporting(true);
+    try {
+      await exportSurveyToExcel(
+        selectedSurvey.title,
+        selectedSurvey.id,
+        invites,
+        stats.questions,
+        stats.answers,
+        stats.responses,
+      );
+      toast.success("Excel exported");
+    } catch (err) {
+      console.error(err);
+      toast.error("Export failed");
+    }
+    setExporting(false);
+  };
+
+  const toggleChannel = (ch: SendChannel) => {
+    setSelectedChannels((prev) =>
+      prev.includes(ch) ? prev.filter((c) => c !== ch) : [...prev, ch]
+    );
+  };
+
+  if (!event || !user) return null;
 
   if (editing) {
     return (
@@ -215,10 +255,6 @@ const SurveySection = () => {
                 {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Users className="h-4 w-4" />}
                 Generate Invites
               </Button>
-              <Button size="sm" className="gap-1" onClick={handleSendAll} disabled={sending}>
-                {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                Send All Unsent
-              </Button>
             </div>
           </div>
 
@@ -230,12 +266,56 @@ const SurveySection = () => {
             <StatsCard icon={CheckCircle2} label="Submitted" value={statusCounts.submitted} />
           </div>
 
-          <Tabs defaultValue="tracking">
+          <Tabs defaultValue="send">
             <TabsList>
+              <TabsTrigger value="send">Send</TabsTrigger>
               <TabsTrigger value="tracking">Tracking</TabsTrigger>
               <TabsTrigger value="results">Results & Statistics</TabsTrigger>
             </TabsList>
 
+            {/* ── Send Tab ── */}
+            <TabsContent value="send" className="space-y-4">
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm">Delivery Channels</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex flex-wrap gap-4">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <Checkbox
+                        checked={selectedChannels.includes("email")}
+                        onCheckedChange={() => toggleChannel("email")}
+                      />
+                      <Mail className="h-4 w-4 text-primary" />
+                      <span className="text-sm font-medium">Email</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <Checkbox
+                        checked={selectedChannels.includes("whatsapp")}
+                        onCheckedChange={() => toggleChannel("whatsapp")}
+                      />
+                      <MessageSquare className="h-4 w-4 text-green-500" />
+                      <span className="text-sm font-medium">WhatsApp</span>
+                    </label>
+                  </div>
+
+                  {selectedChannels.includes("whatsapp") && (
+                    <p className="text-xs text-muted-foreground">
+                      WhatsApp requires attendees to have a phone number with country code (e.g., +966...).
+                    </p>
+                  )}
+
+                  <div className="flex gap-2">
+                    <Button size="sm" className="gap-1" onClick={handleSendAll} disabled={sending || selectedChannels.length === 0}>
+                      {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                      Send to All Unsent
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* ── Tracking Tab ── */}
             <TabsContent value="tracking" className="space-y-4">
               <div className="flex gap-2 flex-wrap">
                 <Input placeholder="Search attendee…" value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-xs" />
@@ -247,12 +327,19 @@ const SurveySection = () => {
               {invitesLoading ? (
                 <p className="text-sm text-muted-foreground">Loading…</p>
               ) : (
-                <div className="border border-border rounded-lg overflow-hidden">
+                <div className="border border-border rounded-lg overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
                         <TableHead>Attendee</TableHead>
                         <TableHead>Email</TableHead>
+                        <TableHead>Phone</TableHead>
+                        <TableHead className="text-center">
+                          <div className="flex items-center gap-1 justify-center"><Mail className="h-3.5 w-3.5" /> Email</div>
+                        </TableHead>
+                        <TableHead className="text-center">
+                          <div className="flex items-center gap-1 justify-center"><MessageSquare className="h-3.5 w-3.5" /> WA</div>
+                        </TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead>Submitted</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
@@ -261,7 +348,7 @@ const SurveySection = () => {
                     <TableBody>
                       {filteredInvites.length === 0 && (
                         <TableRow>
-                          <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                          <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                             {invites.length === 0 ? 'Click "Generate Invites" to create invite links for attendees.' : "No matching invites."}
                           </TableCell>
                         </TableRow>
@@ -270,6 +357,21 @@ const SurveySection = () => {
                         <TableRow key={inv.id}>
                           <TableCell className="font-medium">{inv.attendee_name}</TableCell>
                           <TableCell className="text-muted-foreground text-sm">{inv.attendee_email}</TableCell>
+                          <TableCell className="text-muted-foreground text-sm">{inv.attendee_mobile || "—"}</TableCell>
+                          <TableCell className="text-center">
+                            {inv.sent_via_email ? (
+                              <span className="text-xs text-green-600" title={inv.email_sent_at ? format(new Date(inv.email_sent_at), "MMM d HH:mm") : ""}>
+                                ✓ {inv.email_sent_at ? format(new Date(inv.email_sent_at), "MMM d") : ""}
+                              </span>
+                            ) : <span className="text-xs text-muted-foreground">—</span>}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {inv.sent_via_whatsapp ? (
+                              <span className="text-xs text-green-600" title={inv.whatsapp_sent_at ? format(new Date(inv.whatsapp_sent_at), "MMM d HH:mm") : ""}>
+                                ✓ {inv.whatsapp_sent_at ? format(new Date(inv.whatsapp_sent_at), "MMM d") : ""}
+                              </span>
+                            ) : <span className="text-xs text-muted-foreground">—</span>}
+                          </TableCell>
                           <TableCell>
                             <StatusBadge status={inv.status} />
                           </TableCell>
@@ -282,8 +384,8 @@ const SurveySection = () => {
                                 <Link2 className="h-3.5 w-3.5" />
                               </Button>
                               {inv.status !== "submitted" && (
-                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleResend(inv.id)} title="Resend email">
-                                  <Mail className="h-3.5 w-3.5" />
+                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleResend(inv.id)} title="Resend via selected channels">
+                                  <Send className="h-3.5 w-3.5" />
                                 </Button>
                               )}
                             </div>
@@ -296,7 +398,14 @@ const SurveySection = () => {
               )}
             </TabsContent>
 
+            {/* ── Results Tab ── */}
             <TabsContent value="results" className="space-y-6">
+              <div className="flex justify-end">
+                <Button variant="outline" size="sm" className="gap-1" onClick={handleExport} disabled={exporting}>
+                  {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                  Export to Excel
+                </Button>
+              </div>
               <SurveyResults questions={stats.questions} answers={stats.answers} totalResponses={statusCounts.submitted} />
             </TabsContent>
           </Tabs>
@@ -360,7 +469,6 @@ function SurveyResults({ questions, answers, totalResponses }: { questions: any[
 function QuestionStats({ question, answers, total }: { question: any; answers: any[]; total: number }) {
   const type = question.type;
 
-  // Choice questions: bar chart
   if (["single_choice", "multi_choice", "yes_no"].includes(type)) {
     const options = type === "yes_no"
       ? [{ label: "Yes", value: "yes" }, { label: "No", value: "no" }]
@@ -404,7 +512,6 @@ function QuestionStats({ question, answers, total }: { question: any; answers: a
     );
   }
 
-  // Rating/likert: average + distribution
   if (["rating_stars", "likert", "number"].includes(type)) {
     const nums = answers.map((a: any) => a.value_number).filter((n: any) => n !== null && n !== undefined) as number[];
     if (nums.length === 0) return <p className="text-sm text-muted-foreground">No numeric answers</p>;
@@ -433,7 +540,6 @@ function QuestionStats({ question, answers, total }: { question: any; answers: a
     );
   }
 
-  // Text answers
   if (["short_text", "long_text"].includes(type)) {
     const texts = answers.map((a: any) => a.value_text).filter(Boolean);
     return (

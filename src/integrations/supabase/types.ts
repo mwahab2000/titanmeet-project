@@ -738,6 +738,76 @@ export type Database = {
           },
         ]
       }
+      message_logs: {
+        Row: {
+          attendee_id: string
+          channel: string
+          created_at: string
+          error: string | null
+          event_id: string
+          id: string
+          message_body: string
+          provider: string
+          provider_message_id: string | null
+          status: string
+          subject: string | null
+          survey_id: string | null
+          to_address: string
+        }
+        Insert: {
+          attendee_id: string
+          channel: string
+          created_at?: string
+          error?: string | null
+          event_id: string
+          id?: string
+          message_body: string
+          provider: string
+          provider_message_id?: string | null
+          status?: string
+          subject?: string | null
+          survey_id?: string | null
+          to_address: string
+        }
+        Update: {
+          attendee_id?: string
+          channel?: string
+          created_at?: string
+          error?: string | null
+          event_id?: string
+          id?: string
+          message_body?: string
+          provider?: string
+          provider_message_id?: string | null
+          status?: string
+          subject?: string | null
+          survey_id?: string | null
+          to_address?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_logs_attendee_id_fkey"
+            columns: ["attendee_id"]
+            isOneToOne: false
+            referencedRelation: "attendees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_logs_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_logs_survey_id_fkey"
+            columns: ["survey_id"]
+            isOneToOne: false
+            referencedRelation: "surveys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       monthly_usage: {
         Row: {
           active_events_count: number
@@ -1282,38 +1352,53 @@ export type Database = {
         Row: {
           attendee_id: string
           created_at: string
+          email_sent_at: string | null
           event_id: string
           id: string
+          last_sent_at: string | null
           opened_at: string | null
           sent_at: string | null
+          sent_via_email: boolean
+          sent_via_whatsapp: boolean
           status: string
           submitted_at: string | null
           survey_id: string
           token: string
+          whatsapp_sent_at: string | null
         }
         Insert: {
           attendee_id: string
           created_at?: string
+          email_sent_at?: string | null
           event_id: string
           id?: string
+          last_sent_at?: string | null
           opened_at?: string | null
           sent_at?: string | null
+          sent_via_email?: boolean
+          sent_via_whatsapp?: boolean
           status?: string
           submitted_at?: string | null
           survey_id: string
           token?: string
+          whatsapp_sent_at?: string | null
         }
         Update: {
           attendee_id?: string
           created_at?: string
+          email_sent_at?: string | null
           event_id?: string
           id?: string
+          last_sent_at?: string | null
           opened_at?: string | null
           sent_at?: string | null
+          sent_via_email?: boolean
+          sent_via_whatsapp?: boolean
           status?: string
           submitted_at?: string | null
           survey_id?: string
           token?: string
+          whatsapp_sent_at?: string | null
         }
         Relationships: [
           {
