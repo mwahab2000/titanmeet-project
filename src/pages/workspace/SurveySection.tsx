@@ -164,6 +164,8 @@ const SurveySection = () => {
     );
   };
 
+  if (!event || !user) return null;
+
   if (editing) {
     return (
       <SurveyEditor
