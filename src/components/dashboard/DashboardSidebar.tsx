@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { Calendar, LayoutDashboard, Settings, LogOut, Plus, Building2, Image, Images, Info, ListOrdered, UserCog, UsersRound, Layers, Bus, MapPin, Megaphone, ClipboardList, MessageSquare, Users, Mic, Globe, Shirt, CreditCard, LifeBuoy, Shield, FileEdit, Copy } from "lucide-react";
+import { Calendar, LayoutDashboard, Settings, LogOut, Plus, Building2, Image, Images, Info, ListOrdered, UserCog, UsersRound, Layers, Bus, MapPin, Megaphone, ClipboardList, MessageSquare, Users, Mic, Globe, Shirt, CreditCard, LifeBuoy, Shield, FileEdit, Copy, MailPlus } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -31,6 +31,7 @@ const workspaceSections = [
   { icon: ClipboardList, label: "Survey", path: "survey" },
   { icon: MessageSquare, label: "Communications", path: "communications" },
   { icon: Globe, label: "Website", path: "website" },
+  { icon: MailPlus, label: "Invitations", path: "invitations" },
 ];
 
 const dotColor: Record<CompletionStatus, string> = {
@@ -60,6 +61,7 @@ function computeCompletion(event: any, counts: Record<string, number>): Record<s
     survey: counts.survey > 0 ? "done" : "empty",
     communications: "done",
     website: "done",
+    invitations: "done",
   };
 }
 

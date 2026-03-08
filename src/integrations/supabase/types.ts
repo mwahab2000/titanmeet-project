@@ -529,6 +529,69 @@ export type Database = {
           },
         ]
       }
+      event_invites: {
+        Row: {
+          attendee_id: string
+          created_at: string
+          email_sent_at: string | null
+          event_id: string
+          id: string
+          last_sent_at: string | null
+          opened_at: string | null
+          rsvp_at: string | null
+          sent_via_email: boolean
+          sent_via_whatsapp: boolean
+          status: string
+          token: string
+          whatsapp_sent_at: string | null
+        }
+        Insert: {
+          attendee_id: string
+          created_at?: string
+          email_sent_at?: string | null
+          event_id: string
+          id?: string
+          last_sent_at?: string | null
+          opened_at?: string | null
+          rsvp_at?: string | null
+          sent_via_email?: boolean
+          sent_via_whatsapp?: boolean
+          status?: string
+          token?: string
+          whatsapp_sent_at?: string | null
+        }
+        Update: {
+          attendee_id?: string
+          created_at?: string
+          email_sent_at?: string | null
+          event_id?: string
+          id?: string
+          last_sent_at?: string | null
+          opened_at?: string | null
+          rsvp_at?: string | null
+          sent_via_email?: boolean
+          sent_via_whatsapp?: boolean
+          status?: string
+          token?: string
+          whatsapp_sent_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_invites_attendee_id_fkey"
+            columns: ["attendee_id"]
+            isOneToOne: false
+            referencedRelation: "attendees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_invites_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_rooms: {
         Row: {
           capacity: number | null

@@ -15,7 +15,7 @@ const sectionLabels: Record<string, string> = {
   attendees: "Attendees", groups: "Groups", "assign-groups": "Assign Groups",
   transportation: "Transportation", venue: "Venue", gallery: "Gallery", announcements: "Announcements",
   "event-announcements": "Event Alerts",
-  survey: "Survey", communications: "Communications",
+  survey: "Survey", communications: "Communications", invitations: "Invitations",
 };
 
 const WorkspaceHeader = () => {

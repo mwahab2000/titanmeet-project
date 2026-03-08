@@ -86,6 +86,7 @@ function computeCompletion(event: EventData | null, counts: RelatedCounts): Reco
     "dress-code": counts.dressCode > 0 ? "done" : "empty",
     communications: "done",
     website: "done",
+    invitations: "done",
   };
 }
 

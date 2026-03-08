@@ -32,3 +32,9 @@ verify_jwt = false
 
 [functions.paypal-register-subscription]
 verify_jwt = false
+
+[functions.send-event-invitations]
+verify_jwt = false
+
+[functions.invite-get]
+verify_jwt = false
