@@ -61,6 +61,7 @@ function computeCompletion(event: any, counts: Record<string, number>): Record<s
     survey: counts.survey > 0 ? "done" : "empty",
     communications: "done",
     website: "done",
+    invitations: "done",
   };
 }
 
