@@ -17,6 +17,7 @@ const SUBDOMAIN_RE = /^https:\/\/[a-z0-9-]+\.titanmeet\.com$/;
 
 // Lovable preview domains
 const LOVABLE_RE = /^https:\/\/.*\.lovable\.app$/;
+const LOVABLE_PROJECT_RE = /^https:\/\/.*\.lovableproject\.com$/;
 
 const ALLOWED_HEADERS =
   "authorization, x-client-info, apikey, content-type, x-internal-secret, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version";
