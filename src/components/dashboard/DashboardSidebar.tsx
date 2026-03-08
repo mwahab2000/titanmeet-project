@@ -31,6 +31,7 @@ const workspaceSections = [
   { icon: ClipboardList, label: "Survey", path: "survey" },
   { icon: MessageSquare, label: "Communications", path: "communications" },
   { icon: Globe, label: "Website", path: "website" },
+  { icon: MailPlus, label: "Invitations", path: "invitations" },
 ];
 
 const dotColor: Record<CompletionStatus, string> = {
