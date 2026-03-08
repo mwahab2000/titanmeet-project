@@ -174,7 +174,7 @@ const InvitationsSection = () => {
                     checked={selectedChannels.includes("whatsapp")}
                     onCheckedChange={() => toggleChannel("whatsapp")}
                   />
-                  <MessageSquare className="h-4 w-4 text-green-500" />
+                  <MessageSquare className="h-4 w-4 text-accent-foreground" />
                   <span className="text-sm font-medium">WhatsApp</span>
                 </label>
               </div>
