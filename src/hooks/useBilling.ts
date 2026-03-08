@@ -28,6 +28,9 @@ export interface AccountSubscription {
   started_at: string;
   current_period_start: string;
   current_period_end: string;
+  cancel_at_period_end: boolean;
+  provider: string;
+  provider_subscription_id: string | null;
 }
 
 export interface UsageSnapshot {
