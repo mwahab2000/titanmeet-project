@@ -13,12 +13,20 @@ export interface SurveyInvite {
   created_at: string;
   attendee_name?: string;
   attendee_email?: string;
+  attendee_mobile?: string;
+  sent_via_whatsapp: boolean;
+  sent_via_email: boolean;
+  whatsapp_sent_at: string | null;
+  email_sent_at: string | null;
+  last_sent_at: string | null;
 }
+
+export type SendChannel = "email" | "whatsapp";
 
 export async function listInvites(surveyId: string): Promise<SurveyInvite[]> {
   const { data, error } = await supabase
     .from("survey_invites" as any)
-    .select("*, attendees(name, email)")
+    .select("*, attendees(name, email, mobile)")
     .eq("survey_id", surveyId)
     .order("created_at", { ascending: false });
   if (error) throw error;
@@ -26,25 +34,23 @@ export async function listInvites(surveyId: string): Promise<SurveyInvite[]> {
     ...d,
     attendee_name: d.attendees?.name,
     attendee_email: d.attendees?.email,
+    attendee_mobile: d.attendees?.mobile,
   }));
 }
 
 export async function generateInvites(surveyId: string, eventId: string): Promise<number> {
-  // Get all attendees for the event
   const { data: attendees, error: attErr } = await supabase
     .from("attendees")
     .select("id")
     .eq("event_id", eventId);
   if (attErr) throw attErr;
 
-  // Get existing invites
   const { data: existing } = await supabase
     .from("survey_invites" as any)
     .select("attendee_id")
     .eq("survey_id", surveyId);
   const existingIds = new Set((existing || []).map((e: any) => e.attendee_id));
 
-  // Create missing invites
   const newInvites = (attendees || [])
     .filter((a) => !existingIds.has(a.id))
     .map((a) => ({
@@ -63,14 +69,29 @@ export async function generateInvites(surveyId: string, eventId: string): Promis
 export async function sendSurveyLinks(
   surveyId: string,
   eventId: string,
+  channels: SendChannel[] = ["email"],
   inviteIds?: string[]
-): Promise<{ sent: number; total: number }> {
+): Promise<{
+  sent_email: number;
+  sent_whatsapp: number;
+  failed_email: number;
+  failed_whatsapp: number;
+  skipped_no_phone: number;
+  skipped_no_email: number;
+  total: number;
+}> {
   const baseUrl = window.location.origin;
   const { data, error } = await supabase.functions.invoke("send-survey-links", {
-    body: { survey_id: surveyId, event_id: eventId, invite_ids: inviteIds, base_url: baseUrl },
+    body: {
+      survey_id: surveyId,
+      event_id: eventId,
+      invite_ids: inviteIds,
+      base_url: baseUrl,
+      channels,
+    },
   });
   if (error) throw error;
-  return data as { sent: number; total: number };
+  return data as any;
 }
 
 export async function getSurveyStats(surveyId: string) {
