@@ -4,6 +4,7 @@
 
 - Lovable account with project connected to Supabase
 - Google Workspace account with App Password for email sending
+- PayPal Business account with API credentials
 - Custom domain (optional, for `/{clientSlug}/{eventSlug}` routing)
 
 ---
@@ -27,12 +28,15 @@
 | `TWILIO_ACCOUNT_SID` | ❌ MVP | Only for SMS/WhatsApp |
 | `TWILIO_AUTH_TOKEN` | ❌ MVP | Only for SMS/WhatsApp |
 | `TWILIO_PHONE_NUMBER` | ❌ MVP | Only for SMS/WhatsApp |
-| `TRIPLEA_CLIENT_ID` | ✅ Crypto | Triple-A dashboard → API credentials |
-| `TRIPLEA_CLIENT_SECRET` | ✅ Crypto | Triple-A dashboard → API credentials |
-| `TRIPLEA_MERCHANT_ID` | ✅ Crypto | Triple-A dashboard → Merchant key |
-| `TRIPLEA_WEBHOOK_SECRET` | ✅ Crypto | Triple-A dashboard → Webhook config |
-| `TRIPLEA_SUCCESS_URL` | ❌ | Defaults to `/dashboard/billing?payment=success` |
-| `TRIPLEA_CANCEL_URL` | ❌ | Defaults to `/dashboard/billing?payment=cancelled` |
+| `PAYPAL_CLIENT_ID` | ✅ | PayPal Developer → API credentials |
+| `PAYPAL_CLIENT_SECRET` | ✅ | PayPal Developer → API credentials |
+| `PAYPAL_WEBHOOK_ID` | ✅ | PayPal Developer → Webhooks |
+| `PAYPAL_API_BASE` | ✅ | `https://api-m.sandbox.paypal.com` (sandbox) or `https://api-m.paypal.com` (live) |
+| `PAYPAL_SUCCESS_URL` | ❌ | Defaults to `/dashboard/billing?payment=success` |
+| `PAYPAL_CANCEL_URL` | ❌ | Defaults to `/dashboard/billing?payment=cancelled` |
+| `PAYPAL_PLAN_ID_STARTER` | ✅ Sub | PayPal subscription plan ID for Starter tier |
+| `PAYPAL_PLAN_ID_PROFESSIONAL` | ✅ Sub | PayPal subscription plan ID for Professional tier |
+| `PAYPAL_PLAN_ID_ENTERPRISE` | ✅ Sub | PayPal subscription plan ID for Enterprise tier |
 
 ---
 
@@ -40,7 +44,7 @@
 
 All migrations are managed via Lovable's migration tool. They auto-apply when approved.
 
-Key tables: `events`, `attendees`, `clients`, `rsvp_tokens`, `communications_log`, `speakers`, `organizers`, `agenda_items`, `announcements`, `dress_codes`, `surveys`, `transport_*`, `user_roles`, `profiles`.
+Key tables: `events`, `attendees`, `clients`, `rsvp_tokens`, `communications_log`, `speakers`, `organizers`, `agenda_items`, `announcements`, `dress_codes`, `surveys`, `transport_*`, `user_roles`, `profiles`, `payment_intents`, `payment_events`, `account_subscriptions`, `account_entitlements`.
 
 ---
 
@@ -67,14 +71,40 @@ Private buckets are served via the `serve-event-asset` Edge Function proxy.
 | `confirm-rsvp` | No | RSVP confirmation via token |
 | `send-email` | Yes | Send invitation/reminder emails |
 | `send-communication` | Yes | Multi-channel comms (email/SMS/WhatsApp) |
-| `create-triplea-payment` | No* | Create crypto payment intent (*validates JWT in code) |
-| `triplea-webhook` | No | Receive Triple-A payment status webhooks |
+| `paypal-create-order` | No* | Create PayPal one-time order (*validates JWT in code) |
+| `paypal-capture-order` | No* | Capture PayPal order after approval (*validates JWT in code) |
+| `paypal-create-subscription` | No* | Create PayPal monthly subscription (*validates JWT in code) |
+| `paypal-webhook` | No | Receive PayPal payment webhooks (signature verified) |
 
 Edge functions deploy automatically via Lovable.
 
 ---
 
-## 5. Deploy Steps
+## 5. PayPal Setup
+
+### One-time payments
+No extra setup needed — uses PayPal Orders API.
+
+### Monthly subscriptions
+1. Create a Product in PayPal Developer dashboard
+2. Create Billing Plans for each tier (Starter, Professional, Enterprise)
+3. Set the plan IDs as secrets: `PAYPAL_PLAN_ID_STARTER`, etc.
+
+### Webhooks
+1. In PayPal Developer → Webhooks, create a webhook pointing to:
+   `https://<your-supabase-project>.supabase.co/functions/v1/paypal-webhook`
+2. Subscribe to events:
+   - `PAYMENT.CAPTURE.COMPLETED`
+   - `BILLING.SUBSCRIPTION.ACTIVATED`
+   - `BILLING.SUBSCRIPTION.PAYMENT.COMPLETED`
+   - `BILLING.SUBSCRIPTION.CANCELLED`
+   - `BILLING.SUBSCRIPTION.SUSPENDED`
+   - `BILLING.SUBSCRIPTION.EXPIRED`
+3. Copy the Webhook ID and set as `PAYPAL_WEBHOOK_ID` secret
+
+---
+
+## 6. Deploy Steps
 
 ### Frontend
 1. Click **Publish** in Lovable editor (top-right)
@@ -88,12 +118,12 @@ Edge functions deploy automatically via Lovable.
 1. Verify all secrets are set in Supabase dashboard
 2. Verify storage buckets exist (they should from migrations)
 3. If using custom domain: configure DNS in Lovable Settings → Domains
-4. **Wildcard subdomain**: configure DNS with `*.titanmeet.com` → A record pointing to your hosting IP. Provision a wildcard SSL certificate (`*.titanmeet.com`) or use a provider that auto-provisions per-subdomain certs.
+4. **Wildcard subdomain**: configure DNS with `*.titanmeet.com` → A record pointing to your hosting IP
 5. Set `VITE_PUBLIC_ROOT_DOMAIN=titanmeet.com` in your build environment
 
 ---
 
-## 6. Smoke Test Checklist
+## 7. Smoke Test Checklist
 
 - [ ] Sign in with email/password
 - [ ] Create a client
@@ -108,15 +138,17 @@ Edge functions deploy automatically via Lovable.
 - [ ] Verify attendee status updates to "Confirmed"
 - [ ] Export attendees CSV
 - [ ] Verify anonymous user cannot access draft event
-- [ ] Verify anonymous user cannot access private assets
+- [ ] **PayPal one-time**: purchase → access active for 30 days
+- [ ] **PayPal subscription**: subscribe → access active, cancel → access until period end
+- [ ] **Billing UI**: shows correct access status, payment history, renewal prompts
 
 ---
 
-## 7. Known Limitations (MVP)
+## 8. Known Limitations (MVP)
 
 - Email via Gmail SMTP — subject to Google rate limits (~500/day)
 - No QR check-in or ticketing
-- Crypto payments via Triple-A (no card processing, no auto-renewal, no refunds yet)
+- PayPal payments only (no card processing directly, no auto-renewal for one-time)
 - No public self-registration
 - SMS/WhatsApp requires Twilio setup (not configured for MVP)
 - OG images in `index.html` still reference Lovable defaults
