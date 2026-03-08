@@ -94,6 +94,29 @@ const InvitationsSection = () => {
     }
   };
 
+  const handleSendSingle = async (attendeeId: string, channel: SendChannel) => {
+    if (!event) return;
+    setRowSending((prev) => ({ ...prev, [attendeeId]: channel }));
+    try {
+      const result = await sendEventInvitations(event.id, [channel], [attendeeId]);
+      if (channel === "email" && result.sent_email > 0) {
+        toast.success("Email invite sent");
+      } else if (channel === "whatsapp" && result.sent_whatsapp > 0) {
+        toast.success("WhatsApp invite sent");
+      } else if (channel === "email" && result.skipped_no_email > 0) {
+        toast.error("No email address for this attendee");
+      } else if (channel === "whatsapp" && result.skipped_no_phone > 0) {
+        toast.error("No WhatsApp number for this attendee");
+      } else {
+        toast.error("Failed to send");
+      }
+      loadInvites();
+    } catch {
+      toast.error(`Failed to send via ${channel}`);
+    }
+    setRowSending((prev) => ({ ...prev, [attendeeId]: null }));
+  };
+
   const copyLink = (token: string) => {
     navigator.clipboard.writeText(`${window.location.origin}/i/${token}`);
     toast.success("Invitation link copied");
