@@ -32,6 +32,7 @@ const InvitationsSection = () => {
   const [sending, setSending] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [selectedChannels, setSelectedChannels] = useState<SendChannel[]>(["email"]);
+  const [rowSending, setRowSending] = useState<Record<string, "email" | "whatsapp" | null>>({});
 
   const loadInvites = useCallback(async () => {
     if (!event) return;
