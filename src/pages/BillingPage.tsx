@@ -108,7 +108,25 @@ const BillingPage = () => {
       const { data, error } = await supabase.functions.invoke("paypal-capture-order", {
         body: { order_id: orderId },
       });
-      if (error) throw error;
+
+      // supabase.functions.invoke returns non-2xx as error, but data may still contain details
+      if (error) {
+        // Try to extract structured error from the response
+        const errData = data || {};
+        const issue = errData.issue || errData.code || "unknown";
+        const userMsg = errData.error || "Payment capture failed.";
+        const debugId = errData.debug_id || errData.correlationId || "";
+
+        console.error("[PayPal Capture] Failed:", { issue, userMsg, debugId, errData });
+
+        if (import.meta.env.DEV) {
+          toast.error(`Capture failed: ${userMsg} (issue: ${issue}, debug: ${debugId})`);
+        } else {
+          toast.error(userMsg);
+        }
+        return false;
+      }
+
       if (data?.status === "paid" || data?.status === "already_captured") {
         toast.success("Payment confirmed! Your access has been updated.");
         await loadEntitlement();
@@ -117,7 +135,7 @@ const BillingPage = () => {
       }
       return false;
     } catch (err: any) {
-      console.error("Capture failed:", err);
+      console.error("[PayPal Capture] Unhandled error:", err);
       toast.error("Payment capture failed. Please try again.");
       return false;
     }
