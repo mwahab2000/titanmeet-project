@@ -123,6 +123,7 @@ const App = () => (
                 </Route>
                 <Route path="/dashboard/events/:id/preview" element={<ProtectedRoute><PreviewEventPage /></ProtectedRoute>} />
                 <Route path="/s/:token" element={<PublicSurveyPage />} />
+                <Route path="/i/:token" element={<InviteLandingPage />} />
                 {/* Dev fallback: path-based public event routing */}
                 <Route path="/:clientSlug/:eventSlug" element={<PublicEventPage />} />
                 <Route path="*" element={<NotFound />} />
