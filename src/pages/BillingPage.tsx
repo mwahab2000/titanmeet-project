@@ -35,7 +35,6 @@ const BillingPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [paymentIntents, setPaymentIntents] = useState<any[]>([]);
   const [entitlement, setEntitlement] = useState<{ access_until: string; source: string } | null>(null);
-  const [creatingPayment, setCreatingPayment] = useState<string | null>(null);
   const [loadingPayments, setLoadingPayments] = useState(true);
   const [purchaseType, setPurchaseType] = useState<"one_time" | "monthly">("one_time");
 
