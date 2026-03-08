@@ -29,3 +29,6 @@ verify_jwt = false
 
 [functions.send-survey-links]
 verify_jwt = false
+
+[functions.paypal-register-subscription]
+verify_jwt = false
