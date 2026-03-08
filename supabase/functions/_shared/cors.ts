@@ -27,6 +27,7 @@ function isAllowedOrigin(origin: string | null): string | null {
   if (ALLOWED_ORIGINS.includes(origin)) return origin;
   if (SUBDOMAIN_RE.test(origin)) return origin;
   if (LOVABLE_RE.test(origin)) return origin;
+  if (LOVABLE_PROJECT_RE.test(origin)) return origin;
   return null;
 }
 
