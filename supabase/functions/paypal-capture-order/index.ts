@@ -179,26 +179,31 @@ Deno.serve(async (req) => {
         provider_event_id: `${orderId}_capture_failed`,
       });
 
-      // Provide actionable error info
+      // Provide actionable error info with appropriate status codes
       let userMessage = "Payment capture failed. Please try again.";
+      let httpStatus = 502;
+
       if (issueCode === "COMPLIANCE_VIOLATION") {
-        userMessage = "This card/payment method is not supported in the sandbox environment. Please use a PayPal sandbox buyer account instead.";
+        userMessage = "Card/guest checkout is not supported in the PayPal sandbox. Please use a PayPal sandbox buyer account to complete payment.";
+        httpStatus = 422;
       } else if (issueCode === "INSTRUMENT_DECLINED") {
         userMessage = "The payment method was declined. Please try a different payment method or use your PayPal account.";
+        httpStatus = 422;
       } else if (issueCode === "ORDER_NOT_APPROVED") {
         userMessage = "The order was not approved. Please complete the PayPal checkout before capturing.";
+        httpStatus = 400;
       }
 
       return new Response(
         JSON.stringify({
-          code: "paypal_capture_failed",
+          code: issueCode === "COMPLIANCE_VIOLATION" ? "sandbox_card_not_supported" : "paypal_capture_failed",
           correlationId,
           issue: issueCode,
           description: issueDesc,
           debug_id: paypalDebugId,
           error: userMessage,
         }),
-        { status: 502, headers: jsonHeaders }
+        { status: httpStatus, headers: jsonHeaders }
       );
     }
 

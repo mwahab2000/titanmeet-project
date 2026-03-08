@@ -331,6 +331,18 @@ const BillingPage = () => {
         </Card>
       )}
 
+      {/* Sandbox mode banner */}
+      {(!import.meta.env.VITE_PAYPAL_ENV || import.meta.env.VITE_PAYPAL_ENV === "sandbox") && (
+        <Alert className="border-amber-500/50 bg-amber-500/10">
+          <AlertTriangle className="h-4 w-4 text-amber-600" />
+          <AlertTitle className="text-amber-700 dark:text-amber-400">Sandbox Testing Mode</AlertTitle>
+          <AlertDescription className="text-amber-700/80 dark:text-amber-300/80">
+            PayPal is in sandbox mode. Please complete payment using a{" "}
+            <strong>PayPal sandbox buyer account</strong> login. Card/guest checkout is disabled in sandbox.
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Dev-only PayPal config sanity check */}
       {import.meta.env.DEV && (
         <Card className="border-yellow-500/50 bg-yellow-500/5">

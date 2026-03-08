@@ -59,6 +59,7 @@ const PayPalOneTimeButton = ({ planId, onCreateOrder, onCaptureOrder, disabled }
         }
 
         paypal.Buttons({
+          ...(IS_SANDBOX ? { fundingSource: paypal.FUNDING.PAYPAL } : {}),
           style: {
             shape: "pill",
             color: "gold",
