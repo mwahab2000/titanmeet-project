@@ -9,10 +9,16 @@ verify_jwt = false
 [functions.confirm-rsvp]
 verify_jwt = false
 
-[functions.create-triplea-payment]
+[functions.paypal-create-order]
 verify_jwt = false
 
-[functions.triplea-webhook]
+[functions.paypal-capture-order]
+verify_jwt = false
+
+[functions.paypal-create-subscription]
+verify_jwt = false
+
+[functions.paypal-webhook]
 verify_jwt = false
 
 [functions.send-notification-email]

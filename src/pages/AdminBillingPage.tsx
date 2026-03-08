@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCents } from "@/lib/billing";
-import { Shield, Bitcoin, DollarSign, CheckCircle2 } from "lucide-react";
+import { Shield, DollarSign, CheckCircle2, CreditCard, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useOwnerRole } from "@/hooks/useOwnerRole";
@@ -18,7 +18,8 @@ interface AdminAccount {
   status: string;
   started_at: string;
   full_name: string | null;
-  email: string | null;
+  access_until: string | null;
+  access_source: string | null;
   clients_count: number;
   events_count: number;
   attendees_count: number;
@@ -28,15 +29,15 @@ interface AdminAccount {
 const STATUS_BADGE: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
   pending: "outline",
   awaiting_payment: "outline",
-  processing: "secondary",
   paid: "secondary",
   confirmed: "default",
+  active: "default",
   expired: "destructive",
   cancelled: "destructive",
+  canceled: "destructive",
   failed: "destructive",
 };
 
-/** Server-side owner-only RPC to confirm a payment intent and activate subscription */
 const confirmPaymentIntent = async (intentId: string) => {
   const { data, error } = await supabase.rpc("owner_confirm_payment_intent" as any, {
     _intent_id: intentId,
@@ -67,38 +68,35 @@ const AdminBillingPage = () => {
     setConfirming(intentId);
     const ok = await confirmPaymentIntent(intentId);
     setConfirming(null);
-    if (ok) {
-      // Reload data
-      window.location.reload();
-    }
+    if (ok) window.location.reload();
   };
 
   useEffect(() => {
     const load = async () => {
-      const { data: subs } = await supabase.from("account_subscriptions").select("*");
-      const { data: plans } = await supabase.from("subscription_plans").select("*");
-      const { data: profiles } = await supabase.from("profiles").select("user_id, full_name");
-      const { data: usageRows } = await supabase.from("monthly_usage").select("*");
-      const { data: paymentData } = await supabase
-        .from("payment_intents" as any)
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(50);
+      const [subsRes, plansRes, profilesRes, usageRes, paymentsRes, entitlementsRes] = await Promise.all([
+        supabase.from("account_subscriptions").select("*"),
+        supabase.from("subscription_plans").select("*"),
+        supabase.from("profiles").select("user_id, full_name"),
+        supabase.from("monthly_usage").select("*"),
+        supabase.from("payment_intents" as any).select("*").order("created_at", { ascending: false }).limit(50),
+        supabase.from("account_entitlements" as any).select("*"),
+      ]);
 
-      if (!subs || !plans) {
-        setLoading(false);
-        return;
-      }
+      const subs = subsRes.data;
+      const plans = plansRes.data;
+      if (!subs || !plans) { setLoading(false); return; }
 
       const planMap = new Map(plans.map((p: any) => [p.id, p]));
-      const profileMap = new Map((profiles || []).map((p: any) => [p.user_id, p]));
-      const usageMap = new Map((usageRows || []).map((u: any) => [u.user_id, u]));
+      const profileMap = new Map((profilesRes.data || []).map((p: any) => [p.user_id, p]));
+      const usageMap = new Map((usageRes.data || []).map((u: any) => [u.user_id, u]));
+      const entitlementMap = new Map(((entitlementsRes.data as any[]) || []).map((e: any) => [e.user_id, e]));
 
       let mrr = 0;
       const mapped: AdminAccount[] = subs.map((sub: any) => {
         const plan = planMap.get(sub.plan_id) as any;
         const profile = profileMap.get(sub.user_id) as any;
         const usage = usageMap.get(sub.user_id) as any;
+        const ent = entitlementMap.get(sub.user_id) as any;
         mrr += plan?.monthly_price_cents || 0;
 
         return {
@@ -109,7 +107,8 @@ const AdminBillingPage = () => {
           status: sub.status,
           started_at: sub.started_at,
           full_name: profile?.full_name || null,
-          email: null,
+          access_until: ent?.access_until || null,
+          access_source: ent?.source || null,
           clients_count: usage?.clients_count || 0,
           events_count: usage?.active_events_count || 0,
           attendees_count: usage?.attendees_count || 0,
@@ -119,10 +118,9 @@ const AdminBillingPage = () => {
 
       setTotalMRR(mrr);
       setAccounts(mapped);
-      setPayments((paymentData as any[]) || []);
+      setPayments((paymentsRes.data as any[]) || []);
       setLoading(false);
     };
-
     load();
   }, []);
 
@@ -139,9 +137,9 @@ const AdminBillingPage = () => {
     return acc;
   }, {} as Record<string, number>);
 
-  const confirmedPayments = payments.filter((p) => p.status === "confirmed");
-  const totalCryptoRevenueCents = confirmedPayments.reduce((sum: number, p: any) => sum + (p.amount_usd_cents || 0), 0);
-  const profileMap = new Map(accounts.map((a) => [a.user_id, a.full_name]));
+  const confirmedPayments = payments.filter((p) => ["paid", "confirmed", "active"].includes(p.status));
+  const totalRevenueCents = confirmedPayments.reduce((sum: number, p: any) => sum + (p.amount_usd_cents || 0), 0);
+  const now = new Date();
 
   return (
     <div className="space-y-6">
@@ -149,10 +147,9 @@ const AdminBillingPage = () => {
         <h1 className="font-display text-3xl font-bold flex items-center gap-2">
           <Shield className="h-7 w-7 text-primary" /> Admin Billing Overview
         </h1>
-        <p className="text-muted-foreground">Internal view of all accounts, plans, payments, and usage.</p>
+        <p className="text-muted-foreground">Internal view of all accounts, plans, payments, and access status.</p>
       </div>
 
-      {/* Summary cards */}
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
@@ -173,37 +170,39 @@ const AdminBillingPage = () => {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm text-muted-foreground flex items-center gap-1">
-              <Bitcoin className="h-4 w-4" /> Crypto Revenue
+              <CreditCard className="h-4 w-4" /> PayPal Revenue
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold font-display">{formatCents(totalCryptoRevenueCents)}</p>
+            <p className="text-2xl font-bold font-display">{formatCents(totalRevenueCents)}</p>
             <p className="text-xs text-muted-foreground">{confirmedPayments.length} confirmed payments</p>
           </CardContent>
         </Card>
-        {Object.entries(planCounts).map(([name, count]) => (
-          <Card key={name}>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm text-muted-foreground">{name} Plans</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold font-display">{count}</p>
-            </CardContent>
-          </Card>
-        ))}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-muted-foreground flex items-center gap-1">
+              <AlertTriangle className="h-4 w-4" /> Expired Accounts
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold font-display text-destructive">
+              {accounts.filter(a => a.access_until && new Date(a.access_until) < now).length}
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
       <Tabs defaultValue="accounts">
         <TabsList>
           <TabsTrigger value="accounts">Accounts</TabsTrigger>
-          <TabsTrigger value="payments">Crypto Payments ({payments.length})</TabsTrigger>
+          <TabsTrigger value="payments">PayPal Payments ({payments.length})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="accounts">
           <Card>
             <CardHeader>
               <CardTitle className="font-display">All Accounts</CardTitle>
-              <CardDescription>Account-level billing and usage snapshot</CardDescription>
+              <CardDescription>Account-level billing, access status, and usage snapshot</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
@@ -214,29 +213,41 @@ const AdminBillingPage = () => {
                       <TableHead>Plan</TableHead>
                       <TableHead>Price</TableHead>
                       <TableHead>Status</TableHead>
+                      <TableHead>Access Until</TableHead>
                       <TableHead>Clients</TableHead>
                       <TableHead>Events</TableHead>
                       <TableHead>Attendees</TableHead>
-                      <TableHead>Emails</TableHead>
                       <TableHead>Since</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {accounts.map((a) => (
-                      <TableRow key={a.user_id}>
-                        <TableCell className="font-medium">{a.full_name || a.user_id.slice(0, 8)}</TableCell>
-                        <TableCell><Badge variant="outline">{a.plan_name}</Badge></TableCell>
-                        <TableCell>{formatCents(a.plan_price_cents)}</TableCell>
-                        <TableCell>
-                          <Badge variant={a.status === "active" ? "default" : "secondary"}>{a.status}</Badge>
-                        </TableCell>
-                        <TableCell>{a.clients_count}</TableCell>
-                        <TableCell>{a.events_count}</TableCell>
-                        <TableCell>{a.attendees_count}</TableCell>
-                        <TableCell>{a.emails_count}</TableCell>
-                        <TableCell className="text-muted-foreground text-xs">{new Date(a.started_at).toLocaleDateString()}</TableCell>
-                      </TableRow>
-                    ))}
+                    {accounts.map((a) => {
+                      const expired = a.access_until && new Date(a.access_until) < now;
+                      return (
+                        <TableRow key={a.user_id}>
+                          <TableCell className="font-medium">{a.full_name || a.user_id.slice(0, 8)}</TableCell>
+                          <TableCell><Badge variant="outline">{a.plan_name}</Badge></TableCell>
+                          <TableCell>{formatCents(a.plan_price_cents)}</TableCell>
+                          <TableCell>
+                            <Badge variant={a.status === "active" ? "default" : "secondary"}>{a.status}</Badge>
+                          </TableCell>
+                          <TableCell>
+                            {a.access_until ? (
+                              <span className={expired ? "text-destructive font-medium" : ""}>
+                                {new Date(a.access_until).toLocaleDateString()}
+                                {expired && " (expired)"}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
+                          <TableCell>{a.clients_count}</TableCell>
+                          <TableCell>{a.events_count}</TableCell>
+                          <TableCell>{a.attendees_count}</TableCell>
+                          <TableCell className="text-muted-foreground text-xs">{new Date(a.started_at).toLocaleDateString()}</TableCell>
+                        </TableRow>
+                      );
+                    })}
                     {accounts.length === 0 && (
                       <TableRow>
                         <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
@@ -255,7 +266,7 @@ const AdminBillingPage = () => {
           <Card>
             <CardHeader>
               <CardTitle className="font-display flex items-center gap-2">
-                <DollarSign className="h-5 w-5 text-primary" /> All Crypto Payments
+                <DollarSign className="h-5 w-5 text-primary" /> All PayPal Payments
               </CardTitle>
               <CardDescription>Payment intents from all users for reconciliation and support</CardDescription>
             </CardHeader>
@@ -266,54 +277,61 @@ const AdminBillingPage = () => {
                     <TableRow>
                       <TableHead>Date</TableHead>
                       <TableHead>Account</TableHead>
+                      <TableHead>Type</TableHead>
                       <TableHead>Plan</TableHead>
                       <TableHead>Amount</TableHead>
                       <TableHead>Status</TableHead>
-                      <TableHead>Provider</TableHead>
                       <TableHead>Order ID</TableHead>
                       <TableHead>Paid At</TableHead>
                       <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {payments.map((p: any) => (
-                      <TableRow key={p.id}>
-                        <TableCell className="text-xs text-muted-foreground">
-                          {new Date(p.created_at).toLocaleString()}
-                        </TableCell>
-                        <TableCell className="font-medium">
-                          {profileMap.get(p.user_id) || p.user_id?.slice(0, 8)}
-                        </TableCell>
-                        <TableCell className="capitalize">{p.plan_id}</TableCell>
-                        <TableCell>{formatCents(p.amount_usd_cents)}</TableCell>
-                        <TableCell>
-                          <Badge variant={STATUS_BADGE[p.status] || "outline"}>{p.status}</Badge>
-                        </TableCell>
-                        <TableCell className="text-xs">{p.provider}</TableCell>
-                        <TableCell className="text-xs font-mono text-muted-foreground">{p.internal_order_id}</TableCell>
-                        <TableCell className="text-xs text-muted-foreground">
-                          {p.paid_at ? new Date(p.paid_at).toLocaleString() : "—"}
-                        </TableCell>
-                        <TableCell>
-                          {p.status !== "confirmed" && isOwner && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              disabled={confirming === p.id}
-                              onClick={(e) => { e.stopPropagation(); handleConfirmPayment(p.id); }}
-                              className="gap-1"
-                            >
-                              <CheckCircle2 className="h-3.5 w-3.5" />
-                              {confirming === p.id ? "…" : "Confirm"}
-                            </Button>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    {payments.map((p: any) => {
+                      const profileName = accounts.find(a => a.user_id === p.user_id)?.full_name;
+                      return (
+                        <TableRow key={p.id}>
+                          <TableCell className="text-xs text-muted-foreground">
+                            {new Date(p.created_at).toLocaleString()}
+                          </TableCell>
+                          <TableCell className="font-medium">
+                            {profileName || p.user_id?.slice(0, 8)}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="text-xs">
+                              {p.purchase_type === "monthly" ? "Monthly" : "One-time"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="capitalize">{p.plan_id}</TableCell>
+                          <TableCell>{formatCents(p.amount_usd_cents)}</TableCell>
+                          <TableCell>
+                            <Badge variant={STATUS_BADGE[p.status] || "outline"}>{p.status}</Badge>
+                          </TableCell>
+                          <TableCell className="text-xs font-mono text-muted-foreground">{p.internal_order_id}</TableCell>
+                          <TableCell className="text-xs text-muted-foreground">
+                            {p.paid_at ? new Date(p.paid_at).toLocaleString() : "—"}
+                          </TableCell>
+                          <TableCell>
+                            {!["confirmed", "paid", "active"].includes(p.status) && isOwner && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={confirming === p.id}
+                                onClick={(e) => { e.stopPropagation(); handleConfirmPayment(p.id); }}
+                                className="gap-1"
+                              >
+                                <CheckCircle2 className="h-3.5 w-3.5" />
+                                {confirming === p.id ? "…" : "Confirm"}
+                              </Button>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                     {payments.length === 0 && (
                       <TableRow>
                         <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
-                          No crypto payments yet.
+                          No payments yet.
                         </TableCell>
                       </TableRow>
                     )}
