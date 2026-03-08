@@ -443,17 +443,7 @@ const BillingPage = () => {
                         <TableCell className="text-xs font-mono text-muted-foreground">{pi.internal_order_id}</TableCell>
                         <TableCell>
                           {isRetryable && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => pi.purchase_type === "monthly"
-                                ? handleSubscription(pi.plan_id)
-                                : handleOneTimePayment(pi.plan_id)
-                              }
-                              disabled={!!creatingPayment}
-                            >
-                              <RefreshCw className="h-3 w-3 mr-1" /> Retry
-                            </Button>
+                            <span className="text-xs text-muted-foreground">Use buttons above to retry</span>
                           )}
                         </TableCell>
                       </TableRow>
