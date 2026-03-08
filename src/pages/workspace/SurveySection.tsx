@@ -34,9 +34,8 @@ const SurveySection = () => {
   const [selectedChannels, setSelectedChannels] = useState<SendChannel[]>(["email"]);
   const [exporting, setExporting] = useState(false);
 
-  if (!event || !user) return null;
-
   const loadSurveys = useCallback(async () => {
+    if (!event) return;
     try { setSurveys(await listSurveys(event.id)); } catch { toast.error("Failed to load surveys"); }
     setLoading(false);
   }, [event.id]);
