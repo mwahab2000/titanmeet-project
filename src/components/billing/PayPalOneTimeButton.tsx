@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 const PAYPAL_CLIENT_ID = import.meta.env.VITE_PAYPAL_CLIENT_ID || "AVZxi-ykDACzyXDxwnTeiQoHQFh-_PmShWmC6aeToqxjdnNqOTWGWHJYkCy_ZnGvZvJM-PZs_NfGIMi-";
+const IS_SANDBOX = !import.meta.env.VITE_PAYPAL_ENV || import.meta.env.VITE_PAYPAL_ENV === "sandbox";
 
-const SDK_SRC = `https://www.paypal.com/sdk/js?client-id=${PAYPAL_CLIENT_ID}&currency=USD&debug=${import.meta.env.DEV}&components=buttons`;
+const SDK_SRC = `https://www.paypal.com/sdk/js?client-id=${PAYPAL_CLIENT_ID}&currency=USD&debug=${import.meta.env.DEV}&components=buttons${IS_SANDBOX ? "&disable-funding=card,credit" : ""}`;
 
 let sdkLoadPromise: Promise<void> | null = null;
 
@@ -58,6 +59,7 @@ const PayPalOneTimeButton = ({ planId, onCreateOrder, onCaptureOrder, disabled }
         }
 
         paypal.Buttons({
+          ...(IS_SANDBOX ? { fundingSource: paypal.FUNDING.PAYPAL } : {}),
           style: {
             shape: "pill",
             color: "gold",
