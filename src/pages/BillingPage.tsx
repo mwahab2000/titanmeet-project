@@ -6,7 +6,7 @@ import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CreditCard, TrendingUp, AlertTriangle, CheckCircle, Clock, XCircle, RefreshCw, ShieldCheck } from "lucide-react";
 import { useBilling } from "@/hooks/useBilling";
 import { calculateOverages, formatCents, usagePercent } from "@/lib/billing";
@@ -14,6 +14,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { useSearchParams } from "react-router-dom";
+import PayPalSubscriptionButton from "@/components/billing/PayPalSubscriptionButton";
+import PayPalOneTimeButton from "@/components/billing/PayPalOneTimeButton";
 
 const STATUS_LABELS: Record<string, { label: string; icon: React.ReactNode; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   pending: { label: "Pending", icon: <Clock className="h-3 w-3" />, variant: "outline" },
