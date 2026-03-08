@@ -88,35 +88,23 @@ const BillingPage = () => {
     return () => clearInterval(interval);
   }, [paymentIntents, loadPaymentIntents, loadEntitlement]);
 
-  const handleOneTimePayment = async (planId: string) => {
-    if (!user) return;
-    setCreatingPayment(planId);
-    try {
-      const { data, error } = await supabase.functions.invoke("paypal-create-order", {
-        body: { plan_id: planId },
-      });
-      if (error) throw error;
-      if (data?.order_id) {
-        // Load PayPal JS SDK and open checkout
-        toast.info("PayPal order created. Opening checkout...");
-        // For now, we'll use server-side capture flow
-        // The PayPal JS SDK buttons approach is handled in the PayPal button component
-        // Store orderId for capture
-        const captureRes = await handlePayPalApprove(data.order_id);
-        if (!captureRes) {
-          toast.info("Order created. Complete payment via PayPal checkout.");
-        }
-      }
-      await loadPaymentIntents();
-    } catch (err: any) {
-      console.error("Payment creation failed:", err);
-      toast.error(err.message || "Failed to create payment. Please try again.");
-    } finally {
-      setCreatingPayment(null);
-    }
+  // PayPal plan IDs mapping (matches PayPal sandbox billing plans)
+  const PAYPAL_PLAN_IDS: Record<string, string> = {
+    starter: "P-6T6526937K357204PNGWSRYI",
+    professional: "P-47C11055NM903604JNGWSQWA",
+    enterprise: "P-0KW85391EV846532RNGWSSUJ",
   };
 
-  const handlePayPalApprove = async (orderId: string): Promise<boolean> => {
+  const handleCreateOrder = useCallback(async (planId: string): Promise<string> => {
+    const { data, error } = await supabase.functions.invoke("paypal-create-order", {
+      body: { plan_id: planId },
+    });
+    if (error) throw error;
+    if (!data?.order_id) throw new Error("No order ID returned");
+    return data.order_id;
+  }, []);
+
+  const handleCaptureOrder = useCallback(async (orderId: string): Promise<boolean> => {
     try {
       const { data, error } = await supabase.functions.invoke("paypal-capture-order", {
         body: { order_id: orderId },
@@ -125,37 +113,31 @@ const BillingPage = () => {
       if (data?.status === "paid" || data?.status === "already_captured") {
         toast.success("Payment confirmed! Your access has been updated.");
         await loadEntitlement();
+        await loadPaymentIntents();
         return true;
       }
       return false;
     } catch (err: any) {
       console.error("Capture failed:", err);
+      toast.error("Payment capture failed. Please try again.");
       return false;
     }
-  };
+  }, [loadEntitlement, loadPaymentIntents]);
 
-  const handleSubscription = async (planId: string) => {
-    if (!user) return;
-    setCreatingPayment(planId);
+  const handleSubscriptionApproved = useCallback(async (subscriptionId: string, planId: string) => {
     try {
-      const { data, error } = await supabase.functions.invoke("paypal-create-subscription", {
-        body: { plan_id: planId },
+      const { data, error } = await supabase.functions.invoke("paypal-register-subscription", {
+        body: { plan_id: planId, subscription_id: subscriptionId },
       });
       if (error) throw error;
-      if (data?.approval_url) {
-        window.open(data.approval_url, "_blank");
-        toast.success(`Subscription checkout opened for ${data.plan_name}. Complete in the new tab.`);
-      } else {
-        toast.info("Subscription created but no checkout URL. Check payment history.");
-      }
+      toast.success(`Subscription created! ID: ${subscriptionId}. It will activate shortly.`);
       await loadPaymentIntents();
+      await loadEntitlement();
     } catch (err: any) {
-      console.error("Subscription creation failed:", err);
-      toast.error(err.message || "Failed to create subscription.");
-    } finally {
-      setCreatingPayment(null);
+      console.error("Subscription registration failed:", err);
+      toast.error(err.message || "Failed to register subscription.");
     }
-  };
+  }, [loadPaymentIntents, loadEntitlement]);
 
   const isAccessExpired = entitlement ? new Date(entitlement.access_until) < new Date() : true;
   const isCanceledButActive = subscription?.cancel_at_period_end && !isAccessExpired;
