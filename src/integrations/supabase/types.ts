@@ -14,35 +14,65 @@ export type Database = {
   }
   public: {
     Tables: {
+      account_entitlements: {
+        Row: {
+          access_until: string
+          source: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          access_until?: string
+          source?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          access_until?: string
+          source?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       account_subscriptions: {
         Row: {
+          cancel_at_period_end: boolean
           created_at: string
           current_period_end: string
           current_period_start: string
           id: string
           plan_id: string
+          provider: string
+          provider_subscription_id: string | null
           started_at: string
           status: string
           updated_at: string
           user_id: string
         }
         Insert: {
+          cancel_at_period_end?: boolean
           created_at?: string
           current_period_end?: string
           current_period_start?: string
           id?: string
           plan_id?: string
+          provider?: string
+          provider_subscription_id?: string | null
           started_at?: string
           status?: string
           updated_at?: string
           user_id: string
         }
         Update: {
+          cancel_at_period_end?: boolean
           created_at?: string
           current_period_end?: string
           current_period_start?: string
           id?: string
           plan_id?: string
+          provider?: string
+          provider_subscription_id?: string | null
           started_at?: string
           status?: string
           updated_at?: string
@@ -879,6 +909,8 @@ export type Database = {
           plan_id: string
           provider: string
           provider_payment_id: string | null
+          provider_subscription_id: string | null
+          purchase_type: string
           status: string
           subscription_id: string | null
           updated_at: string
@@ -897,6 +929,8 @@ export type Database = {
           plan_id: string
           provider?: string
           provider_payment_id?: string | null
+          provider_subscription_id?: string | null
+          purchase_type?: string
           status?: string
           subscription_id?: string | null
           updated_at?: string
@@ -915,6 +949,8 @@ export type Database = {
           plan_id?: string
           provider?: string
           provider_payment_id?: string | null
+          provider_subscription_id?: string | null
+          purchase_type?: string
           status?: string
           subscription_id?: string | null
           updated_at?: string
