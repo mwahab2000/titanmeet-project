@@ -332,6 +332,7 @@ const BillingPage = () => {
           <div className="grid gap-4 md:grid-cols-3">
             {plans.map((plan) => {
               const isCurrent = plan.id === currentPlan.id;
+              const paypalPlanId = PAYPAL_PLAN_IDS[plan.id];
               return (
                 <div
                   key={plan.id}
@@ -355,24 +356,20 @@ const BillingPage = () => {
                     <li>{plan.max_storage_gb} GB storage</li>
                     <li className="capitalize">{plan.support_tier} support</li>
                   </ul>
-                  <Button
-                    size="sm"
-                    className="w-full gap-1"
-                    onClick={() => purchaseType === "one_time"
-                      ? handleOneTimePayment(plan.id)
-                      : handleSubscription(plan.id)
-                    }
-                    disabled={!!creatingPayment}
-                  >
-                    {creatingPayment === plan.id ? (
-                      <><RefreshCw className="h-3 w-3 animate-spin" /> Processing...</>
-                    ) : (
-                      <>
-                        <CreditCard className="h-3 w-3" />
-                        {purchaseType === "one_time" ? "Pay with PayPal" : "Subscribe with PayPal"}
-                      </>
-                    )}
-                  </Button>
+                  {purchaseType === "one_time" ? (
+                    <PayPalOneTimeButton
+                      planId={plan.id}
+                      onCreateOrder={handleCreateOrder}
+                      onCaptureOrder={handleCaptureOrder}
+                    />
+                  ) : paypalPlanId ? (
+                    <PayPalSubscriptionButton
+                      planId={paypalPlanId}
+                      onApproved={(subId) => handleSubscriptionApproved(subId, plan.id)}
+                    />
+                  ) : (
+                    <p className="text-sm text-muted-foreground text-center py-2">Plan not configured</p>
+                  )}
                 </div>
               );
             })}
