@@ -313,6 +313,20 @@ const BillingPage = () => {
         </Card>
       )}
 
+      {/* Dev-only PayPal config sanity check */}
+      {import.meta.env.DEV && (
+        <Card className="border-yellow-500/50 bg-yellow-500/5">
+          <CardContent className="py-3">
+            <p className="text-xs font-mono text-muted-foreground">
+              <strong>PayPal Config (dev only):</strong>{" "}
+              Client ID: ...{(import.meta.env.VITE_PAYPAL_CLIENT_ID || "AVZxi-...GMi-").slice(-6)} |{" "}
+              Plan IDs: {Object.entries(PAYPAL_PLAN_IDS).map(([k, v]) => `${k}=${v}`).join(", ")} |{" "}
+              Mode: {purchaseType}
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Plans + PayPal Checkout */}
       <Card>
         <CardHeader>

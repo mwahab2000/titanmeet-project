@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
-// PayPal Sandbox Client ID - publishable key, safe for frontend
-const PAYPAL_CLIENT_ID = "AVZxi-ykDACzyXDxwnTeiQoHQFh-_PmShWmC6aeToqxjdnNqOTWGWHJYkCy_ZnGvZvJM-PZs_NfGIMi-";
+const PAYPAL_CLIENT_ID = import.meta.env.VITE_PAYPAL_CLIENT_ID || "AVZxi-ykDACzyXDxwnTeiQoHQFh-_PmShWmC6aeToqxjdnNqOTWGWHJYkCy_ZnGvZvJM-PZs_NfGIMi-";
 
-const SDK_SRC = `https://www.paypal.com/sdk/js?client-id=${PAYPAL_CLIENT_ID}&vault=true&intent=subscription`;
+const SDK_SRC = `https://www.paypal.com/sdk/js?client-id=${PAYPAL_CLIENT_ID}&vault=true&intent=subscription&currency=USD&debug=${import.meta.env.DEV}&components=buttons`;
 
 let sdkLoadPromise: Promise<void> | null = null;
 
@@ -38,13 +37,11 @@ const PayPalSubscriptionButton = ({ planId, onApproved, disabled }: PayPalSubscr
   const containerRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const renderedRef = useRef(false);
 
   useEffect(() => {
     if (!containerRef.current || disabled) return;
 
     let cancelled = false;
-    renderedRef.current = false;
 
     const render = async () => {
       try {
@@ -53,8 +50,6 @@ const PayPalSubscriptionButton = ({ planId, onApproved, disabled }: PayPalSubscr
         await loadPayPalSdk();
 
         if (cancelled || !containerRef.current) return;
-
-        // Clear previous buttons
         containerRef.current.innerHTML = "";
 
         const paypal = (window as any).paypal;
@@ -63,6 +58,7 @@ const PayPalSubscriptionButton = ({ planId, onApproved, disabled }: PayPalSubscr
         }
 
         paypal.Buttons({
+          fundingSource: paypal.FUNDING.PAYPAL, // Disable card — not supported for subscriptions in sandbox
           style: {
             shape: "pill",
             color: "blue",
@@ -70,29 +66,41 @@ const PayPalSubscriptionButton = ({ planId, onApproved, disabled }: PayPalSubscr
             label: "subscribe",
           },
           createSubscription: (_data: any, actions: any) => {
-            return actions.subscription.create({
-              plan_id: planId,
-            });
+            return actions.subscription.create({ plan_id: planId });
+          },
+          onClick: (data: any) => {
+            console.log("[PayPal Sub] Button clicked, plan:", planId, data);
           },
           onApprove: async (data: any) => {
+            console.log("[PayPal Sub] Approved:", data);
             if (data.subscriptionID) {
               onApproved(data.subscriptionID);
             }
           },
+          onCancel: (data: any) => {
+            console.log("[PayPal Sub] Cancelled:", data);
+            toast.info("Subscription checkout was cancelled.");
+          },
           onError: (err: any) => {
-            console.error("PayPal button error:", err);
-            toast.error("PayPal checkout error. Please try again.");
+            console.error("[PayPal Sub] Checkout error:", err);
+            const msg = err?.message || String(err);
+            const isFundingIssue = msg.includes("funding") || msg.includes("card") || msg.includes("INSTRUMENT_DECLINED");
+            if (isFundingIssue) {
+              toast.error("Card checkout isn't available for subscriptions in this environment. Please use PayPal account login.");
+            } else if (import.meta.env.DEV) {
+              toast.error(`PayPal error: ${msg.slice(0, 200)}`);
+            } else {
+              toast.error("PayPal checkout error. Please try again.");
+            }
           },
         }).render(containerRef.current);
 
-        renderedRef.current = true;
         setLoading(false);
       } catch (err: any) {
         if (!cancelled) {
-          console.error("PayPal SDK load error:", err);
+          console.error("[PayPal Sub] SDK load error:", err);
           setError(err.message || "Failed to load PayPal");
           setLoading(false);
-          toast.error("Failed to load PayPal. Please refresh and try again.");
         }
       }
     };
@@ -123,10 +131,11 @@ const PayPalSubscriptionButton = ({ planId, onApproved, disabled }: PayPalSubscr
           <span className="ml-2 text-sm text-muted-foreground">Loading PayPal...</span>
         </div>
       )}
-      {error && (
-        <p className="text-sm text-destructive text-center py-2">{error}</p>
-      )}
+      {error && <p className="text-sm text-destructive text-center py-2">{error}</p>}
       <div ref={containerRef} className={loading ? "hidden" : ""} />
+      <p className="text-xs text-muted-foreground text-center mt-2">
+        Subscribe using your PayPal account
+      </p>
     </div>
   );
 };
