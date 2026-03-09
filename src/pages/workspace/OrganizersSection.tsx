@@ -249,6 +249,7 @@ const OrganizersSection = () => {
         )}
       </CardContent>
     </Card>
+    </>
   );
 };
 
