@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Plus, Trash2, Upload, X, Shirt } from "lucide-react";
 import { differenceInDays, parseISO } from "date-fns";
 import { useSignedUrl } from "@/hooks/useSignedUrls";
+import { SectionHint } from "@/components/ui/section-hint";
 
 /** Small component to display a signed dress-code reference image */
 const DressCodeRefImage = ({ path, alt }: { path: string; alt: string }) => {
