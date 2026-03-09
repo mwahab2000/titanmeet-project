@@ -13,9 +13,11 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, Pencil, Copy, Trash2, Send, Link2, Users, BarChart3, Mail, CheckCircle2, Clock, Eye, Loader2, MessageSquare, Download, Phone } from "lucide-react";
+import { Plus, Pencil, Copy, Trash2, Send, Link2, Users, BarChart3, Mail, CheckCircle2, Clock, Eye, Loader2, MessageSquare, Download, Phone, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { callAi, type SurveyAnalysisResult } from "@/lib/ai-api";
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend } from "recharts";
 
 const SurveySection = () => {
   const { event, isArchived } = useEventWorkspace();
