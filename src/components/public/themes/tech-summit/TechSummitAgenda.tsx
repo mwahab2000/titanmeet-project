@@ -4,8 +4,6 @@ import type { PublicEventData } from "@/lib/publicSite/types";
 interface Props { data: PublicEventData; }
 
 export const TechSummitAgenda: React.FC<Props> = ({ data }) => {
-  if (data.agenda.length === 0) return null;
-
   const grouped = data.agenda.reduce<Record<number, typeof data.agenda>>((acc, item) => {
     const day = item.dayNumber || 1;
     if (!acc[day]) acc[day] = [];
@@ -13,7 +11,9 @@ export const TechSummitAgenda: React.FC<Props> = ({ data }) => {
     return acc;
   }, {});
   const days = Object.keys(grouped).map(Number).sort((a, b) => a - b);
-  const [activeDay, setActiveDay] = useState(days[0]);
+  const [activeDay, setActiveDay] = useState(days[0] ?? 1);
+
+  if (data.agenda.length === 0) return null;
 
   return (
     <section id="agenda" className="py-20 sm:py-28" style={{ background: "#0E1420" }}>
