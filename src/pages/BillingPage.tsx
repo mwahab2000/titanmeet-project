@@ -14,8 +14,18 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { useSearchParams } from "react-router-dom";
-import PayPalSubscriptionButton from "@/components/billing/PayPalSubscriptionButton";
-import PayPalOneTimeButton from "@/components/billing/PayPalOneTimeButton";
+import PaddleCheckoutButton from "@/components/billing/PaddleCheckoutButton";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 const STATUS_LABELS: Record<string, { label: string; icon: React.ReactNode; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   pending: { label: "Pending", icon: <Clock className="h-3 w-3" />, variant: "outline" },
@@ -29,6 +39,12 @@ const STATUS_LABELS: Record<string, { label: string; icon: React.ReactNode; vari
   canceled: { label: "Canceled", icon: <XCircle className="h-3 w-3" />, variant: "destructive" },
 };
 
+const PADDLE_PRICE_IDS: Record<string, { one_time: string; subscription: string }> = {
+  starter:      { one_time: import.meta.env.VITE_PADDLE_PRICE_STARTER_ONETIME      || "", subscription: import.meta.env.VITE_PADDLE_PRICE_STARTER_SUB      || "" },
+  professional: { one_time: import.meta.env.VITE_PADDLE_PRICE_PROFESSIONAL_ONETIME || "", subscription: import.meta.env.VITE_PADDLE_PRICE_PROFESSIONAL_SUB || "" },
+  enterprise:   { one_time: import.meta.env.VITE_PADDLE_PRICE_ENTERPRISE_ONETIME   || "", subscription: import.meta.env.VITE_PADDLE_PRICE_ENTERPRISE_SUB   || "" },
+};
+
 const BillingPage = () => {
   const { user } = useAuth();
   const { plans, subscription, currentPlan, usage, loading } = useBilling();
@@ -37,6 +53,7 @@ const BillingPage = () => {
   const [entitlement, setEntitlement] = useState<{ access_until: string; source: string } | null>(null);
   const [loadingPayments, setLoadingPayments] = useState(true);
   const [purchaseType, setPurchaseType] = useState<"one_time" | "monthly">("one_time");
+  const [cancellingSubscription, setCancellingSubscription] = useState(false);
 
   const loadPaymentIntents = useCallback(async () => {
     if (!user) return;
@@ -64,14 +81,15 @@ const BillingPage = () => {
     loadEntitlement();
   }, [loadPaymentIntents, loadEntitlement]);
 
-  // Handle redirect from PayPal
+  // Handle redirect from checkout
   useEffect(() => {
     const paymentStatus = searchParams.get("payment");
     if (paymentStatus === "success") {
       toast.success("Payment submitted! Your access will be updated shortly.");
       searchParams.delete("payment");
       setSearchParams(searchParams, { replace: true });
-      setTimeout(() => { loadPaymentIntents(); loadEntitlement(); }, 2000);
+      setTimeout(() => { loadPaymentIntents(); loadEntitlement(); }, 3000);
+      setTimeout(() => { loadPaymentIntents(); loadEntitlement(); }, 8000);
     } else if (paymentStatus === "cancelled") {
       toast.info("Payment was cancelled. You can try again anytime.");
       searchParams.delete("payment");
@@ -87,78 +105,31 @@ const BillingPage = () => {
     return () => clearInterval(interval);
   }, [paymentIntents, loadPaymentIntents, loadEntitlement]);
 
-  // PayPal plan IDs mapping (matches PayPal sandbox billing plans)
-  const PAYPAL_PLAN_IDS: Record<string, string> = {
-    starter: "P-6T6526937K357204PNGWSRYI",
-    professional: "P-47C11055NM903604JNGWSQWA",
-    enterprise: "P-0KW85391EV846532RNGWSSUJ",
-  };
+  const handlePaddleSuccess = useCallback(async (transactionId: string) => {
+    toast.success("Payment received! Activating your access...");
+    setTimeout(() => { loadPaymentIntents(); loadEntitlement(); }, 3000);
+    setTimeout(() => { loadPaymentIntents(); loadEntitlement(); }, 8000);
+  }, [loadPaymentIntents, loadEntitlement]);
 
-  const handleCreateOrder = useCallback(async (planId: string): Promise<string> => {
-    const { data, error } = await supabase.functions.invoke("paypal-create-order", {
-      body: { plan_id: planId },
-    });
-    if (error) throw error;
-    if (!data?.order_id) throw new Error("No order ID returned");
-    return data.order_id;
-  }, []);
-
-  const handleCaptureOrder = useCallback(async (orderId: string): Promise<boolean> => {
+  const handleCancelSubscription = useCallback(async () => {
     try {
-      const { data, error } = await supabase.functions.invoke("paypal-capture-order", {
-        body: { order_id: orderId },
-      });
-
-      if (error) {
-        const errData = data || {};
-        const issue = errData.issue || errData.code || "unknown";
-        const userMsg = errData.error || "Payment capture failed.";
-        const debugId = errData.debug_id || errData.correlationId || "";
-        const isSandboxCard = errData.code === "sandbox_card_not_supported" || issue === "COMPLIANCE_VIOLATION";
-
-        console.error("[PayPal Capture] Failed:", { issue, userMsg, debugId, errData });
-
-        if (isSandboxCard) {
-          toast.error("Card/guest checkout is not supported in PayPal sandbox. Please use a PayPal sandbox buyer account to complete payment.", { duration: 8000 });
-        } else if (import.meta.env.DEV) {
-          toast.error(`Capture failed: ${userMsg} (issue: ${issue}, debug: ${debugId})`);
-        } else {
-          toast.error(userMsg);
-        }
-        return false;
-      }
-
-      if (data?.status === "paid" || data?.status === "already_captured") {
-        toast.success("Payment confirmed! Your access has been updated.");
-        await loadEntitlement();
-        await loadPaymentIntents();
-        return true;
-      }
-      return false;
-    } catch (err: any) {
-      console.error("[PayPal Capture] Unhandled error:", err);
-      toast.error("Payment capture failed. Please try again.");
-      return false;
-    }
-  }, [loadEntitlement, loadPaymentIntents]);
-
-  const handleSubscriptionApproved = useCallback(async (subscriptionId: string, planId: string) => {
-    try {
-      const { data, error } = await supabase.functions.invoke("paypal-register-subscription", {
-        body: { plan_id: planId, subscription_id: subscriptionId },
-      });
+      setCancellingSubscription(true);
+      const { data, error } = await supabase.functions.invoke("paddle-cancel-subscription", {});
       if (error) throw error;
-      toast.success(`Subscription created! ID: ${subscriptionId}. It will activate shortly.`);
+      toast.success("Subscription cancellation requested. Access continues until end of current period.");
       await loadPaymentIntents();
       await loadEntitlement();
     } catch (err: any) {
-      console.error("Subscription registration failed:", err);
-      toast.error(err.message || "Failed to register subscription.");
+      console.error("Cancel subscription failed:", err);
+      toast.error(err.message || "Failed to cancel subscription.");
+    } finally {
+      setCancellingSubscription(false);
     }
   }, [loadPaymentIntents, loadEntitlement]);
 
   const isAccessExpired = entitlement ? new Date(entitlement.access_until) < new Date() : true;
   const isCanceledButActive = subscription?.cancel_at_period_end && !isAccessExpired;
+  const canCancelSubscription = subscription?.provider_subscription_id && subscription?.status === "active" && !subscription?.cancel_at_period_end;
 
   if (loading) {
     return (
@@ -194,7 +165,7 @@ const BillingPage = () => {
     <div className="max-w-5xl space-y-6">
       <div>
         <h1 className="font-display text-3xl font-bold">Billing & Subscription</h1>
-        <p className="text-muted-foreground">Manage your plan, track usage, and pay with PayPal.</p>
+        <p className="text-muted-foreground">Manage your plan, track usage, and pay securely with card.</p>
       </div>
 
       {/* Access expired banner */}
@@ -251,6 +222,33 @@ const BillingPage = () => {
               {formatCents(currentPlan.monthly_price_cents)}
               <span className="text-sm text-muted-foreground font-normal">/mo</span>
             </p>
+            {canCancelSubscription && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="outline" size="sm" className="mt-2 text-destructive border-destructive/30 hover:bg-destructive/10">
+                    Cancel Subscription
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Cancel Subscription?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Your subscription will be canceled at the end of the current billing period. You'll retain access until then. You can re-subscribe anytime.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Keep Subscription</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={handleCancelSubscription}
+                      disabled={cancellingSubscription}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      {cancellingSubscription ? "Cancelling..." : "Yes, Cancel"}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
           </CardContent>
         </Card>
 
@@ -333,35 +331,21 @@ const BillingPage = () => {
       )}
 
       {/* Sandbox mode banner */}
-      {(!import.meta.env.VITE_PAYPAL_ENV || import.meta.env.VITE_PAYPAL_ENV === "sandbox") && (
+      {import.meta.env.VITE_PADDLE_ENV === "sandbox" && (
         <Alert className="border-amber-500/50 bg-amber-500/10">
           <AlertTriangle className="h-4 w-4 text-amber-600" />
           <AlertTitle className="text-amber-700 dark:text-amber-400">Sandbox Testing Mode</AlertTitle>
           <AlertDescription className="text-amber-700/80 dark:text-amber-300/80">
-            PayPal is in sandbox mode. Please complete payment using a{" "}
-            <strong>PayPal sandbox buyer account</strong> login. Card/guest checkout is disabled in sandbox.
+            Paddle is in sandbox mode. Use test card <strong>4242 4242 4242 4242</strong>,
+            any future expiry, any CVC. Real cards will not be charged.
           </AlertDescription>
         </Alert>
       )}
 
-      {/* Dev-only PayPal config sanity check */}
-      {import.meta.env.DEV && (
-        <Card className="border-yellow-500/50 bg-yellow-500/5">
-          <CardContent className="py-3">
-            <p className="text-xs font-mono text-muted-foreground">
-              <strong>PayPal Config (dev only):</strong>{" "}
-              Client ID: ...{(import.meta.env.VITE_PAYPAL_CLIENT_ID || "AVZxi-...GMi-").slice(-6)} |{" "}
-              Plan IDs: {Object.entries(PAYPAL_PLAN_IDS).map(([k, v]) => `${k}=${v}`).join(", ")} |{" "}
-              Mode: {purchaseType}
-            </p>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Plans + PayPal Checkout */}
+      {/* Plans + Paddle Checkout */}
       <Card>
         <CardHeader>
-          <CardTitle className="font-display">Available Plans — Pay with PayPal</CardTitle>
+          <CardTitle className="font-display">Available Plans — Secure Card Payment</CardTitle>
           <CardDescription>Choose one-time (30 days) or monthly subscription</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -376,7 +360,8 @@ const BillingPage = () => {
           <div className="grid gap-4 md:grid-cols-3">
             {plans.map((plan) => {
               const isCurrent = plan.id === currentPlan.id;
-              const paypalPlanId = PAYPAL_PLAN_IDS[plan.id];
+              const paddlePrices = PADDLE_PRICE_IDS[plan.id];
+              const priceId = purchaseType === "one_time" ? paddlePrices?.one_time : paddlePrices?.subscription;
               return (
                 <div
                   key={plan.id}
@@ -400,19 +385,15 @@ const BillingPage = () => {
                     <li>{plan.max_storage_gb} GB storage</li>
                     <li className="capitalize">{plan.support_tier} support</li>
                   </ul>
-                  {purchaseType === "one_time" ? (
-                    <PayPalOneTimeButton
-                      planId={plan.id}
-                      onCreateOrder={handleCreateOrder}
-                      onCaptureOrder={handleCaptureOrder}
-                    />
-                  ) : paypalPlanId ? (
-                    <PayPalSubscriptionButton
-                      planId={paypalPlanId}
-                      onApproved={(subId) => handleSubscriptionApproved(subId, plan.id)}
-                    />
-                  ) : (
+                  {!priceId ? (
                     <p className="text-sm text-muted-foreground text-center py-2">Plan not configured</p>
+                  ) : (
+                    <PaddleCheckoutButton
+                      priceId={priceId}
+                      planId={plan.id}
+                      type={purchaseType === "one_time" ? "one_time" : "subscription"}
+                      onSuccess={handlePaddleSuccess}
+                    />
                   )}
                 </div>
               );
@@ -429,7 +410,7 @@ const BillingPage = () => {
               <CardTitle className="font-display flex items-center gap-2">
                 <CreditCard className="h-5 w-5 text-primary" /> Payment History
               </CardTitle>
-              <CardDescription>Your PayPal payment transactions</CardDescription>
+              <CardDescription>Your payment transactions</CardDescription>
             </div>
             <Button size="sm" variant="outline" onClick={() => { loadPaymentIntents(); loadEntitlement(); }}>
               <RefreshCw className="h-3 w-3 mr-1" /> Refresh
