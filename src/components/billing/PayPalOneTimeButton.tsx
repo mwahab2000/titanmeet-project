@@ -4,7 +4,9 @@ import { toast } from "sonner";
 const PAYPAL_CLIENT_ID = import.meta.env.VITE_PAYPAL_CLIENT_ID || "AVZxi-ykDACzyXDxwnTeiQoHQFh-_PmShWmC6aeToqxjdnNqOTWGWHJYkCy_ZnGvZvJM-PZs_NfGIMi-";
 const IS_SANDBOX = !import.meta.env.VITE_PAYPAL_ENV || import.meta.env.VITE_PAYPAL_ENV === "sandbox";
 
-const SDK_SRC = `https://www.paypal.com/sdk/js?client-id=${PAYPAL_CLIENT_ID}&currency=USD&debug=${import.meta.env.DEV}&components=buttons${IS_SANDBOX ? "&disable-funding=card,credit" : ""}`;
+// In sandbox: disable card funding entirely via SDK param
+const disableFunding = IS_SANDBOX ? "&disable-funding=card,credit" : "";
+const SDK_SRC = `https://www.paypal.com/sdk/js?client-id=${PAYPAL_CLIENT_ID}&currency=USD&debug=${import.meta.env.DEV}&components=buttons${disableFunding}`;
 
 let sdkLoadPromise: Promise<void> | null = null;
 
@@ -59,6 +61,7 @@ const PayPalOneTimeButton = ({ planId, onCreateOrder, onCaptureOrder, disabled }
         }
 
         paypal.Buttons({
+          // In sandbox, force PayPal funding only (no card/guest)
           ...(IS_SANDBOX ? { fundingSource: paypal.FUNDING.PAYPAL } : {}),
           style: {
             shape: "pill",
@@ -94,7 +97,10 @@ const PayPalOneTimeButton = ({ planId, onCreateOrder, onCaptureOrder, disabled }
           onError: (err: any) => {
             console.error("[PayPal Order] Checkout error:", err);
             const msg = err?.message || String(err);
-            if (import.meta.env.DEV) {
+            const isSandboxIssue = IS_SANDBOX && (msg.includes("COMPLIANCE") || msg.includes("card") || msg.includes("INSTRUMENT_DECLINED") || msg.includes("funding"));
+            if (isSandboxIssue) {
+              toast.error("Card/guest checkout is not available in sandbox mode. Please use a PayPal sandbox buyer account.");
+            } else if (import.meta.env.DEV) {
               toast.error(`PayPal error: ${msg.slice(0, 200)}`);
             } else {
               toast.error("PayPal checkout error. Please try again.");
@@ -134,6 +140,11 @@ const PayPalOneTimeButton = ({ planId, onCreateOrder, onCaptureOrder, disabled }
       )}
       {error && <p className="text-sm text-destructive text-center py-2">{error}</p>}
       <div ref={containerRef} className={loading ? "hidden" : ""} />
+      {IS_SANDBOX && !loading && !error && (
+        <p className="text-xs text-amber-600 dark:text-amber-400 text-center mt-1">
+          Sandbox: use PayPal buyer account only
+        </p>
+      )}
     </div>
   );
 };

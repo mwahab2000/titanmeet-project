@@ -30,15 +30,19 @@ async function getPayPalAccessToken(
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return handleCorsOptions(req);
-
-  const corsHeaders = getCorsHeaders(req);
-  const jsonHeaders = { ...corsHeaders, "Content-Type": "application/json" };
-  const correlationId = crypto.randomUUID().slice(0, 12);
-
-  console.log(`[${correlationId}] paypal-capture-order invoked, method=${req.method}`);
+  // Top-level correlationId for logging — declared outside try so catch can use it
+  let correlationId = "unknown";
+  let jsonHeaders: Record<string, string> = { "Content-Type": "application/json" };
 
   try {
+    if (req.method === "OPTIONS") return handleCorsOptions(req);
+
+    const corsHeaders = getCorsHeaders(req);
+    jsonHeaders = { ...corsHeaders, "Content-Type": "application/json" };
+    correlationId = crypto.randomUUID().slice(0, 12);
+
+    console.log(`[${correlationId}] paypal-capture-order invoked, method=${req.method}`);
+
     // 1) Validate env
     const paypalClientId = Deno.env.get("PAYPAL_CLIENT_ID");
     const paypalClientSecret = Deno.env.get("PAYPAL_CLIENT_SECRET");
@@ -71,7 +75,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    const supabase = createClient(supabaseUrl!, supabaseAnonKey!, {
       global: { headers: { Authorization: authHeader } },
     });
 
@@ -108,7 +112,7 @@ Deno.serve(async (req) => {
     console.log(`[${correlationId}] order_id=${orderId}`);
 
     // 4) Service role client for DB ops
-    const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
+    const serviceClient = createClient(supabaseUrl!, supabaseServiceKey!);
 
     // Find payment intent
     const { data: paymentIntent, error: piError } = await serviceClient
@@ -136,7 +140,7 @@ Deno.serve(async (req) => {
     }
 
     // 5) Get PayPal access token
-    const tokenResult = await getPayPalAccessToken(paypalClientId, paypalClientSecret, paypalApiBase, correlationId);
+    const tokenResult = await getPayPalAccessToken(paypalClientId!, paypalClientSecret!, paypalApiBase, correlationId);
     if (tokenResult.error || !tokenResult.token) {
       await serviceClient.from("payment_events").insert({
         payment_intent_id: paymentIntent.id,
@@ -144,7 +148,7 @@ Deno.serve(async (req) => {
         event_type: "error",
         raw_payload: { error: tokenResult.error },
         provider_event_id: `${orderId}_token_failed`,
-      });
+      }).catch(() => {/* swallow */});
       return new Response(
         JSON.stringify({ code: "paypal_token_failed", correlationId, error: tokenResult.error }),
         { status: 502, headers: jsonHeaders }
@@ -169,7 +173,10 @@ Deno.serve(async (req) => {
       const issueCode = errorDetails.issue || captureData.name || "UNKNOWN";
       const issueDesc = errorDetails.description || captureData.message || "Capture failed";
 
-      console.error(`[${correlationId}] PayPal capture failed: status=${captureRes.status} issue=${issueCode} debug_id=${paypalDebugId} body=${JSON.stringify(captureData).slice(0, 800)}`);
+      // Log at warn level for expected sandbox issues, error for unexpected
+      const isSandboxExpected = issueCode === "COMPLIANCE_VIOLATION" || issueCode === "INSTRUMENT_DECLINED";
+      const logFn = isSandboxExpected ? console.warn : console.error;
+      logFn(`[${correlationId}] PayPal capture failed: status=${captureRes.status} issue=${issueCode} debug_id=${paypalDebugId}`);
 
       await serviceClient.from("payment_events").insert({
         payment_intent_id: paymentIntent.id,
@@ -177,9 +184,8 @@ Deno.serve(async (req) => {
         event_type: "capture_failed",
         raw_payload: captureData,
         provider_event_id: `${orderId}_capture_failed`,
-      });
+      }).catch(() => {/* swallow */});
 
-      // Provide actionable error info with appropriate status codes
       let userMessage = "Payment capture failed. Please try again.";
       let httpStatus = 502;
 
@@ -222,7 +228,7 @@ Deno.serve(async (req) => {
       event_type: "captured",
       raw_payload: captureData,
       provider_event_id: `${orderId}_captured`,
-    });
+    }).catch(() => {/* swallow */});
 
     // 8) Update entitlement
     const now = new Date();
@@ -262,7 +268,7 @@ Deno.serve(async (req) => {
         amount_cents: paymentIntent.amount_usd_cents,
         order_id: orderId,
       },
-    });
+    }).catch(() => {/* swallow */});
 
     // 11) Notification
     await serviceClient.rpc("create_notification", {
@@ -271,7 +277,7 @@ Deno.serve(async (req) => {
       _title: "Payment confirmed",
       _message: `Your payment of $${(paymentIntent.amount_usd_cents / 100).toFixed(2)} has been confirmed. Access active for 30 days.`,
       _link: "/dashboard/billing",
-    });
+    }).catch(() => {/* swallow */});
 
     console.log(`[${correlationId}] Complete. access_until=${finalAccessUntil.toISOString()}`);
 
@@ -286,8 +292,7 @@ Deno.serve(async (req) => {
     );
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
-    const stack = err instanceof Error ? err.stack : undefined;
-    console.error(`[${correlationId}] Unhandled error:`, message, stack);
+    console.error(`[${correlationId}] Unhandled error:`, message);
     return new Response(
       JSON.stringify({ code: "internal_error", correlationId, error: message }),
       { status: 500, headers: jsonHeaders }
