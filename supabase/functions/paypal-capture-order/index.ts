@@ -226,13 +226,15 @@ Deno.serve(async (req) => {
       metadata: captureData,
     }).eq("id", paymentIntent.id);
 
-    await serviceClient.from("payment_events").insert({
-      payment_intent_id: paymentIntent.id,
-      provider: "paypal",
-      event_type: "captured",
-      raw_payload: captureData,
-      provider_event_id: `${orderId}_captured`,
-    }).catch(() => {/* swallow */});
+    try {
+      await serviceClient.from("payment_events").insert({
+        payment_intent_id: paymentIntent.id,
+        provider: "paypal",
+        event_type: "captured",
+        raw_payload: captureData,
+        provider_event_id: `${orderId}_captured`,
+      });
+    } catch { /* swallow */ }
 
     // 8) Update entitlement
     const now = new Date();
