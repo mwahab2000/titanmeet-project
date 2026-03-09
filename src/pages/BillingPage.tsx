@@ -636,6 +636,52 @@ const BillingPage = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Downgrade dialog */}
+      <Dialog open={!!downgradeDialog} onOpenChange={(open) => !open && setDowngradeDialog(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-display">
+              {downgradeDialog?.blocked ? "Cannot Downgrade Yet" : "Confirm Downgrade"}
+            </DialogTitle>
+            <DialogDescription>
+              {downgradeDialog?.blocked
+                ? "Your current usage exceeds the limits of this plan. Please reduce usage first."
+                : `Downgrade to ${PLAN_DISPLAY.find(p => p.id === downgradeDialog?.planId)?.name}? Your limits will change at the end of the current billing period.`}
+            </DialogDescription>
+          </DialogHeader>
+
+          {downgradeDialog?.blocked && downgradeDialog.issues.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-sm font-medium">To downgrade, you need to:</p>
+              <ul className="space-y-1.5">
+                {downgradeDialog.issues.map((issue) => (
+                  <li key={issue.resource} className="flex items-center justify-between text-sm">
+                    <span>
+                      Reduce {RESOURCE_LABELS_DG[issue.resource]} from <strong>{issue.resource === "storage" ? issue.current.toFixed(1) : issue.current}</strong> to <strong>{issue.limit}</strong>
+                    </span>
+                    <Button variant="link" size="sm" className="h-auto p-0 text-xs" asChild>
+                      <Link to={RESOURCE_LINKS[issue.resource]}>Manage →</Link>
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDowngradeDialog(null)}>Cancel</Button>
+            {!downgradeDialog?.blocked && downgradeDialog?.planId && (
+              <PaddleCheckoutButton
+                priceId={(isAnnual ? PADDLE_PRICE_IDS[downgradeDialog.planId]?.annual : PADDLE_PRICE_IDS[downgradeDialog.planId]?.monthly) || ""}
+                planId={downgradeDialog.planId}
+                type="subscription"
+                onSuccess={(txId) => { setDowngradeDialog(null); handlePaddleSuccess(txId); }}
+              />
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
