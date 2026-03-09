@@ -180,13 +180,15 @@ Deno.serve(async (req) => {
       const logFn = isSandboxExpected ? console.warn : console.error;
       logFn(`[${correlationId}] PayPal capture failed: status=${captureRes.status} issue=${issueCode} debug_id=${paypalDebugId}`);
 
-      await serviceClient.from("payment_events").insert({
-        payment_intent_id: paymentIntent.id,
-        provider: "paypal",
-        event_type: "capture_failed",
-        raw_payload: captureData,
-        provider_event_id: `${orderId}_capture_failed`,
-      }).catch(() => {/* swallow */});
+      try {
+        await serviceClient.from("payment_events").insert({
+          payment_intent_id: paymentIntent.id,
+          provider: "paypal",
+          event_type: "capture_failed",
+          raw_payload: captureData,
+          provider_event_id: `${orderId}_capture_failed`,
+        });
+      } catch { /* swallow */ }
 
       let userMessage = "Payment capture failed. Please try again.";
       let httpStatus = 502;
