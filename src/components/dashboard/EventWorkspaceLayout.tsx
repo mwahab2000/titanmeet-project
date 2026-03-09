@@ -42,10 +42,10 @@ const PublishReadinessStrip = () => {
   let pillClass = "bg-destructive/10 text-destructive border-destructive/20";
   if (allPass) {
     pillLabel = "✓ Ready to Publish";
-    pillClass = "bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20";
+    pillClass = "bg-primary/10 text-primary border-primary/20";
   } else if (pct >= 50) {
     pillLabel = "Almost Ready";
-    pillClass = "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/20";
+    pillClass = "bg-accent text-accent-foreground border-accent";
   }
 
   return (
