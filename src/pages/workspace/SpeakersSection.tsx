@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { Plus, Trash2, Copy, Check, X, Mic, Upload, ExternalLink } from "lucide-react";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { useSignedUrl } from "@/hooks/useSignedUrls";
+import { SectionHint } from "@/components/ui/section-hint";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
