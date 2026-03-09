@@ -1,6 +1,7 @@
 import type { PublicEventData } from "@/lib/publicSite/types";
-import { Mail, Phone } from "lucide-react";
+import { Mail, Phone, Share2, Linkedin, Link2 } from "lucide-react";
 import { MotionReveal } from "./MotionReveal";
+import { useToast } from "@/hooks/use-toast";
 
 interface Props { data: PublicEventData; className?: string; }
 
