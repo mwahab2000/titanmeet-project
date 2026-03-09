@@ -142,13 +142,15 @@ Deno.serve(async (req) => {
     // 5) Get PayPal access token
     const tokenResult = await getPayPalAccessToken(paypalClientId!, paypalClientSecret!, paypalApiBase, correlationId);
     if (tokenResult.error || !tokenResult.token) {
-      await serviceClient.from("payment_events").insert({
-        payment_intent_id: paymentIntent.id,
-        provider: "paypal",
-        event_type: "error",
-        raw_payload: { error: tokenResult.error },
-        provider_event_id: `${orderId}_token_failed`,
-      }).catch(() => {/* swallow */});
+      try {
+        await serviceClient.from("payment_events").insert({
+          payment_intent_id: paymentIntent.id,
+          provider: "paypal",
+          event_type: "error",
+          raw_payload: { error: tokenResult.error },
+          provider_event_id: `${orderId}_token_failed`,
+        });
+      } catch { /* swallow */ }
       return new Response(
         JSON.stringify({ code: "paypal_token_failed", correlationId, error: tokenResult.error }),
         { status: 502, headers: jsonHeaders }
@@ -178,13 +180,15 @@ Deno.serve(async (req) => {
       const logFn = isSandboxExpected ? console.warn : console.error;
       logFn(`[${correlationId}] PayPal capture failed: status=${captureRes.status} issue=${issueCode} debug_id=${paypalDebugId}`);
 
-      await serviceClient.from("payment_events").insert({
-        payment_intent_id: paymentIntent.id,
-        provider: "paypal",
-        event_type: "capture_failed",
-        raw_payload: captureData,
-        provider_event_id: `${orderId}_capture_failed`,
-      }).catch(() => {/* swallow */});
+      try {
+        await serviceClient.from("payment_events").insert({
+          payment_intent_id: paymentIntent.id,
+          provider: "paypal",
+          event_type: "capture_failed",
+          raw_payload: captureData,
+          provider_event_id: `${orderId}_capture_failed`,
+        });
+      } catch { /* swallow */ }
 
       let userMessage = "Payment capture failed. Please try again.";
       let httpStatus = 502;
@@ -222,13 +226,15 @@ Deno.serve(async (req) => {
       metadata: captureData,
     }).eq("id", paymentIntent.id);
 
-    await serviceClient.from("payment_events").insert({
-      payment_intent_id: paymentIntent.id,
-      provider: "paypal",
-      event_type: "captured",
-      raw_payload: captureData,
-      provider_event_id: `${orderId}_captured`,
-    }).catch(() => {/* swallow */});
+    try {
+      await serviceClient.from("payment_events").insert({
+        payment_intent_id: paymentIntent.id,
+        provider: "paypal",
+        event_type: "captured",
+        raw_payload: captureData,
+        provider_event_id: `${orderId}_captured`,
+      });
+    } catch { /* swallow */ }
 
     // 8) Update entitlement
     const now = new Date();
@@ -259,25 +265,29 @@ Deno.serve(async (req) => {
     }).eq("user_id", paymentIntent.user_id);
 
     // 10) Audit log
-    await serviceClient.from("admin_audit_log").insert({
-      actor_user_id: paymentIntent.user_id,
-      action_type: "one_time_30d_paid",
-      target_id: paymentIntent.id,
-      details: {
-        plan_id: paymentIntent.plan_id,
-        amount_cents: paymentIntent.amount_usd_cents,
-        order_id: orderId,
-      },
-    }).catch(() => {/* swallow */});
+    try {
+      await serviceClient.from("admin_audit_log").insert({
+        actor_user_id: paymentIntent.user_id,
+        action_type: "one_time_30d_paid",
+        target_id: paymentIntent.id,
+        details: {
+          plan_id: paymentIntent.plan_id,
+          amount_cents: paymentIntent.amount_usd_cents,
+          order_id: orderId,
+        },
+      });
+    } catch { /* swallow */ }
 
     // 11) Notification
-    await serviceClient.rpc("create_notification", {
-      _user_id: paymentIntent.user_id,
-      _type: "payment_confirmed",
-      _title: "Payment confirmed",
-      _message: `Your payment of $${(paymentIntent.amount_usd_cents / 100).toFixed(2)} has been confirmed. Access active for 30 days.`,
-      _link: "/dashboard/billing",
-    }).catch(() => {/* swallow */});
+    try {
+      await serviceClient.rpc("create_notification", {
+        _user_id: paymentIntent.user_id,
+        _type: "payment_confirmed",
+        _title: "Payment confirmed",
+        _message: `Your payment of $${(paymentIntent.amount_usd_cents / 100).toFixed(2)} has been confirmed. Access active for 30 days.`,
+        _link: "/dashboard/billing",
+      });
+    } catch { /* swallow */ }
 
     console.log(`[${correlationId}] Complete. access_until=${finalAccessUntil.toISOString()}`);
 
