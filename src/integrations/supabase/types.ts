@@ -467,6 +467,45 @@ export type Database = {
           },
         ]
       }
+      email_queue: {
+        Row: {
+          created_at: string
+          email: string
+          error: string | null
+          first_name: string | null
+          id: string
+          send_at: string
+          sent_at: string | null
+          status: string
+          template_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          error?: string | null
+          first_name?: string | null
+          id?: string
+          send_at?: string
+          sent_at?: string | null
+          status?: string
+          template_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          error?: string | null
+          first_name?: string | null
+          id?: string
+          send_at?: string
+          sent_at?: string | null
+          status?: string
+          template_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       event_announcements: {
         Row: {
           created_at: string
