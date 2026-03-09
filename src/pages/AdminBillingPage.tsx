@@ -170,7 +170,7 @@ const AdminBillingPage = () => {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm text-muted-foreground flex items-center gap-1">
-              <CreditCard className="h-4 w-4" /> PayPal Revenue
+              <CreditCard className="h-4 w-4" /> Payment Revenue
             </CardTitle>
           </CardHeader>
           <CardContent>
