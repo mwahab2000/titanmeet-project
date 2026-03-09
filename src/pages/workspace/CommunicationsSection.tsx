@@ -44,6 +44,62 @@ const CommunicationsSection = () => {
   const [sending, setSending] = useState(false);
   const [recipientMode, setRecipientMode] = useState<"all" | "selected">("all");
   const [selectedAttendeeIds, setSelectedAttendeeIds] = useState<Set<string>>(new Set());
+  const [aiDrafting, setAiDrafting] = useState(false);
+  const [bestTimeLoading, setBestTimeLoading] = useState(false);
+  const [bestTimeResult, setBestTimeResult] = useState<BestSendTimeResult | null>(null);
+
+  const AI_DRAFT_TYPES = [
+    { value: "invitation", label: "Invitation" },
+    { value: "reminder_3day", label: "Reminder (3 days before)" },
+    { value: "day_of", label: "Day-of reminder" },
+    { value: "thank_you", label: "Post-event thank you" },
+    { value: "cancellation", label: "Cancellation notice" },
+  ];
+
+  const handleAiDraft = async (draftType: string) => {
+    if (!event) return;
+    setAiDrafting(true);
+    try {
+      const result = await callAi<CommsDraftResult>({
+        action: "communications_draft",
+        prompt: draftType,
+        context: {
+          eventTitle: event.title,
+          eventDate: event.event_date,
+          venue: event.venue_name,
+          attendeeCount: attendees.length,
+          communicationType: draftType,
+        },
+      });
+      if (result.subject) setSubject(result.subject);
+      if (result.body) setMessage(result.body);
+      toast.success("AI draft ready! Review and send.");
+    } catch (err: any) {
+      toast.error(err.message || "AI draft failed");
+    }
+    setAiDrafting(false);
+  };
+
+  const handleBestTime = async () => {
+    if (!event) return;
+    setBestTimeLoading(true);
+    try {
+      const result = await callAi<BestSendTimeResult>({
+        action: "best_send_time",
+        prompt: "Recommend best time",
+        context: {
+          eventTitle: event.title,
+          eventDate: event.event_date,
+          attendeeCount: attendees.length,
+          channel,
+        },
+      });
+      setBestTimeResult(result);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to get recommendation");
+    }
+    setBestTimeLoading(false);
+  };
 
   const loadLogs = useCallback(async () => {
     if (!event) return;
