@@ -15,6 +15,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { useSearchParams } from "react-router-dom";
 import PaddleCheckoutButton from "@/components/billing/PaddleCheckoutButton";
+import UsageMeters from "@/components/billing/UsageMeters";
 import {
   AlertDialog,
   AlertDialogAction,
