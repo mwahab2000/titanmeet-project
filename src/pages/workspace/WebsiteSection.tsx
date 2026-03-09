@@ -18,6 +18,7 @@ const themes = [
   { id: "corporate", name: "Corporate Clean", desc: "Structured, business-focused", color: "bg-[hsl(210,20%,95%)]" },
   { id: "elegant", name: "Elegant Premium", desc: "Warm tones, refined serif", color: "bg-[hsl(30,20%,95%)]" },
   { id: "modern", name: "Modern Conference", desc: "Tech-forward, bold primary", color: "bg-[hsl(220,60%,95%)]" },
+  { id: "midnight-gala", name: "Midnight Gala", desc: "Dark luxury, gold accents, serif elegance", color: "bg-[#0D0D14]" },
 ];
 
 const CHECK_SECTION_MAP: Record<string, string | null> = {
