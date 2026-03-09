@@ -401,6 +401,10 @@ const SurveySection = () => {
               )}
             </TabsContent>
 
+            {/* ── AI Analysis Tab ── */}
+            <TabsContent value="ai-analysis">
+              <AiSurveyAnalysis questions={stats.questions} answers={stats.answers} responses={stats.responses} />
+            </TabsContent>
             {/* ── Results Tab ── */}
             <TabsContent value="results" className="space-y-6">
               <div className="flex justify-end">
