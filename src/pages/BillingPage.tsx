@@ -624,7 +624,7 @@ const BillingPage = () => {
             <DialogDescription>
               {downgradeDialog?.blocked
                 ? "Your current usage exceeds the limits of this plan. Please reduce usage first."
-                : `Downgrade to ${PLAN_DISPLAY.find(p => p.id === downgradeDialog?.planId)?.name}? Your limits will change at the end of the current billing period.`}
+                : `Downgrade to ${PLAN_DISPLAY.find(p => p.id === downgradeDialog?.planId)?.name}? Your new limits take effect on ${subscription ? new Date(subscription.current_period_end).toLocaleDateString() : "your next billing date"}. You won't lose any existing data.`}
             </DialogDescription>
           </DialogHeader>
 
