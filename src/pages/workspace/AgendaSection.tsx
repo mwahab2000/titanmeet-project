@@ -320,6 +320,50 @@ const AgendaSection = () => {
         )}
       </CardContent>
     </Card>
+
+    {/* AI Agenda Modal */}
+    <Dialog open={aiModalOpen} onOpenChange={setAiModalOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2"><Sparkles className="h-5 w-5 text-purple-500" /> Generate Agenda with AI</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-1">
+            <Label className="text-sm">Event Type</Label>
+            <Select value={aiEventType} onValueChange={setAiEventType}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {["Conference", "Workshop", "Gala", "Seminar", "Networking"].map(t => (
+                  <SelectItem key={t} value={t}>{t}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label className="text-sm">Duration (hours)</Label>
+              <Input type="number" value={aiDuration} onChange={e => setAiDuration(e.target.value)} min="1" max="24" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-sm">Number of Speakers</Label>
+              <Input type="number" value={aiSpeakers} onChange={e => setAiSpeakers(e.target.value)} min="0" max="20" />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-sm">Special Requirements</Label>
+            <Input value={aiRequirements} onChange={e => setAiRequirements(e.target.value)} placeholder="e.g. Include a panel discussion" />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setAiModalOpen(false)}>Cancel</Button>
+          <Button onClick={handleAiGenerate} disabled={aiGenerating} className="bg-purple-600 hover:bg-purple-700 text-white gap-1">
+            {aiGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+            {aiGenerating ? "Generating..." : "Generate"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 };
 
