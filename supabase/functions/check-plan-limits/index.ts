@@ -6,10 +6,20 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const PLAN_LIMITS: Record<string, Record<string, number>> = {
-  starter: { clients: 3, active_events: 5, attendees: 500, emails: 2000, storage_gb: 5 },
-  professional: { clients: 15, active_events: 25, attendees: 5000, emails: 20000, storage_gb: 25 },
-  enterprise: { clients: 999999, active_events: 999999, attendees: 50000, emails: 200000, storage_gb: 100 },
+const RESOURCE_TO_PLAN_COL: Record<string, string> = {
+  clients: "max_clients",
+  active_events: "max_active_events",
+  attendees: "max_attendees",
+  emails: "max_emails",
+  storage: "max_storage_gb",
+};
+
+const RESOURCE_TO_USAGE_KEY: Record<string, string> = {
+  clients: "clients",
+  active_events: "activeEvents",
+  attendees: "attendees",
+  emails: "emails",
+  storage: "storageBytes",
 };
 
 Deno.serve(async (req: Request) => {
@@ -20,7 +30,6 @@ Deno.serve(async (req: Request) => {
   const correlationId = crypto.randomUUID().slice(0, 13);
 
   try {
-    // Auth
     const authHeader = req.headers.get("Authorization") || "";
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -38,7 +47,7 @@ Deno.serve(async (req: Request) => {
     }
 
     const { resource } = await req.json();
-    if (!resource || !["clients", "active_events", "attendees", "emails", "storage"].includes(resource)) {
+    if (!resource || !RESOURCE_TO_PLAN_COL[resource]) {
       return new Response(JSON.stringify({ allowed: false, reason: "Invalid resource type", correlationId }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -47,54 +56,39 @@ Deno.serve(async (req: Request) => {
 
     const serviceClient = createClient(supabaseUrl, serviceKey);
 
-    // Get user's plan
+    // Get plan limits from subscription_plans table
     const { data: sub } = await serviceClient
       .from("account_subscriptions")
-      .select("plan_id")
+      .select("plan_id, subscription_plans(max_clients, max_active_events, max_attendees, max_emails, max_storage_gb)")
       .eq("user_id", user.id)
       .single();
 
     const planId = sub?.plan_id || "starter";
-    const limits = PLAN_LIMITS[planId] || PLAN_LIMITS.starter;
-    const limit = limits[resource] ?? 0;
+    const sp = (sub as any)?.subscription_plans;
 
-    // Billing cycle start
-    const cycleStart = new Date();
-    cycleStart.setDate(1);
-    cycleStart.setHours(0, 0, 0, 0);
-    const cycleISO = cycleStart.toISOString();
+    // Fallback limits if no plan found
+    const planCol = RESOURCE_TO_PLAN_COL[resource];
+    let limit = sp?.[planCol] ?? 0;
+    // Enterprise-level huge numbers treated as Infinity
+    if (limit >= 999999) limit = Infinity;
 
-    let currentUsage = 0;
+    // Get usage via RPC
+    const { data: usageData } = await serviceClient.rpc("get_user_usage", { p_user_id: user.id });
+    const usageKey = RESOURCE_TO_USAGE_KEY[resource];
+    let currentUsage = (usageData as any)?.[usageKey] ?? 0;
 
-    if (resource === "clients") {
-      const { count } = await serviceClient.from("clients").select("id", { count: "exact", head: true }).eq("created_by", user.id);
-      currentUsage = count || 0;
-    } else if (resource === "active_events") {
-      const { count } = await serviceClient.from("events").select("id", { count: "exact", head: true }).eq("created_by", user.id).in("status", ["draft", "published", "ongoing"]);
-      currentUsage = count || 0;
-    } else if (resource === "attendees") {
-      // Count attendees across user's events this month
-      const { data: eventIds } = await serviceClient.from("events").select("id").eq("created_by", user.id);
-      if (eventIds && eventIds.length > 0) {
-        const ids = eventIds.map((e: any) => e.id);
-        const { count } = await serviceClient.from("attendees").select("id", { count: "exact", head: true }).in("event_id", ids);
-        currentUsage = count || 0;
-      }
-    } else if (resource === "emails") {
-      const { data: eventIds } = await serviceClient.from("events").select("id").eq("created_by", user.id);
-      if (eventIds && eventIds.length > 0) {
-        const ids = eventIds.map((e: any) => e.id);
-        const { count } = await serviceClient.from("communications_log").select("id", { count: "exact", head: true }).eq("channel", "email").in("event_id", ids).gte("created_at", cycleISO);
-        currentUsage = count || 0;
-      }
+    // For storage, convert bytes to GB for comparison
+    if (resource === "storage") {
+      currentUsage = currentUsage / (1024 * 1024 * 1024);
     }
 
-    const allowed = currentUsage < limit;
+    const allowed = limit === Infinity || currentUsage < limit;
+    const isGrandfathered = currentUsage > limit && limit !== Infinity;
 
-    console.log(`[check-plan-limits] ${correlationId} user=${user.id} plan=${planId} resource=${resource} usage=${currentUsage}/${limit} allowed=${allowed}`);
+    console.log(`[check-plan-limits] ${correlationId} user=${user.id} plan=${planId} resource=${resource} usage=${currentUsage}/${limit} allowed=${allowed} grandfathered=${isGrandfathered}`);
 
     return new Response(
-      JSON.stringify({ allowed, reason: allowed ? "OK" : `${resource} limit reached (${currentUsage}/${limit})`, currentUsage, limit, planId, correlationId }),
+      JSON.stringify({ allowed, reason: allowed ? "OK" : `${resource} limit reached (${Math.round(currentUsage)}/${limit})`, currentUsage: Math.round(currentUsage), limit, planId, isGrandfathered, correlationId }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err: any) {
