@@ -404,34 +404,6 @@ const BillingPage = () => {
       {/* Usage meters */}
       <UsageMeters />
 
-      {/* Overages */}
-      {overages.length > 0 && (
-        <Card className="border-yellow-500/30">
-          <CardHeader>
-            <CardTitle className="font-display text-yellow-600 dark:text-yellow-400 flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5" /> Overage Charges
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {overages.map((o) => (
-                <div key={o.label} className="flex justify-between items-center text-sm py-2 border-b border-border last:border-0">
-                  <div>
-                    <span className="font-medium">{o.label}</span>
-                    <span className="text-muted-foreground ml-2">({o.excess} excess, {o.unit})</span>
-                  </div>
-                  <span className="font-semibold">{formatCents(o.amount_cents)}</span>
-                </div>
-              ))}
-              <Separator />
-              <div className="flex justify-between text-sm font-bold pt-1">
-                <span>Total Overages</span>
-                <span>{formatCents(totalOverageCents)}</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Sandbox mode banner */}
       {import.meta.env.VITE_PADDLE_ENV === "sandbox" && (
