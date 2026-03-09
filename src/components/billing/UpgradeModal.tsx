@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import {
   Dialog,
   DialogContent,
@@ -7,7 +8,7 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Crown, ArrowRight, Mail } from "lucide-react";
+import { Crown, Mail, CheckCircle } from "lucide-react";
 import { useUpgradeModal, type UpgradeTrigger } from "@/hooks/useUpgradeModal";
 import { usePlanLimits } from "@/hooks/usePlanLimits";
 import PaddleCheckoutButton from "@/components/billing/PaddleCheckoutButton";
@@ -27,6 +28,7 @@ interface PlanLimitData {
   name: string;
   price: string;
   limits: Record<UpgradeTrigger, string>;
+  features: string[];
   popular?: boolean;
 }
 
@@ -35,17 +37,20 @@ const PLAN_DATA: Record<PlanId, PlanLimitData> = {
     name: "Starter",
     price: "$49/mo",
     limits: { clients: "3", events: "5", attendees: "500", emails: "2,000", storage: "5 GB" },
+    features: ["3 clients", "5 active events", "500 attendees/mo", "2,000 emails/mo", "5 GB storage", "Standard support"],
   },
   professional: {
     name: "Professional",
     price: "$149/mo",
     popular: true,
     limits: { clients: "15", events: "25", attendees: "5,000", emails: "20,000", storage: "25 GB" },
+    features: ["15 clients", "25 active events", "5,000 attendees/mo", "20,000 emails/mo", "25 GB storage", "Priority support"],
   },
   enterprise: {
     name: "Enterprise",
     price: "$399/mo",
     limits: { clients: "Unlimited", events: "Unlimited", attendees: "50,000", emails: "200,000", storage: "100 GB" },
+    features: ["Unlimited clients", "Unlimited events", "50,000 attendees/mo", "200,000 emails/mo", "100 GB storage", "Dedicated support"],
   },
 };
 
@@ -63,16 +68,26 @@ function getNextPlan(current: PlanId): PlanId | null {
   return PLAN_ORDER[idx + 1];
 }
 
+function buildSubheadline(trigger: UpgradeTrigger, plan: PlanLimitData): string {
+  const limit = plan.limits[trigger];
+  switch (trigger) {
+    case "clients": return `You've reached your ${limit} client limit on ${plan.name}.`;
+    case "events": return `You've reached your ${limit} event limit on ${plan.name}.`;
+    case "storage": return `You've used all ${limit} on ${plan.name}.`;
+    case "attendees": return `You've reached ${limit} attendees this billing cycle.`;
+    case "emails": return `You've reached ${limit} emails this billing cycle.`;
+  }
+}
+
 export default function UpgradeModal() {
-  // All hooks MUST be called unconditionally at the top
   const { isOpen, trigger, closeUpgradeModal } = useUpgradeModal();
   const planLimits = usePlanLimits();
+  const navigate = useNavigate();
 
   const handleSuccess = useCallback((_txId: string) => {
     closeUpgradeModal();
   }, [closeUpgradeModal]);
 
-  // Early returns AFTER all hooks
   if (!trigger) return null;
 
   const currentPlanId = (planLimits.planId as PlanId) || "starter";
@@ -81,6 +96,7 @@ export default function UpgradeModal() {
   const nextPlan = nextPlanId ? PLAN_DATA[nextPlanId] : null;
 
   const headline = HEADLINES[trigger];
+  const subheadline = buildSubheadline(trigger, currentPlan);
   const isEnterprise = currentPlanId === "enterprise";
 
   return (
@@ -88,18 +104,20 @@ export default function UpgradeModal() {
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="font-display text-xl">{headline}</DialogTitle>
-          <DialogDescription>
-            Upgrade your plan to unlock higher limits.
-          </DialogDescription>
+          <DialogDescription>{subheadline}</DialogDescription>
         </DialogHeader>
 
         {isEnterprise ? (
           <div className="text-center py-6 space-y-4">
-            <p className="text-muted-foreground">
-              You're on our highest tier. Contact our sales team for custom limits.
-            </p>
-            <Button className="gap-2" onClick={() => window.open("mailto:sales@titanmeet.com")}>
-              <Mail className="h-4 w-4" /> Contact Sales
+            <p className="text-muted-foreground">You're on our highest plan.</p>
+            <Button
+              className="gap-2"
+              onClick={() => {
+                closeUpgradeModal();
+                navigate("/dashboard/support");
+              }}
+            >
+              <Mail className="h-4 w-4" /> Contact Support
             </Button>
           </div>
         ) : nextPlan ? (
@@ -108,7 +126,7 @@ export default function UpgradeModal() {
             <div className="grid grid-cols-2 gap-3">
               {/* Current plan */}
               <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-2 opacity-70">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Current</p>
+                <Badge variant="outline" className="text-[10px]">Current</Badge>
                 <h3 className="font-display font-bold">{currentPlan.name}</h3>
                 <p className="text-sm text-muted-foreground">{currentPlan.price}</p>
                 <div className="pt-2 border-t border-border">
@@ -127,7 +145,7 @@ export default function UpgradeModal() {
                     </Badge>
                   </div>
                 )}
-                <p className="text-xs font-medium text-primary uppercase tracking-wider">Upgrade to</p>
+                <Badge variant="outline" className="text-[10px] border-primary text-primary">Upgrade to</Badge>
                 <h3 className="font-display font-bold">{nextPlan.name}</h3>
                 <p className="text-sm text-muted-foreground">{nextPlan.price}</p>
                 <div className="pt-2 border-t border-primary/20">
@@ -135,12 +153,16 @@ export default function UpgradeModal() {
                     {nextPlan.limits[trigger]} {trigger}
                   </p>
                 </div>
+                {/* Feature list */}
+                <ul className="space-y-1 pt-1">
+                  {nextPlan.features.map((f) => (
+                    <li key={f} className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+                      <CheckCircle className="h-3 w-3 text-emerald-500 shrink-0" />
+                      {f}
+                    </li>
+                  ))}
+                </ul>
               </div>
-            </div>
-
-            {/* Arrow between */}
-            <div className="flex justify-center">
-              <ArrowRight className="h-5 w-5 text-primary" />
             </div>
 
             {/* Checkout button */}
@@ -152,8 +174,8 @@ export default function UpgradeModal() {
                 onSuccess={handleSuccess}
               />
             ) : (
-              <Button className="w-full" onClick={() => { closeUpgradeModal(); window.location.href = "/dashboard/billing"; }}>
-                View Plans
+              <Button className="w-full" onClick={() => { closeUpgradeModal(); navigate("/dashboard/billing"); }}>
+                Upgrade to {nextPlan.name}
               </Button>
             )}
 
@@ -163,7 +185,7 @@ export default function UpgradeModal() {
                 You'll be credited for unused days on your current plan.
               </p>
               <p className="text-[11px] text-muted-foreground">
-                Cancel anytime. No contracts.
+                Cancel anytime. No contracts. Secured by Paddle.
               </p>
             </div>
           </div>
