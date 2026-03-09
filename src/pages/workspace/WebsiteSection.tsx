@@ -1,7 +1,7 @@
 import { useEventWorkspace } from "@/contexts/EventWorkspaceContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Check, X, ExternalLink, Globe, Eye, Copy, Sparkles, Loader2, ArrowRight } from "lucide-react";
+import { Check, X, ExternalLink, Globe, Eye, Copy, Sparkles, Loader2, ArrowRight, ClipboardCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
@@ -9,6 +9,10 @@ import { buildPublicEventUrl, buildPublicEventUrlAbsolute } from "@/lib/subdomai
 import { toast } from "sonner";
 import { callAi, type SeoResult } from "@/lib/ai-api";
 import { SectionHint } from "@/components/ui/section-hint";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { PUBLISH_CHECKS, getPublishStatus } from "@/lib/publishChecks";
+
+export { PUBLISH_CHECKS };
 
 const themes = [
   { id: "corporate", name: "Corporate Clean", desc: "Structured, business-focused", color: "bg-[hsl(210,20%,95%)]" },
@@ -16,8 +20,94 @@ const themes = [
   { id: "modern", name: "Modern Conference", desc: "Tech-forward, bold primary", color: "bg-[hsl(220,60%,95%)]" },
 ];
 
-import { PUBLISH_CHECKS } from "@/lib/publishChecks";
-export { PUBLISH_CHECKS };
+const CHECK_SECTION_MAP: Record<string, string | null> = {
+  client: null,
+  title: "info",
+  slug: "info",
+  date: "info",
+  description: "info",
+  hero: "hero",
+  venue: "venue",
+};
+
+/* ── Circular Progress Ring ── */
+const ProgressRing = ({ passed, total }: { passed: number; total: number }) => {
+  const pct = Math.round((passed / total) * 100);
+  const radius = 28;
+  const stroke = 5;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (pct / 100) * circumference;
+  const color = pct >= 100 ? "hsl(var(--primary))" : pct >= 50 ? "hsl(45, 93%, 47%)" : "hsl(0, 84%, 60%)";
+
+  return (
+    <div className="relative flex items-center justify-center" style={{ width: 72, height: 72 }}>
+      <svg width="72" height="72" className="-rotate-90">
+        <circle cx="36" cy="36" r={radius} fill="none" stroke="hsl(var(--muted))" strokeWidth={stroke} />
+        <circle cx="36" cy="36" r={radius} fill="none" stroke={color} strokeWidth={stroke} strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="round" className="transition-all duration-500" />
+      </svg>
+      <span className="absolute text-sm font-bold">{passed}/{total}</span>
+    </div>
+  );
+};
+
+/* ── Publish Readiness Card ── */
+const PublishReadinessCard = ({ event, navigate }: { event: any; navigate: (path: string) => void }) => {
+  const { passed, total, pct, results, allPass } = getPublishStatus(event);
+  const headline = allPass ? "Ready to Publish ✓" : "Almost Ready";
+
+  const handleFix = (key: string) => {
+    const section = CHECK_SECTION_MAP[key];
+    if (section === null) {
+      toast.info("The client is set when the event is created. Edit the event from the Events list to change it.");
+      return;
+    }
+    navigate(`/dashboard/events/${event.id}/${section}`);
+  };
+
+  return (
+    <Card className={allPass ? "border-primary/40 bg-primary/5" : "border-yellow-400/40 bg-yellow-50/50 dark:bg-yellow-950/10"}>
+      <CardContent className="pt-6">
+        <div className="flex items-center gap-5">
+          <ProgressRing passed={passed} total={total} />
+          <div className="flex-1">
+            <h3 className="text-lg font-bold">{headline}</h3>
+            <p className="text-sm text-muted-foreground">
+              {allPass ? "All publish checks passed. Your event is ready to go live." : `${passed} of ${total} checks passed. Complete the remaining items to publish.`}
+            </p>
+          </div>
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="gap-2">
+                <ClipboardCheck className="h-4 w-4" /> View Checklist
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Publish Readiness Checklist</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-3 mt-2">
+                {results.map(r => (
+                  <div key={r.key} className="flex items-center gap-3 text-sm">
+                    {r.ok ? <Check className="h-4 w-4 text-primary shrink-0" /> : <X className="h-4 w-4 text-destructive shrink-0" />}
+                    <span className={r.ok ? "flex-1" : "flex-1 text-muted-foreground"}>{r.label}</span>
+                    {!r.ok && (
+                      <Button variant="link" size="sm" className="h-auto p-0 text-xs text-primary" onClick={() => handleFix(r.key)}>
+                        Fix this →
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground mt-4 pt-3 border-t border-border">
+                {allPass ? "All checks passed — this event can be published." : "Fix the items above before publishing."}
+              </p>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
 
 const WebsiteSection = () => {
   const { event, autosave, isArchived } = useEventWorkspace();
