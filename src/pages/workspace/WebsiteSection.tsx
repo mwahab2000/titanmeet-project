@@ -1,12 +1,13 @@
 import { useEventWorkspace } from "@/contexts/EventWorkspaceContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Check, X, ExternalLink, Globe, Eye, Copy } from "lucide-react";
+import { Check, X, ExternalLink, Globe, Eye, Copy, Sparkles, Loader2, ArrowRight } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { buildPublicEventUrl, buildPublicEventUrlAbsolute } from "@/lib/subdomain";
 import { toast } from "sonner";
+import { callAi, type SeoResult } from "@/lib/ai-api";
 
 const themes = [
   { id: "corporate", name: "Corporate Clean", desc: "Structured, business-focused", color: "bg-[hsl(210,20%,95%)]" },
