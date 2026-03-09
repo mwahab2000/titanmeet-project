@@ -92,6 +92,30 @@ const QuickEventWizard = () => {
   /* ── agenda ──────────────────────────────────────────────── */
   const [agenda, setAgenda] = useState<MiniAgendaItem[]>([{ title: "", start_time: "", description: "" }]);
 
+  /* ── AI builder ─────────────────────────────────────────── */
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [aiGenerated, setAiGenerated] = useState(false);
+
+  const handleAiGenerate = async () => {
+    if (!aiPrompt.trim()) return;
+    setAiGenerating(true);
+    try {
+      const result = await callAi<EventBuilderResult>({ action: "event_builder", prompt: aiPrompt });
+      if (result.title) { setTitle(result.title); setSlug(slugify(result.title)); }
+      if (result.description) setDescription(result.description);
+      if (result.suggestedTheme) { /* theme can be applied later */ }
+      if (result.agenda?.length) {
+        setAgenda(result.agenda.map(a => ({ title: a.title, start_time: a.time || "", description: `Speaker: ${a.speaker || "TBD"} · ${a.duration_minutes || 30}min` })));
+      }
+      setAiGenerated(true);
+      toast.success("AI generated event details! Review and adjust as needed.");
+    } catch (err: any) {
+      toast.error(err.message || "AI generation failed");
+    }
+    setAiGenerating(false);
+  };
+
   /* ── publish ─────────────────────────────────────────────── */
   const [publishing, setPublishing] = useState(false);
   const [clientSlug, setClientSlug] = useState<string | null>(null);
