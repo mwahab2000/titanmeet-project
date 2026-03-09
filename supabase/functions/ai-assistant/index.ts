@@ -6,8 +6,8 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const AI_GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const DEFAULT_MODEL = "openai/gpt-5-mini";
+const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
+const DEFAULT_MODEL = "gpt-4o-mini";
 
 /* ── action-specific system prompts ──────────────────────── */
 const SYSTEM_PROMPTS: Record<string, string> = {
@@ -78,10 +78,10 @@ serve(async (req) => {
   const correlationId = crypto.randomUUID();
 
   try {
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
+    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+    if (!OPENAI_API_KEY) {
       return new Response(
-        JSON.stringify({ error: "AI service not configured", correlationId }),
+        JSON.stringify({ error: "AI service not configured – OPENAI_API_KEY missing", correlationId }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -104,10 +104,8 @@ serve(async (req) => {
     const aiMessages: Array<{ role: string; content: string }> = [];
 
     if (isChat) {
-      // For chat, include context in system prompt
       const contextStr = context ? `\n\nCurrent event context:\n${JSON.stringify(context, null, 2)}` : "";
       aiMessages.push({ role: "system", content: systemPrompt + contextStr });
-      // Add conversation history
       if (Array.isArray(chatMessages)) {
         for (const m of chatMessages) {
           aiMessages.push({ role: m.role, content: m.content });
@@ -115,7 +113,6 @@ serve(async (req) => {
       }
     } else {
       aiMessages.push({ role: "system", content: systemPrompt });
-      // Build user prompt with context
       let userPrompt = prompt || "";
       if (context) {
         userPrompt = `Context:\n${JSON.stringify(context, null, 2)}\n\nRequest: ${userPrompt}`;
@@ -123,10 +120,12 @@ serve(async (req) => {
       aiMessages.push({ role: "user", content: userPrompt });
     }
 
-    const response = await fetch(AI_GATEWAY, {
+    console.log(`[${correlationId}] action=${action} model=${model}`);
+
+    const response = await fetch(OPENAI_API_URL, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -139,20 +138,27 @@ serve(async (req) => {
 
     if (!response.ok) {
       const status = response.status;
+      const errText = await response.text();
+      console.error(`[${correlationId}] OpenAI error ${status}:`, errText);
+
       if (status === 429) {
         return new Response(
           JSON.stringify({ error: "AI rate limit exceeded. Please try again in a moment.", correlationId }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      if (status === 402) {
+      if (status === 401) {
         return new Response(
-          JSON.stringify({ error: "AI credits exhausted. Please add funds.", correlationId }),
+          JSON.stringify({ error: "Invalid OpenAI API key.", correlationId }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      if (status === 402 || status === 403) {
+        return new Response(
+          JSON.stringify({ error: "OpenAI billing issue. Please check your OpenAI account.", correlationId }),
           { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      const errText = await response.text();
-      console.error(`[${correlationId}] AI gateway error ${status}:`, errText);
       return new Response(
         JSON.stringify({ error: "AI service temporarily unavailable", correlationId }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -160,10 +166,12 @@ serve(async (req) => {
     }
 
     const aiResult = await response.json();
+    const openaiRequestId = response.headers.get("x-request-id");
+    console.log(`[${correlationId}] openai_request_id=${openaiRequestId}`);
+
     const rawContent = aiResult.choices?.[0]?.message?.content || "";
 
     if (isChat) {
-      // Return raw text for chat
       return new Response(
         JSON.stringify({ result: rawContent, correlationId }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -173,7 +181,6 @@ serve(async (req) => {
     // For structured actions, parse JSON from the response
     let parsed: unknown;
     try {
-      // Try to extract JSON from markdown code blocks if present
       const jsonMatch = rawContent.match(/```(?:json)?\s*([\s\S]*?)```/);
       const jsonStr = jsonMatch ? jsonMatch[1].trim() : rawContent.trim();
       parsed = JSON.parse(jsonStr);
