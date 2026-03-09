@@ -20,6 +20,7 @@ const themes = [
   { id: "modern", name: "Modern Conference", desc: "Tech-forward, bold primary", color: "bg-[hsl(220,60%,95%)]" },
   { id: "midnight-gala", name: "Midnight Gala", desc: "Dark luxury, gold accents, serif elegance", color: "bg-[#0D0D14]" },
   { id: "tech-summit", name: "Tech Summit", desc: "Dark, monospace, developer conference", color: "bg-[#0E1420]" },
+  { id: "nature-wellness", name: "Nature & Wellness", desc: "Organic, warm, earthy retreat feel", color: "bg-[#FAF7F2]" },
 ];
 
 const CHECK_SECTION_MAP: Record<string, string | null> = {
