@@ -142,13 +142,15 @@ Deno.serve(async (req) => {
     // 5) Get PayPal access token
     const tokenResult = await getPayPalAccessToken(paypalClientId!, paypalClientSecret!, paypalApiBase, correlationId);
     if (tokenResult.error || !tokenResult.token) {
-      await serviceClient.from("payment_events").insert({
-        payment_intent_id: paymentIntent.id,
-        provider: "paypal",
-        event_type: "error",
-        raw_payload: { error: tokenResult.error },
-        provider_event_id: `${orderId}_token_failed`,
-      }).catch(() => {/* swallow */});
+      try {
+        await serviceClient.from("payment_events").insert({
+          payment_intent_id: paymentIntent.id,
+          provider: "paypal",
+          event_type: "error",
+          raw_payload: { error: tokenResult.error },
+          provider_event_id: `${orderId}_token_failed`,
+        });
+      } catch { /* swallow */ }
       return new Response(
         JSON.stringify({ code: "paypal_token_failed", correlationId, error: tokenResult.error }),
         { status: 502, headers: jsonHeaders }
