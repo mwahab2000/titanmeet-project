@@ -170,7 +170,7 @@ const AdminBillingPage = () => {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm text-muted-foreground flex items-center gap-1">
-              <CreditCard className="h-4 w-4" /> PayPal Revenue
+              <CreditCard className="h-4 w-4" /> Payment Revenue
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -195,7 +195,7 @@ const AdminBillingPage = () => {
       <Tabs defaultValue="accounts">
         <TabsList>
           <TabsTrigger value="accounts">Accounts</TabsTrigger>
-          <TabsTrigger value="payments">PayPal Payments ({payments.length})</TabsTrigger>
+          <TabsTrigger value="payments">Payments ({payments.length})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="accounts">
@@ -266,7 +266,7 @@ const AdminBillingPage = () => {
           <Card>
             <CardHeader>
               <CardTitle className="font-display flex items-center gap-2">
-                <DollarSign className="h-5 w-5 text-primary" /> All PayPal Payments
+                <DollarSign className="h-5 w-5 text-primary" /> All Payments
               </CardTitle>
               <CardDescription>Payment intents from all users for reconciliation and support</CardDescription>
             </CardHeader>
