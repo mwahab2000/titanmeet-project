@@ -173,6 +173,7 @@ function parseCsvFile(text: string, existingEmails: Set<string>): CsvImportResul
 
 const AttendeesSection = () => {
   const { event, isArchived } = useEventWorkspace();
+  const planLimits = usePlanLimits();
   const [items, setItems] = useState<Attendee[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [sendingId, setSendingId] = useState<string | null>(null);
