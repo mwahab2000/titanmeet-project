@@ -257,12 +257,11 @@ const SupportPage = () => {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredArticles.map((article) => (
-                <a
-                  key={article.title}
-                  href={article.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="group block"
+                <button
+                  key={article.slug}
+                  type="button"
+                  onClick={() => setSelectedArticle(article)}
+                  className="group block text-left w-full"
                 >
                   <Card className="h-full transition-colors hover:border-primary/40 group-hover:shadow-md">
                     <CardHeader className="pb-2">
@@ -274,16 +273,15 @@ const SupportPage = () => {
                           {article.readTime}
                         </Badge>
                       </div>
-                      <CardTitle className="text-sm font-semibold mt-2 flex items-center gap-1.5 group-hover:text-primary transition-colors">
+                      <CardTitle className="text-sm font-semibold mt-2 group-hover:text-primary transition-colors">
                         {article.title}
-                        <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-70 transition-opacity" />
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
                       <p className="text-xs text-muted-foreground leading-relaxed">{article.description}</p>
                     </CardContent>
                   </Card>
-                </a>
+                </button>
               ))}
             </div>
           )}
