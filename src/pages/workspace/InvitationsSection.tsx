@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { SectionHint } from "@/components/ui/section-hint";
 
 const InvitationsSection = () => {
   const { event, isArchived } = useEventWorkspace();
