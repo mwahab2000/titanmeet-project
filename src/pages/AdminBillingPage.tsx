@@ -195,7 +195,7 @@ const AdminBillingPage = () => {
       <Tabs defaultValue="accounts">
         <TabsList>
           <TabsTrigger value="accounts">Accounts</TabsTrigger>
-          <TabsTrigger value="payments">PayPal Payments ({payments.length})</TabsTrigger>
+          <TabsTrigger value="payments">Payments ({payments.length})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="accounts">
