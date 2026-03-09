@@ -52,6 +52,7 @@ export const DashboardLayout = () => {
           <NotificationBell />
         </header>
         <main className="p-8">
+          <UsageWarningBanner />
           <Outlet />
         </main>
       </div>

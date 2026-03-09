@@ -336,27 +336,7 @@ const BillingPage = () => {
       </div>
 
       {/* Usage meters */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="font-display">Current Usage</CardTitle>
-          <CardDescription>Usage tracked against your {currentPlan.name} plan limits</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-5">
-          {usageMetrics.map((m) => {
-            const pct = usagePercent(m.used, m.limit);
-            return (
-              <div key={m.label} className="space-y-1.5">
-                <div className="flex justify-between text-sm">
-                  <span className="font-medium">{m.label}</span>
-                  <span className="text-muted-foreground">{m.used} / {m.limit}{m.label.includes("GB") ? " GB" : ""}</span>
-                </div>
-                <Progress value={pct} className="h-2" />
-                {pct >= 100 && <p className="text-xs text-destructive font-medium">Over limit — overages apply</p>}
-              </div>
-            );
-          })}
-        </CardContent>
-      </Card>
+      <UsageMeters />
 
       {/* Overages */}
       {overages.length > 0 && (

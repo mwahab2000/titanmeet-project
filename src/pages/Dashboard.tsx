@@ -294,40 +294,7 @@ const Dashboard = () => {
           animate="visible"
           custom={cellIndex++}
         >
-          {currentPlan && !billingLoading && usageMetrics.length > 0 ? (
-            <Card className="h-full">
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="font-display text-sm">Plan Usage</CardTitle>
-                  <Button variant="ghost" size="sm" className="h-auto p-0 text-xs text-muted-foreground" asChild>
-                    <Link to="/dashboard/billing">View →</Link>
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {usageMetrics.map((m) => {
-                  const pct = usagePercent(m.used, m.limit);
-                  return (
-                    <div key={m.label} className="space-y-1.5">
-                      <div className="flex justify-between text-sm">
-                        <span className="font-medium text-xs">{m.label}</span>
-                        <span className={`text-[10px] ${pct >= 90 ? "text-destructive font-semibold" : pct >= 80 ? "text-yellow-600 dark:text-yellow-400" : "text-muted-foreground"}`}>
-                          {m.used}/{m.limit}
-                        </span>
-                      </div>
-                      <Progress value={pct} className="h-1.5" />
-                    </div>
-                  );
-                })}
-              </CardContent>
-            </Card>
-          ) : (
-            <Card className="h-full flex items-center justify-center">
-              <CardContent className="text-center text-sm text-muted-foreground py-8">
-                Plan info loading…
-              </CardContent>
-            </Card>
-          )}
+          <UsageMeters compact />
         </motion.div>
 
         {/* AI Insights full width */}
