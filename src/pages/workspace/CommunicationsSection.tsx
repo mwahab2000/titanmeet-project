@@ -149,6 +149,17 @@ const CommunicationsSection = () => {
 
   const send = async () => {
     if (!event || !message.trim()) return;
+
+    // Email soft limit check
+    if (channel === "email") {
+      if (!planLimits.canCreate("emails")) {
+        toast.error("Monthly email limit reached. Upgrade your plan to send more.");
+        return;
+      } else if (planLimits.emails.percent >= 80) {
+        toast.warning(`You've used ${planLimits.emails.percent}% of your monthly email limit.`);
+      }
+    }
+
     const recipients = getRecipients();
     if (recipients.length === 0) {
       toast.error("No recipients selected");
