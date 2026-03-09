@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&family=Playfair+Display:wght@700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cabinet+Grotesk:wght@400;500;700;800;900&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap');
 
 @tailwind base;
 
@@ -67,6 +67,8 @@ html {
     --sidebar-accent-foreground: 210 10% 90%;
     --sidebar-border: 210 25% 20%;
     --sidebar-ring: 145 63% 42%;
+
+    --font-display: 'Cabinet Grotesk', sans-serif;
   }
 
   .dark {
@@ -107,11 +109,16 @@ html {
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground font-sans;
-    font-family: 'Inter', sans-serif;
+    @apply bg-background text-foreground;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
   }
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Space Grotesk', sans-serif;
+    font-family: 'Cabinet Grotesk', sans-serif;
+    letter-spacing: -0.01em;
+  }
+  .font-display {
+    font-family: 'Cabinet Grotesk', sans-serif;
   }
 }
 
