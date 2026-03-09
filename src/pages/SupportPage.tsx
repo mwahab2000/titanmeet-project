@@ -10,9 +10,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, MessageSquare, Clock, Search } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Plus, MessageSquare, Clock, Search, Building2, Palette, Mail, ClipboardList, Bus, CreditCard, AlertTriangle, Download, ExternalLink, BookOpen } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+
+// ── Constants ──────────────────────────────────────────────
 
 const STATUS_BADGE: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   open: { label: "Open", variant: "default" },
@@ -40,6 +43,72 @@ const CATEGORIES = [
 
 const CATEGORY_LABELS: Record<string, string> = Object.fromEntries(CATEGORIES.map(c => [c.value, c.label]));
 
+// ── Help Center Articles ───────────────────────────────────
+
+interface HelpArticle {
+  icon: React.ElementType;
+  title: string;
+  description: string;
+  readTime: string;
+  url: string;
+}
+
+const helpArticles: HelpArticle[] = [
+  {
+    icon: Building2,
+    title: "Client & Event Hierarchy",
+    description: "Understand how Clients and Events are structured in TitanMeet — the foundation of every event you create.",
+    readTime: "3 min",
+    url: "https://help.titanmeet.com/articles/client-event-hierarchy",
+  },
+  {
+    icon: Palette,
+    title: "Understanding Themes",
+    description: "Learn about the three event themes — Corporate Clean, Elegant Premium, and Modern Conference — and how to choose the right one.",
+    readTime: "4 min",
+    url: "https://help.titanmeet.com/articles/understanding-themes",
+  },
+  {
+    icon: Mail,
+    title: "Invitations: Email vs WhatsApp vs Link",
+    description: "Compare the three invitation channels, learn when to use each, and understand delivery tracking and RSVP flows.",
+    readTime: "5 min",
+    url: "https://help.titanmeet.com/articles/invitations-channels",
+  },
+  {
+    icon: ClipboardList,
+    title: "Surveys: Create, Send & Results",
+    description: "Build pre or post-event surveys, send them to attendees, and read the collected results with visual charts.",
+    readTime: "4 min",
+    url: "https://help.titanmeet.com/articles/surveys-guide",
+  },
+  {
+    icon: Bus,
+    title: "Transportation: Routes & Stops",
+    description: "Set up bus routes and pickup stops for coordinated attendee transport. Routes and stops appear on the public event page.",
+    readTime: "3 min",
+    url: "https://help.titanmeet.com/articles/transportation-routes",
+  },
+  {
+    icon: CreditCard,
+    title: "Billing & Plan Limits",
+    description: "Understand plan tiers, usage limits on clients, events, attendees and emails, and how overage and upgrades work.",
+    readTime: "4 min",
+    url: "https://help.titanmeet.com/articles/billing-plan-limits",
+  },
+  {
+    icon: AlertTriangle,
+    title: "Why can't I publish? (Troubleshooting)",
+    description: "Go through the 7-point publish checklist to find and fix what's blocking your event from going live.",
+    readTime: "3 min",
+    url: "https://help.titanmeet.com/articles/publish-troubleshooting",
+  },
+];
+
+const QUICK_REF_PDF_URL = "https://help.titanmeet.com/downloads/titanmeet-quick-reference.pdf";
+
+// ── Types ──────────────────────────────────────────────────
+
 interface Ticket {
   id: string;
   subject: string;
@@ -51,6 +120,8 @@ interface Ticket {
   resolved_at: string | null;
 }
 
+// ── Component ──────────────────────────────────────────────
+
 const SupportPage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -58,7 +129,8 @@ const SupportPage = () => {
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
   const [filterStatus, setFilterStatus] = useState<string>("all");
-  const [searchQuery, setSearchQuery] = useState("");
+  const [ticketSearch, setTicketSearch] = useState("");
+  const [helpSearch, setHelpSearch] = useState("");
 
   // Create form state
   const [subject, setSubject] = useState("");
@@ -135,15 +207,19 @@ const SupportPage = () => {
   };
 
   const filteredTickets = tickets.filter(t =>
-    !searchQuery || t.subject.toLowerCase().includes(searchQuery.toLowerCase())
+    !ticketSearch || t.subject.toLowerCase().includes(ticketSearch.toLowerCase())
+  );
+
+  const filteredArticles = helpArticles.filter(a =>
+    !helpSearch || a.title.toLowerCase().includes(helpSearch.toLowerCase())
   );
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Help & Support</h1>
-          <p className="text-muted-foreground">Create and manage your support tickets</p>
+          <h1 className="text-2xl font-bold font-display text-foreground">Help & Support</h1>
+          <p className="text-muted-foreground">Browse help articles or manage your support tickets</p>
         </div>
         <Dialog open={createOpen} onOpenChange={setCreateOpen}>
           <DialogTrigger asChild>
@@ -207,73 +283,162 @@ const SupportPage = () => {
         </Dialog>
       </div>
 
-      {/* Filters */}
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search tickets..."
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-        <Select value={filterStatus} onValueChange={setFilterStatus}>
-          <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Statuses</SelectItem>
-            <SelectItem value="open">Open</SelectItem>
-            <SelectItem value="pending_admin">Awaiting Me</SelectItem>
-            <SelectItem value="pending_support">Awaiting Support</SelectItem>
-            <SelectItem value="resolved">Resolved</SelectItem>
-            <SelectItem value="closed">Closed</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      {/* Tabs */}
+      <Tabs defaultValue="help-center">
+        <TabsList>
+          <TabsTrigger value="help-center" className="gap-1.5">
+            <BookOpen className="h-3.5 w-3.5" /> Help Center
+          </TabsTrigger>
+          <TabsTrigger value="my-tickets" className="gap-1.5">
+            <MessageSquare className="h-3.5 w-3.5" /> My Tickets
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Ticket List */}
-      {loading ? (
-        <div className="text-center py-12 text-muted-foreground">Loading tickets...</div>
-      ) : filteredTickets.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <MessageSquare className="h-12 w-12 mx-auto text-muted-foreground/40 mb-4" />
-            <p className="text-muted-foreground">No tickets found. Create one to get started.</p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-2">
-          {filteredTickets.map(ticket => {
-            const statusInfo = STATUS_BADGE[ticket.status] || STATUS_BADGE.open;
-            const priorityInfo = PRIORITY_BADGE[ticket.priority] || PRIORITY_BADGE.medium;
-            return (
-              <Card
-                key={ticket.id}
-                className="cursor-pointer hover:border-primary/30 transition-colors"
-                onClick={() => navigate(`/dashboard/support/${ticket.id}`)}
-              >
-                <CardContent className="flex items-center justify-between py-4 px-6">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-medium text-foreground truncate">{ticket.subject}</h3>
-                    </div>
-                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                      <span>{CATEGORY_LABELS[ticket.category] || ticket.category}</span>
-                      <span>·</span>
-                      <Clock className="h-3 w-3" />
-                      <span>{format(new Date(ticket.created_at), "MMM d, yyyy")}</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 ml-4">
-                    <Badge variant={priorityInfo.variant}>{priorityInfo.label}</Badge>
-                    <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      )}
+        {/* ── Help Center Tab ── */}
+        <TabsContent value="help-center" className="space-y-6 mt-4">
+          <div className="relative max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search help articles..."
+              value={helpSearch}
+              onChange={e => setHelpSearch(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+
+          {filteredArticles.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <Search className="h-10 w-10 mx-auto text-muted-foreground/40 mb-3" />
+                <p className="text-muted-foreground">No articles match your search.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredArticles.map((article) => (
+                <a
+                  key={article.title}
+                  href={article.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group block"
+                >
+                  <Card className="h-full transition-colors hover:border-primary/40 group-hover:shadow-md">
+                    <CardHeader className="pb-2">
+                      <div className="flex items-start justify-between">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                          <article.icon className="h-4.5 w-4.5" />
+                        </div>
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 shrink-0">
+                          {article.readTime}
+                        </Badge>
+                      </div>
+                      <CardTitle className="text-sm font-semibold mt-2 flex items-center gap-1.5 group-hover:text-primary transition-colors">
+                        {article.title}
+                        <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-70 transition-opacity" />
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-xs text-muted-foreground leading-relaxed">{article.description}</p>
+                    </CardContent>
+                  </Card>
+                </a>
+              ))}
+            </div>
+          )}
+
+          {/* Quick Reference PDF */}
+          <Card className="border-dashed">
+            <CardContent className="flex items-center justify-between py-4 px-6">
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted">
+                  <BookOpen className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">Quick Reference PDF</p>
+                  <p className="text-xs text-muted-foreground">Download a printable cheat-sheet covering all key features.</p>
+                </div>
+              </div>
+              <Button variant="outline" size="sm" className="gap-1.5 shrink-0" asChild>
+                <a href={QUICK_REF_PDF_URL} target="_blank" rel="noopener noreferrer">
+                  <Download className="h-3.5 w-3.5" /> Download PDF
+                </a>
+              </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ── My Tickets Tab ── */}
+        <TabsContent value="my-tickets" className="space-y-4 mt-4">
+          {/* Filters */}
+          <div className="flex items-center gap-3">
+            <div className="relative flex-1 max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search tickets..."
+                value={ticketSearch}
+                onChange={e => setTicketSearch(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <Select value={filterStatus} onValueChange={setFilterStatus}>
+              <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="open">Open</SelectItem>
+                <SelectItem value="pending_admin">Awaiting Me</SelectItem>
+                <SelectItem value="pending_support">Awaiting Support</SelectItem>
+                <SelectItem value="resolved">Resolved</SelectItem>
+                <SelectItem value="closed">Closed</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Ticket List */}
+          {loading ? (
+            <div className="text-center py-12 text-muted-foreground">Loading tickets...</div>
+          ) : filteredTickets.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <MessageSquare className="h-12 w-12 mx-auto text-muted-foreground/40 mb-4" />
+                <p className="text-muted-foreground">No tickets found. Create one to get started.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-2">
+              {filteredTickets.map(ticket => {
+                const statusInfo = STATUS_BADGE[ticket.status] || STATUS_BADGE.open;
+                const priorityInfo = PRIORITY_BADGE[ticket.priority] || PRIORITY_BADGE.medium;
+                return (
+                  <Card
+                    key={ticket.id}
+                    className="cursor-pointer hover:border-primary/30 transition-colors"
+                    onClick={() => navigate(`/dashboard/support/${ticket.id}`)}
+                  >
+                    <CardContent className="flex items-center justify-between py-4 px-6">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="font-medium text-foreground truncate">{ticket.subject}</h3>
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                          <span>{CATEGORY_LABELS[ticket.category] || ticket.category}</span>
+                          <span>·</span>
+                          <Clock className="h-3 w-3" />
+                          <span>{format(new Date(ticket.created_at), "MMM d, yyyy")}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 ml-4">
+                        <Badge variant={priorityInfo.variant}>{priorityInfo.label}</Badge>
+                        <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
