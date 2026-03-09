@@ -213,6 +213,11 @@ const Dashboard = () => {
         </Card>
       )}
 
+      {/* AI Insights */}
+      <div className="mb-8">
+        <AIInsightsCard stats={stats} recentEvents={recentEvents} />
+      </div>
+
       <Card>
         <CardHeader>
           <CardTitle className="font-display">Recent Events</CardTitle>

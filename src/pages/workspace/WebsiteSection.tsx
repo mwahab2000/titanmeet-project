@@ -113,7 +113,113 @@ const WebsiteSection = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* AI SEO Optimizer */}
+      <SeoOptimizerCard event={event} autosave={autosave} isArchived={isArchived} />
     </div>
+  );
+};
+
+/* ── SEO Optimizer Sub-Component ── */
+const SeoOptimizerCard = ({ event, autosave, isArchived }: { event: any; autosave: (u: any) => void; isArchived: boolean }) => {
+  const [seo, setSeo] = useState<SeoResult | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const handleOptimize = async () => {
+    setLoading(true);
+    try {
+      const result = await callAi<SeoResult>({
+        action: "seo_optimization",
+        prompt: "Optimize SEO for this event",
+        context: {
+          currentTitle: event.title,
+          description: event.description,
+          slug: event.slug,
+          venueName: event.venue_name,
+        },
+      });
+      setSeo(result);
+    } catch (err: any) {
+      toast.error(err.message || "SEO optimization failed");
+    }
+    setLoading(false);
+  };
+
+  const applySuggestion = (field: string, value: string) => {
+    if (field === "title") autosave({ title: value } as any);
+    if (field === "description") autosave({ description: value } as any);
+    if (field === "slug") autosave({ slug: value } as any);
+    toast.success(`Applied ${field} suggestion`);
+  };
+
+  return (
+    <Card className="border-purple-200 dark:border-purple-800/50">
+      <CardHeader>
+        <CardTitle className="text-lg flex items-center gap-2">
+          <Sparkles className="h-5 w-5 text-purple-500" />
+          SEO & Discoverability
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {!seo && (
+          <Button onClick={handleOptimize} disabled={loading || isArchived} variant="outline" className="gap-1.5 text-purple-600 border-purple-200 hover:bg-purple-50 dark:border-purple-800">
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+            {loading ? "Analyzing..." : "Optimize for Search"}
+          </Button>
+        )}
+
+        {seo && (
+          <div className="space-y-4">
+            {/* Side-by-side comparisons */}
+            {[
+              { label: "Title", field: "title", current: event.title, suggested: seo.improvedTitle },
+              { label: "Description", field: "description", current: event.description || "", suggested: seo.improvedDescription },
+              { label: "Slug", field: "slug", current: event.slug || "", suggested: seo.suggestedSlug },
+            ].map(({ label, field, current, suggested }) => (
+              <div key={field} className="space-y-1">
+                <p className="text-xs font-semibold text-muted-foreground">{label}</p>
+                <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-start text-sm">
+                  <div className="p-2 rounded bg-muted text-muted-foreground">{current || "(empty)"}</div>
+                  <ArrowRight className="h-4 w-4 mt-2 text-purple-500" />
+                  <div className="p-2 rounded bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800">
+                    {suggested}
+                    {!isArchived && current !== suggested && (
+                      <Button size="sm" variant="ghost" className="h-6 text-xs mt-1 text-purple-600" onClick={() => applySuggestion(field, suggested)}>
+                        Apply
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            {/* Meta Description */}
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-muted-foreground">Meta Description ({seo.metaDescription.length}/160)</p>
+              <p className="text-sm p-2 rounded bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800">{seo.metaDescription}</p>
+            </div>
+
+            {/* SEO Tips */}
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-muted-foreground">SEO Tips</p>
+              <ul className="space-y-1">
+                {seo.seoTips.map((tip, i) => (
+                  <li key={i} className="flex items-start gap-2 text-sm">
+                    <Check className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+                    {tip}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <Button variant="outline" size="sm" onClick={handleOptimize} disabled={loading} className="gap-1">
+              {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+              Regenerate
+            </Button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 };
 
