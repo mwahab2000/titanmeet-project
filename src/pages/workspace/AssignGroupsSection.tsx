@@ -104,6 +104,7 @@ const AssignGroupsSection = () => {
         {groups.length === 0 && <p className="text-sm text-muted-foreground">Create groups first.</p>}
       </div>
     </div>
+    </div>
   );
 };
 
