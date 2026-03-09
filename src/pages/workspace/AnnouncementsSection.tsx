@@ -8,6 +8,7 @@ import { useEventWorkspace } from "@/contexts/EventWorkspaceContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Plus, Trash2 } from "lucide-react";
+import { SectionHint } from "@/components/ui/section-hint";
 
 interface Announcement { id: string; text: string; start_date: string | null; end_date: string | null; order_index: number; }
 
