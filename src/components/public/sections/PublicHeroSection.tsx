@@ -16,6 +16,44 @@ interface Props {
 const SLIDE_INTERVAL = 5000;
 const fallbackImg = "/placeholder.svg";
 
+function generateIcsContent(hero: PublicEventData["hero"], event: PublicEventData["event"]) {
+  const d = new Date(hero.date!);
+  const fmt = (dt: Date) => dt.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+  const start = fmt(d);
+  const end = fmt(new Date(d.getTime() + 86400000));
+  return [
+    "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//TitanMeet//EN", "BEGIN:VEVENT",
+    `DTSTART:${start}`, `DTEND:${end}`,
+    `SUMMARY:${hero.title}`, `DESCRIPTION:${event.description || ""}`,
+    `LOCATION:${hero.venueName || ""}`,
+    "END:VEVENT", "END:VCALENDAR",
+  ].join("\r\n");
+}
+
+function downloadIcs(hero: PublicEventData["hero"], event: PublicEventData["event"]) {
+  const blob = new Blob([generateIcsContent(hero, event)], { type: "text/calendar;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${event.title.replace(/\s+/g, "_")}.ics`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+const CalendarPill: React.FC<{ label: string; onClick: () => void; hasImages: boolean }> = ({ label, onClick, hasImages }) => (
+  <button
+    onClick={onClick}
+    className={`inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border transition-colors ${
+      hasImages
+        ? "border-white/15 bg-white/10 backdrop-blur-md text-white/80 hover:bg-white/20"
+        : "border-border bg-card text-muted-foreground hover:bg-muted"
+    }`}
+  >
+    <Calendar className="h-3 w-3" />
+    {label}
+  </button>
+);
+
 /** Preload images and resolve when all are cached (or failed) */
 function preloadImages(srcs: string[]): Promise<void> {
   if (!srcs.length) return Promise.resolve();
