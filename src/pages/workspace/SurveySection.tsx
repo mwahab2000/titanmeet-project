@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { callAi, type SurveyAnalysisResult } from "@/lib/ai-api";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend } from "recharts";
+import { SectionHint } from "@/components/ui/section-hint";
 
 const SurveySection = () => {
   const { event, isArchived } = useEventWorkspace();
