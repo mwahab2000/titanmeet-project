@@ -201,6 +201,13 @@ const AgendaSection = () => {
 
   return (
     <>
+    {items.length === 0 && (
+      <SectionHint
+        sectionKey="agenda"
+        title="Agenda"
+        description="Build your event schedule here. Attendees can see the full agenda on the public page. Add sessions with times and descriptions."
+      />
+    )}
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="font-display">Agenda</CardTitle>

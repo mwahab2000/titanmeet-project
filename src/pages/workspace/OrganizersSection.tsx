@@ -160,6 +160,14 @@ const OrganizersSection = () => {
   if (!event) return null;
 
   return (
+    <>
+    {items.filter(o => !o._isNew && !o.id.startsWith("temp-")).length === 0 && (
+      <SectionHint
+        sectionKey="organizers"
+        title="Organizers"
+        description="Add the event management team so attendees know who to contact. At least one organizer is recommended."
+      />
+    )}
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="font-display flex items-center gap-2">

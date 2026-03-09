@@ -350,6 +350,15 @@ const SpeakersSection = () => {
 
   return (
     <Card>
+      {speakers.length === 0 && (
+        <div className="px-6 pt-6">
+          <SectionHint
+            sectionKey="speakers"
+            title="Speakers"
+            description="Add speakers to showcase your agenda's presenters on the public event page. Include a photo and bio for best results."
+          />
+        </div>
+      )}
       <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-2">
         <CardTitle className="font-display flex items-center gap-2">
           <Mic className="h-5 w-5" /> Speakers

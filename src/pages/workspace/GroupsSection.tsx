@@ -6,6 +6,7 @@ import { useEventWorkspace } from "@/contexts/EventWorkspaceContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Plus, Trash2 } from "lucide-react";
+import { SectionHint } from "@/components/ui/section-hint";
 
 interface Group { id: string; name: string; capacity: number | null; }
 
