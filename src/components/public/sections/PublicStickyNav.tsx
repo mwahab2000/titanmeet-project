@@ -19,6 +19,7 @@ const sectionLinks = [
 export const PublicStickyNav: React.FC<Props> = ({ data, className = "" }) => {
   const [visible, setVisible] = useState(false);
   const [active, setActive] = useState("");
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   useEffect(() => {
     const onScroll = () => {
