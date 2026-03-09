@@ -211,6 +211,14 @@ const AttendeesSection = () => {
     const emailErr = validateField("email", attendee.email);
     if (emailErr && attendee.email) { toast.error("Fix email format before saving"); return null; }
 
+    // Soft limit check for attendees
+    if (!planLimits.canCreate("attendees")) {
+      toast.error("Monthly attendee limit reached. Upgrade your plan to add more.");
+      return null;
+    } else if (planLimits.attendees.percent >= 80) {
+      toast.warning(`You've used ${planLimits.attendees.percent}% of your monthly attendee limit.`);
+    }
+
     const { data, error } = await supabase
       .from("attendees")
       .insert({ event_id: event.id, name: attendee.name || "", email: attendee.email || "", mobile: attendee.mobile } as any)
