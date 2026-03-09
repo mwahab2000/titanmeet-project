@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Trash2, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { SectionHint } from "@/components/ui/section-hint";
 
 interface Organizer {
   id: string;
