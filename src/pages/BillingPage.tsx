@@ -374,20 +374,28 @@ const BillingPage = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            {entitlement ? (
+            {subscription && subscription.status === "active" ? (
               <>
                 <div className="flex items-center gap-2">
-                  <Badge variant={isAccessExpired ? "destructive" : "default"}>
-                    {isAccessExpired ? "Expired" : "Active"}
-                  </Badge>
+                  <Badge variant="default">Active</Badge>
+                  <span className="text-sm text-muted-foreground">{currentPlan?.name} Plan</span>
+                </div>
+                <p className="text-sm">
+                  Current period ends: <strong>{new Date(subscription.current_period_end).toLocaleDateString()}</strong>
+                </p>
+              </>
+            ) : entitlement && !isAccessExpired ? (
+              <>
+                <div className="flex items-center gap-2">
+                  <Badge variant="default">Active</Badge>
                   <span className="text-sm text-muted-foreground capitalize">{entitlement.source.replace(/_/g, " ")}</span>
                 </div>
                 <p className="text-sm">
-                  {isAccessExpired ? "Expired" : "Active until"}: <strong>{new Date(entitlement.access_until).toLocaleDateString()}</strong>
+                  Active until: <strong>{new Date(entitlement.access_until).toLocaleDateString()}</strong>
                 </p>
               </>
             ) : (
-              <p className="text-muted-foreground">No active entitlement. Purchase a plan below.</p>
+              <p className="text-muted-foreground">No active plan — upgrade below.</p>
             )}
           </CardContent>
         </Card>
