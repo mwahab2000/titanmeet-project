@@ -22,7 +22,6 @@ import {
   MapPin, Users, ListChecks, ClipboardCheck, Rocket, Save, Sparkles
 } from "lucide-react";
 import { callAi, type EventBuilderResult } from "@/lib/ai-api";
-import { Textarea as TextareaOrig } from "@/components/ui/textarea";
 
 /* ── helpers ─────────────────────────────────────────────────── */
 const slugify = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
