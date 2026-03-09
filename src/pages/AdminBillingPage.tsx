@@ -266,7 +266,7 @@ const AdminBillingPage = () => {
           <Card>
             <CardHeader>
               <CardTitle className="font-display flex items-center gap-2">
-                <DollarSign className="h-5 w-5 text-primary" /> All PayPal Payments
+                <DollarSign className="h-5 w-5 text-primary" /> All Payments
               </CardTitle>
               <CardDescription>Payment intents from all users for reconciliation and support</CardDescription>
             </CardHeader>
