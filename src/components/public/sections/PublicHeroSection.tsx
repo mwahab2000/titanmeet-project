@@ -194,6 +194,63 @@ export const PublicHeroSection: React.FC<Props> = ({ data, className = "", paral
               </span>
             )}
           </motion.div>
+
+          {/* CTA Button */}
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.45 }}
+            className="pt-2"
+          >
+            <Button
+              size="lg"
+              onClick={() => {
+                const target = document.getElementById("invitations") || document.getElementById("about");
+                target?.scrollIntoView({ behavior: "smooth" });
+              }}
+              className={`text-base px-8 py-6 rounded-xl font-semibold gap-2 ${
+                hasImages
+                  ? "bg-white text-black hover:bg-white/90"
+                  : "bg-primary text-primary-foreground hover:bg-primary/90"
+              }`}
+            >
+              Register Now
+              <ArrowDown className="h-4 w-4" />
+            </Button>
+          </motion.div>
+
+          {/* Add to Calendar */}
+          {hero.date && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.5, delay: 0.55 }}
+              className="flex items-center gap-2 pt-1"
+            >
+              <span className={`text-xs font-medium ${hasImages ? "text-white/50" : "text-muted-foreground"}`}>Add to calendar:</span>
+              <CalendarPill
+                label="Google"
+                onClick={() => {
+                  const d = new Date(hero.date!);
+                  const start = format(d, "yyyyMMdd");
+                  const end = format(new Date(d.getTime() + 86400000), "yyyyMMdd");
+                  const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(hero.title)}&dates=${start}/${end}&details=${encodeURIComponent(data.event.description || "")}&location=${encodeURIComponent(hero.venueName || "")}`;
+                  window.open(url, "_blank");
+                }}
+                hasImages={hasImages}
+              />
+              <CalendarPill
+                label="Apple"
+                onClick={() => downloadIcs(hero, data.event)}
+                hasImages={hasImages}
+              />
+              <CalendarPill
+                label="Outlook"
+                onClick={() => downloadIcs(hero, data.event)}
+                hasImages={hasImages}
+              />
+            </motion.div>
+          )}
         </motion.div>
 
         {/* Slide indicators */}
