@@ -132,7 +132,7 @@ serve(async (req) => {
         model,
         messages: aiMessages,
         temperature: isChat ? 0.7 : 0.3,
-        max_tokens: isChat ? 1000 : 2000,
+        max_completion_tokens: isChat ? 1000 : 2000,
       }),
     });
 
