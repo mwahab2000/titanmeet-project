@@ -64,19 +64,21 @@ function getNextPlan(current: PlanId): PlanId | null {
 }
 
 export default function UpgradeModal() {
+  // All hooks MUST be called unconditionally at the top
   const { isOpen, trigger, closeUpgradeModal } = useUpgradeModal();
-  const { planId } = usePlanLimits();
-
-  const currentPlanId = (planId as PlanId) || "starter";
-  const nextPlanId = getNextPlan(currentPlanId);
-  const currentPlan = PLAN_DATA[currentPlanId];
-  const nextPlan = nextPlanId ? PLAN_DATA[nextPlanId] : null;
+  const planLimits = usePlanLimits();
 
   const handleSuccess = useCallback((_txId: string) => {
     closeUpgradeModal();
   }, [closeUpgradeModal]);
 
+  // Early returns AFTER all hooks
   if (!trigger) return null;
+
+  const currentPlanId = (planLimits.planId as PlanId) || "starter";
+  const nextPlanId = getNextPlan(currentPlanId);
+  const currentPlan = PLAN_DATA[currentPlanId];
+  const nextPlan = nextPlanId ? PLAN_DATA[nextPlanId] : null;
 
   const headline = HEADLINES[trigger];
   const isEnterprise = currentPlanId === "enterprise";
