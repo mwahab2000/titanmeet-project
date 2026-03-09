@@ -8,6 +8,7 @@ import { LayoutDashboard, Building2, Calendar, CreditCard, Settings, Menu } from
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import { useEventWorkspaceOptional } from "@/contexts/EventWorkspaceContext";
 import { FirstLoginTour } from "@/components/onboarding/FirstLoginTour";
+import UsageWarningBanner from "@/components/billing/UsageWarningBanner";
 
 const mobileNavItems = [
   { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
@@ -51,6 +52,7 @@ export const DashboardLayout = () => {
           <NotificationBell />
         </header>
         <main className="p-8">
+          <UsageWarningBanner />
           <Outlet />
         </main>
       </div>
