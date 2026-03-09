@@ -45,6 +45,7 @@ export const DashboardLayout = () => {
   return (
     <div className="min-h-screen bg-background">
       <DashboardSidebar />
+      <FirstLoginTour />
       <div className={`${mainMargin} min-h-screen transition-all duration-200 ${isMobile ? "pb-16" : ""}`}>
         <header className="flex items-center justify-end border-b border-border px-8 py-3">
           <NotificationBell />
