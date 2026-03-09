@@ -69,7 +69,7 @@ const PublishReadinessStrip = () => {
               {results.map((r) => (
                 <div key={r.key} className="flex items-center gap-3 py-1.5">
                   {r.ok ? (
-                    <Check className="h-4 w-4 text-green-500 shrink-0" />
+                    <Check className="h-4 w-4 text-primary shrink-0" />
                   ) : (
                     <X className="h-4 w-4 text-destructive shrink-0" />
                   )}
