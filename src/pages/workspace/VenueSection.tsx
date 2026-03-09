@@ -117,6 +117,13 @@ const VenueSection = () => {
 
   return (
     <div className="space-y-6">
+      {!event.venue_name && (
+        <SectionHint
+          sectionKey="venue"
+          title="Venue"
+          description="Add the venue name, address, and optional map embed. This is required to publish and is shown prominently on the public page."
+        />
+      )}
       <Card>
         <CardHeader><CardTitle className="font-display">Venue</CardTitle></CardHeader>
         <CardContent className="space-y-5">
