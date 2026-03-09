@@ -158,7 +158,8 @@ export default function UsageMeters({ compact = false }: UsageMetersProps) {
     </Card>
   );
 }
-  const limits = usePlanLimits();
+
+
 
   if (limits.loading) {
     return (
