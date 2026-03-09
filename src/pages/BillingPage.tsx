@@ -5,9 +5,9 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CreditCard, TrendingUp, AlertTriangle, CheckCircle, Clock, XCircle, RefreshCw, ShieldCheck } from "lucide-react";
+import { CreditCard, TrendingUp, AlertTriangle, CheckCircle, Clock, XCircle, RefreshCw, ShieldCheck, Crown } from "lucide-react";
 import { useBilling } from "@/hooks/useBilling";
 import { calculateOverages, formatCents, usagePercent } from "@/lib/billing";
 import { supabase } from "@/integrations/supabase/client";
@@ -39,11 +39,69 @@ const STATUS_LABELS: Record<string, { label: string; icon: React.ReactNode; vari
   canceled: { label: "Canceled", icon: <XCircle className="h-3 w-3" />, variant: "destructive" },
 };
 
-const PADDLE_PRICE_IDS: Record<string, { one_time: string; subscription: string }> = {
-  starter:      { one_time: import.meta.env.VITE_PADDLE_PRICE_STARTER_ONETIME      || "", subscription: import.meta.env.VITE_PADDLE_PRICE_STARTER_SUB      || "" },
-  professional: { one_time: import.meta.env.VITE_PADDLE_PRICE_PROFESSIONAL_ONETIME || "", subscription: import.meta.env.VITE_PADDLE_PRICE_PROFESSIONAL_SUB || "" },
-  enterprise:   { one_time: import.meta.env.VITE_PADDLE_PRICE_ENTERPRISE_ONETIME   || "", subscription: import.meta.env.VITE_PADDLE_PRICE_ENTERPRISE_SUB   || "" },
+const PADDLE_PRICE_IDS: Record<string, { monthly: string; annual: string }> = {
+  starter:      { monthly: import.meta.env.VITE_PADDLE_PRICE_STARTER_MONTHLY      || "", annual: import.meta.env.VITE_PADDLE_PRICE_STARTER_ANNUAL      || "" },
+  professional: { monthly: import.meta.env.VITE_PADDLE_PRICE_PROFESSIONAL_MONTHLY || "", annual: import.meta.env.VITE_PADDLE_PRICE_PROFESSIONAL_ANNUAL || "" },
+  enterprise:   { monthly: import.meta.env.VITE_PADDLE_PRICE_ENTERPRISE_MONTHLY   || "", annual: import.meta.env.VITE_PADDLE_PRICE_ENTERPRISE_ANNUAL   || "" },
 };
+
+interface PlanDisplay {
+  id: string;
+  name: string;
+  monthlyPrice: number; // cents
+  annualPrice: number;  // cents per month
+  annualTotal: number;  // cents per year
+  clients: string;
+  events: string;
+  attendees: string;
+  emails: string;
+  storage: string;
+  support: string;
+  popular?: boolean;
+}
+
+const PLAN_DISPLAY: PlanDisplay[] = [
+  {
+    id: "starter",
+    name: "Starter",
+    monthlyPrice: 4900,
+    annualPrice: 3900,
+    annualTotal: 46800,
+    clients: "3",
+    events: "5",
+    attendees: "500",
+    emails: "2,000",
+    storage: "5 GB",
+    support: "Standard",
+  },
+  {
+    id: "professional",
+    name: "Professional",
+    monthlyPrice: 14900,
+    annualPrice: 11900,
+    annualTotal: 142800,
+    clients: "15",
+    events: "25",
+    attendees: "5,000",
+    emails: "20,000",
+    storage: "25 GB",
+    support: "Priority",
+    popular: true,
+  },
+  {
+    id: "enterprise",
+    name: "Enterprise",
+    monthlyPrice: 39900,
+    annualPrice: 31900,
+    annualTotal: 382800,
+    clients: "Unlimited",
+    events: "Unlimited",
+    attendees: "50,000",
+    emails: "200,000",
+    storage: "100 GB",
+    support: "Dedicated",
+  },
+];
 
 const BillingPage = () => {
   const { user } = useAuth();
@@ -52,7 +110,7 @@ const BillingPage = () => {
   const [paymentIntents, setPaymentIntents] = useState<any[]>([]);
   const [entitlement, setEntitlement] = useState<{ access_until: string; source: string } | null>(null);
   const [loadingPayments, setLoadingPayments] = useState(true);
-  const [purchaseType, setPurchaseType] = useState<"one_time" | "monthly">("one_time");
+  const [isAnnual, setIsAnnual] = useState(false);
   const [cancellingSubscription, setCancellingSubscription] = useState(false);
 
   const loadPaymentIntents = useCallback(async () => {
@@ -81,7 +139,6 @@ const BillingPage = () => {
     loadEntitlement();
   }, [loadPaymentIntents, loadEntitlement]);
 
-  // Handle redirect from checkout
   useEffect(() => {
     const paymentStatus = searchParams.get("payment");
     if (paymentStatus === "success") {
@@ -97,7 +154,6 @@ const BillingPage = () => {
     }
   }, [searchParams, setSearchParams, loadPaymentIntents, loadEntitlement]);
 
-  // Poll for active payments
   useEffect(() => {
     const hasActive = paymentIntents.some((pi) => pi.status === "pending" || pi.status === "awaiting_payment");
     if (!hasActive) return;
@@ -105,7 +161,7 @@ const BillingPage = () => {
     return () => clearInterval(interval);
   }, [paymentIntents, loadPaymentIntents, loadEntitlement]);
 
-  const handlePaddleSuccess = useCallback(async (transactionId: string) => {
+  const handlePaddleSuccess = useCallback(async (_transactionId: string) => {
     toast.success("Payment received! Activating your access...");
     setTimeout(() => { loadPaymentIntents(); loadEntitlement(); }, 3000);
     setTimeout(() => { loadPaymentIntents(); loadEntitlement(); }, 8000);
@@ -346,52 +402,93 @@ const BillingPage = () => {
       <Card>
         <CardHeader>
           <CardTitle className="font-display">Available Plans — Secure Card Payment</CardTitle>
-          <CardDescription>Choose one-time (30 days) or monthly subscription</CardDescription>
+          <CardDescription>Choose monthly or annual billing</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Purchase type toggle */}
-          <Tabs value={purchaseType} onValueChange={(v) => setPurchaseType(v as any)}>
-            <TabsList className="grid w-full max-w-md grid-cols-2">
-              <TabsTrigger value="one_time">One-Time (30 days)</TabsTrigger>
-              <TabsTrigger value="monthly">Monthly Subscription</TabsTrigger>
-            </TabsList>
-          </Tabs>
+        <CardContent className="space-y-6">
+          {/* Monthly / Annual toggle */}
+          <div className="flex items-center justify-center gap-3">
+            <span className={`text-sm font-medium ${!isAnnual ? "text-foreground" : "text-muted-foreground"}`}>Monthly</span>
+            <Switch checked={isAnnual} onCheckedChange={setIsAnnual} />
+            <span className={`text-sm font-medium ${isAnnual ? "text-foreground" : "text-muted-foreground"}`}>Annual</span>
+            {isAnnual && (
+              <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20">
+                Save 20%
+              </Badge>
+            )}
+          </div>
 
           <div className="grid gap-4 md:grid-cols-3">
-            {plans.map((plan) => {
-              const isCurrent = plan.id === currentPlan.id;
+            {PLAN_DISPLAY.map((plan) => {
+              const isCurrent = plan.id === subscription?.plan_id;
               const paddlePrices = PADDLE_PRICE_IDS[plan.id];
-              const priceId = purchaseType === "one_time" ? paddlePrices?.one_time : paddlePrices?.subscription;
+              const priceId = isAnnual ? paddlePrices?.annual : paddlePrices?.monthly;
+              const displayPrice = isAnnual ? plan.annualPrice : plan.monthlyPrice;
+
               return (
                 <div
                   key={plan.id}
-                  className={`rounded-lg border p-4 space-y-3 ${isCurrent ? "border-primary bg-primary/5" : "border-border"}`}
+                  className={`relative rounded-lg border p-4 space-y-3 ${
+                    plan.popular
+                      ? "border-primary ring-2 ring-primary/20 bg-primary/5"
+                      : isCurrent
+                        ? "border-primary bg-primary/5"
+                        : "border-border"
+                  }`}
                 >
-                  <div className="flex items-center justify-between">
+                  {/* Most Popular badge */}
+                  {plan.popular && (
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                      <Badge className="bg-gradient-to-r from-amber-500 to-yellow-400 text-white border-0 shadow-md gap-1">
+                        <Crown className="h-3 w-3" /> Most Popular
+                      </Badge>
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between pt-1">
                     <h3 className="font-display font-bold text-lg">{plan.name}</h3>
-                    {isCurrent && <Badge><CheckCircle className="h-3 w-3 mr-1" />Current</Badge>}
+                    {isCurrent && (
+                      <Badge><CheckCircle className="h-3 w-3 mr-1" />Current</Badge>
+                    )}
                   </div>
-                  <p className="text-2xl font-bold">
-                    {formatCents(plan.monthly_price_cents)}
-                    <span className="text-sm text-muted-foreground font-normal">
-                      {purchaseType === "one_time" ? " / 30 days" : " /mo"}
-                    </span>
-                  </p>
+
+                  {/* Price display */}
+                  <div>
+                    <p className="text-2xl font-bold">
+                      {isAnnual && (
+                        <span className="text-base text-muted-foreground line-through mr-2 font-normal">
+                          {formatCents(plan.monthlyPrice)}
+                        </span>
+                      )}
+                      {formatCents(displayPrice)}
+                      <span className="text-sm text-muted-foreground font-normal">/mo</span>
+                    </p>
+                    {isAnnual && (
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        billed {formatCents(plan.annualTotal)}/yr
+                      </p>
+                    )}
+                  </div>
+
                   <ul className="text-sm text-muted-foreground space-y-1">
-                    <li>{plan.max_clients} clients</li>
-                    <li>{plan.max_active_events} active events/mo</li>
-                    <li>{plan.max_attendees.toLocaleString()} attendees/mo</li>
-                    <li>{plan.max_emails.toLocaleString()} emails/mo</li>
-                    <li>{plan.max_storage_gb} GB storage</li>
-                    <li className="capitalize">{plan.support_tier} support</li>
+                    <li>{plan.clients} clients</li>
+                    <li>{plan.events} active events/mo</li>
+                    <li>{plan.attendees} attendees/mo</li>
+                    <li>{plan.emails} emails/mo</li>
+                    <li>{plan.storage} storage</li>
+                    <li>{plan.support} support</li>
                   </ul>
-                  {!priceId ? (
+
+                  {isCurrent ? (
+                    <Button variant="outline" className="w-full" disabled>
+                      Manage Plan
+                    </Button>
+                  ) : !priceId ? (
                     <p className="text-sm text-muted-foreground text-center py-2">Plan not configured</p>
                   ) : (
                     <PaddleCheckoutButton
                       priceId={priceId}
                       planId={plan.id}
-                      type={purchaseType === "one_time" ? "one_time" : "subscription"}
+                      type="subscription"
                       onSuccess={handlePaddleSuccess}
                     />
                   )}
@@ -449,7 +546,7 @@ const BillingPage = () => {
                         </TableCell>
                         <TableCell>
                           <Badge variant="outline" className="text-xs">
-                            {pi.purchase_type === "monthly" ? "Monthly" : "One-time"}
+                            {pi.purchase_type === "monthly" ? "Monthly" : pi.purchase_type === "annual" ? "Annual" : "One-time"}
                           </Badge>
                         </TableCell>
                         <TableCell className="font-medium capitalize">{pi.plan_id}</TableCell>
