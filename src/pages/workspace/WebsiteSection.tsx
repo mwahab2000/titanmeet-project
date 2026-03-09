@@ -125,9 +125,6 @@ const WebsiteSection = () => {
 
   const themeId = (event as any).theme_id ?? "corporate";
 
-  const checks = PUBLISH_CHECKS.map(c => ({ label: c.label, ok: c.check(event) }));
-  const allPass = checks.every((c) => c.ok);
-
   const publicUrl = event.slug && clientSlug ? buildPublicEventUrl(clientSlug, event.slug) : null;
   const publicUrlAbsolute = event.slug && clientSlug ? buildPublicEventUrlAbsolute(clientSlug, event.slug) : null;
 
