@@ -265,16 +265,18 @@ Deno.serve(async (req) => {
     }).eq("user_id", paymentIntent.user_id);
 
     // 10) Audit log
-    await serviceClient.from("admin_audit_log").insert({
-      actor_user_id: paymentIntent.user_id,
-      action_type: "one_time_30d_paid",
-      target_id: paymentIntent.id,
-      details: {
-        plan_id: paymentIntent.plan_id,
-        amount_cents: paymentIntent.amount_usd_cents,
-        order_id: orderId,
-      },
-    }).catch(() => {/* swallow */});
+    try {
+      await serviceClient.from("admin_audit_log").insert({
+        actor_user_id: paymentIntent.user_id,
+        action_type: "one_time_30d_paid",
+        target_id: paymentIntent.id,
+        details: {
+          plan_id: paymentIntent.plan_id,
+          amount_cents: paymentIntent.amount_usd_cents,
+          order_id: orderId,
+        },
+      });
+    } catch { /* swallow */ }
 
     // 11) Notification
     await serviceClient.rpc("create_notification", {
