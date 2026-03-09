@@ -1,13 +1,21 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle, X, ArrowUpRight } from "lucide-react";
 import { usePlanLimits, type ResourceStatus } from "@/hooks/usePlanLimits";
+import { useUpgradeModal } from "@/hooks/useUpgradeModal";
 
 const RESOURCE_LABELS: Record<string, string> = {
   clients: "clients",
   activeEvents: "active events",
+  attendees: "attendees",
+  emails: "emails",
+  storage: "storage",
+};
+
+const TRIGGER_MAP: Record<string, "clients" | "events" | "attendees" | "emails" | "storage"> = {
+  clients: "clients",
+  activeEvents: "events",
   attendees: "attendees",
   emails: "emails",
   storage: "storage",
@@ -20,6 +28,7 @@ const KEYS: ResourceKey[] = ["clients", "activeEvents", "attendees", "emails", "
 
 export default function UsageWarningBanner() {
   const limits = usePlanLimits();
+  const { openUpgradeModal } = useUpgradeModal();
   const [dismissed, setDismissed] = useState<string[]>([]);
 
   useEffect(() => {
@@ -49,6 +58,7 @@ export default function UsageWarningBanner() {
   const banners: React.ReactNode[] = [];
 
   if (hardLimitHit.length > 0 && !dismissed.includes("hard")) {
+    const firstTrigger = TRIGGER_MAP[hardLimitHit[0]];
     banners.push(
       <Alert key="hard" className="border-yellow-500/50 bg-yellow-500/10 relative">
         <AlertTriangle className="h-4 w-4 text-yellow-500" />
@@ -58,8 +68,8 @@ export default function UsageWarningBanner() {
             You've reached your {hardLimitHit.map((k) => RESOURCE_LABELS[k]).join(" and ")} limit. Upgrade to continue.
           </span>
           <div className="flex items-center gap-2 shrink-0">
-            <Button size="sm" variant="outline" asChild>
-              <Link to="/dashboard/billing">Upgrade Now <ArrowUpRight className="h-3 w-3 ml-1" /></Link>
+            <Button size="sm" variant="outline" onClick={() => openUpgradeModal(firstTrigger)}>
+              Upgrade Now <ArrowUpRight className="h-3 w-3 ml-1" />
             </Button>
             <button onClick={() => dismiss("hard")} className="text-muted-foreground hover:text-foreground">
               <X className="h-4 w-4" />
@@ -71,6 +81,7 @@ export default function UsageWarningBanner() {
   }
 
   if (grandfathered.length > 0 && !dismissed.includes("grandfathered")) {
+    const firstTrigger = TRIGGER_MAP[grandfathered[0]];
     banners.push(
       <Alert key="gf" className="border-orange-500/50 bg-orange-500/10 relative">
         <AlertTriangle className="h-4 w-4 text-orange-500" />
@@ -80,8 +91,8 @@ export default function UsageWarningBanner() {
             Your account exceeds current plan limits. Existing data is safe — upgrade to create new {grandfathered.map((k) => RESOURCE_LABELS[k]).join(", ")}.
           </span>
           <div className="flex items-center gap-2 shrink-0">
-            <Button size="sm" variant="outline" asChild>
-              <Link to="/dashboard/billing">Upgrade Now <ArrowUpRight className="h-3 w-3 ml-1" /></Link>
+            <Button size="sm" variant="outline" onClick={() => openUpgradeModal(firstTrigger)}>
+              Upgrade Now <ArrowUpRight className="h-3 w-3 ml-1" />
             </Button>
             <button onClick={() => dismiss("grandfathered")} className="text-muted-foreground hover:text-foreground">
               <X className="h-4 w-4" />
@@ -94,5 +105,5 @@ export default function UsageWarningBanner() {
 
   if (banners.length === 0) return null;
 
-  return <div className="space-y-2">{banners}</div>;
+  return <div className="space-y-2 mb-4">{banners}</div>;
 }

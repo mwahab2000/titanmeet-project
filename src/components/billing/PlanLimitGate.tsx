@@ -2,13 +2,15 @@ import React from "react";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle, Lock } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useUpgradeModal, type UpgradeTrigger } from "@/hooks/useUpgradeModal";
 import type { ResourceStatus } from "@/hooks/usePlanLimits";
 
 interface PlanLimitGateProps {
   resource: ResourceStatus;
-  resourceLabel: string; // e.g. "clients", "active events"
+  resourceLabel: string;
   planName: string;
+  /** Which trigger to pass to the upgrade modal */
+  upgradeTrigger?: UpgradeTrigger;
   children: React.ReactNode;
 }
 
@@ -17,8 +19,14 @@ interface PlanLimitGateProps {
  * If at soft limit 80-99% → shows warning above children.
  * If at soft limit 100% → blocks with upgrade prompt.
  */
-export function PlanLimitGate({ resource, resourceLabel, planName, children }: PlanLimitGateProps) {
-  const navigate = useNavigate();
+export function PlanLimitGate({ resource, resourceLabel, planName, upgradeTrigger, children }: PlanLimitGateProps) {
+  const { openUpgradeModal } = useUpgradeModal();
+
+  const handleUpgrade = () => {
+    if (upgradeTrigger) {
+      openUpgradeModal(upgradeTrigger);
+    }
+  };
 
   const atHardLimit = resource.isHard && resource.used >= resource.limit && resource.limit !== Infinity;
   const atSoftBlock = !resource.isHard && resource.percent >= 100 && resource.limit !== Infinity;
@@ -35,7 +43,7 @@ export function PlanLimitGate({ resource, resourceLabel, planName, children }: P
             <strong>{resource.limit} {resourceLabel}</strong>.
             {resource.grandfathered && " Your existing data is safe — you just can't create new ones."}
           </p>
-          <Button size="sm" onClick={() => navigate("/dashboard/billing")}>
+          <Button size="sm" onClick={handleUpgrade}>
             Upgrade Plan
           </Button>
         </AlertDescription>
@@ -55,7 +63,7 @@ export function PlanLimitGate({ resource, resourceLabel, planName, children }: P
               <strong>{resource.limit.toLocaleString()} {resourceLabel}/mo</strong> limit.
               Upgrade to continue.
             </p>
-            <Button size="sm" onClick={() => navigate("/dashboard/billing")}>
+            <Button size="sm" onClick={handleUpgrade}>
               Upgrade Plan
             </Button>
           </AlertDescription>

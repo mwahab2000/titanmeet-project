@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { SectionHint } from "@/components/ui/section-hint";
 import { usePlanLimits } from "@/hooks/usePlanLimits";
 import { PlanLimitGate } from "@/components/billing/PlanLimitGate";
+import { useUpgradeModal } from "@/hooks/useUpgradeModal";
 
 interface Attendee {
   id: string;
@@ -174,6 +175,7 @@ function parseCsvFile(text: string, existingEmails: Set<string>): CsvImportResul
 const AttendeesSection = () => {
   const { event, isArchived } = useEventWorkspace();
   const planLimits = usePlanLimits();
+  const { openUpgradeModal } = useUpgradeModal();
   const [items, setItems] = useState<Attendee[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [sendingId, setSendingId] = useState<string | null>(null);
@@ -213,7 +215,7 @@ const AttendeesSection = () => {
 
     // Soft limit check for attendees
     if (!planLimits.canCreate("attendees")) {
-      toast.error("Monthly attendee limit reached. Upgrade your plan to add more.");
+      openUpgradeModal("attendees");
       return null;
     } else if (planLimits.attendees.percent >= 80) {
       toast.warning(`You've used ${planLimits.attendees.percent}% of your monthly attendee limit.`);

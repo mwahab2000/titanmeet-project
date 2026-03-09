@@ -18,6 +18,7 @@ import { callAi, type CommsDraftResult, type BestSendTimeResult } from "@/lib/ai
 import { SectionHint } from "@/components/ui/section-hint";
 import { usePlanLimits } from "@/hooks/usePlanLimits";
 import { PlanLimitGate } from "@/components/billing/PlanLimitGate";
+import { useUpgradeModal } from "@/hooks/useUpgradeModal";
 
 interface LogEntry {
   id: string;
@@ -40,6 +41,7 @@ interface Attendee {
 const CommunicationsSection = () => {
   const { event, isArchived } = useEventWorkspace();
   const planLimits = usePlanLimits();
+  const { openUpgradeModal } = useUpgradeModal();
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [attendees, setAttendees] = useState<Attendee[]>([]);
   const [channel, setChannel] = useState("email");
@@ -153,7 +155,7 @@ const CommunicationsSection = () => {
     // Email soft limit check
     if (channel === "email") {
       if (!planLimits.canCreate("emails")) {
-        toast.error("Monthly email limit reached. Upgrade your plan to send more.");
+        openUpgradeModal("emails");
         return;
       } else if (planLimits.emails.percent >= 80) {
         toast.warning(`You've used ${planLimits.emails.percent}% of your monthly email limit.`);

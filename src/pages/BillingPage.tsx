@@ -7,15 +7,16 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { CreditCard, TrendingUp, AlertTriangle, CheckCircle, Clock, XCircle, RefreshCw, ShieldCheck, Crown } from "lucide-react";
+import { CreditCard, TrendingUp, AlertTriangle, CheckCircle, Clock, XCircle, RefreshCw, ShieldCheck, Crown, Link as LinkIcon } from "lucide-react";
 import { useBilling } from "@/hooks/useBilling";
 import { calculateOverages, formatCents, usagePercent } from "@/lib/billing";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, Link } from "react-router-dom";
 import PaddleCheckoutButton from "@/components/billing/PaddleCheckoutButton";
 import UsageMeters from "@/components/billing/UsageMeters";
+import { usePlanLimits } from "@/hooks/usePlanLimits";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,6 +28,14 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 const STATUS_LABELS: Record<string, { label: string; icon: React.ReactNode; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   pending: { label: "Pending", icon: <Clock className="h-3 w-3" />, variant: "outline" },
@@ -44,6 +53,31 @@ const PADDLE_PRICE_IDS: Record<string, { monthly: string; annual: string }> = {
   starter:      { monthly: import.meta.env.VITE_PADDLE_PRICE_STARTER_MONTHLY      || "", annual: import.meta.env.VITE_PADDLE_PRICE_STARTER_ANNUAL      || "" },
   professional: { monthly: import.meta.env.VITE_PADDLE_PRICE_PROFESSIONAL_MONTHLY || "", annual: import.meta.env.VITE_PADDLE_PRICE_PROFESSIONAL_ANNUAL || "" },
   enterprise:   { monthly: import.meta.env.VITE_PADDLE_PRICE_ENTERPRISE_MONTHLY   || "", annual: import.meta.env.VITE_PADDLE_PRICE_ENTERPRISE_ANNUAL   || "" },
+};
+
+/* Plan numeric limits for downgrade checks */
+const PLAN_NUMERIC_LIMITS: Record<string, Record<string, number>> = {
+  starter: { clients: 3, events: 5, attendees: 500, emails: 2000, storage: 5 },
+  professional: { clients: 15, events: 25, attendees: 5000, emails: 20000, storage: 25 },
+  enterprise: { clients: Infinity, events: Infinity, attendees: 50000, emails: 200000, storage: 100 },
+};
+
+const PLAN_ORDER_IDX: Record<string, number> = { starter: 0, professional: 1, enterprise: 2 };
+
+const RESOURCE_LABELS_DG: Record<string, string> = {
+  clients: "clients",
+  events: "active events",
+  attendees: "attendees",
+  emails: "emails",
+  storage: "storage (GB)",
+};
+
+const RESOURCE_LINKS: Record<string, string> = {
+  clients: "/dashboard/clients",
+  events: "/dashboard/events",
+  attendees: "/dashboard/attendees",
+  emails: "/dashboard/billing",
+  storage: "/dashboard/settings",
 };
 
 interface PlanDisplay {
@@ -113,6 +147,8 @@ const BillingPage = () => {
   const [loadingPayments, setLoadingPayments] = useState(true);
   const [isAnnual, setIsAnnual] = useState(false);
   const [cancellingSubscription, setCancellingSubscription] = useState(false);
+  const [downgradeDialog, setDowngradeDialog] = useState<{ planId: string; blocked: boolean; issues: { resource: string; current: number; limit: number }[] } | null>(null);
+  const planLimits = usePlanLimits();
 
   const loadPaymentIntents = useCallback(async () => {
     if (!user) return;
@@ -187,6 +223,31 @@ const BillingPage = () => {
   const isAccessExpired = entitlement ? new Date(entitlement.access_until) < new Date() : true;
   const isCanceledButActive = subscription?.cancel_at_period_end && !isAccessExpired;
   const canCancelSubscription = subscription?.provider_subscription_id && subscription?.status === "active" && !subscription?.cancel_at_period_end;
+
+  /** Check if switching to targetPlanId is a downgrade that exceeds limits */
+  const checkDowngrade = (targetPlanId: string) => {
+    const currentIdx = PLAN_ORDER_IDX[subscription?.plan_id || "starter"] ?? 0;
+    const targetIdx = PLAN_ORDER_IDX[targetPlanId] ?? 0;
+    // Not a downgrade
+    if (targetIdx >= currentIdx) return null;
+
+    const targetLimits = PLAN_NUMERIC_LIMITS[targetPlanId] || PLAN_NUMERIC_LIMITS.starter;
+    const usageMap: Record<string, number> = {
+      clients: planLimits.clients.used,
+      events: planLimits.activeEvents.used,
+      attendees: planLimits.attendees.used,
+      emails: planLimits.emails.used,
+      storage: planLimits.storage.used,
+    };
+
+    const issues: { resource: string; current: number; limit: number }[] = [];
+    for (const [key, limit] of Object.entries(targetLimits)) {
+      if (limit !== Infinity && usageMap[key] > limit) {
+        issues.push({ resource: key, current: usageMap[key], limit });
+      }
+    }
+    return { planId: targetPlanId, blocked: issues.length > 0, issues };
+  };
 
   if (loading) {
     return (
@@ -465,14 +526,31 @@ const BillingPage = () => {
                     </Button>
                   ) : !priceId ? (
                     <p className="text-sm text-muted-foreground text-center py-2">Plan not configured</p>
-                  ) : (
-                    <PaddleCheckoutButton
-                      priceId={priceId}
-                      planId={plan.id}
-                      type="subscription"
-                      onSuccess={handlePaddleSuccess}
-                    />
-                  )}
+                  ) : (() => {
+                    const isDowngrade = (PLAN_ORDER_IDX[plan.id] ?? 0) < (PLAN_ORDER_IDX[subscription?.plan_id || "starter"] ?? 0);
+                    if (isDowngrade) {
+                      return (
+                        <Button
+                          className="w-full"
+                          variant="outline"
+                          onClick={() => {
+                            const result = checkDowngrade(plan.id);
+                            if (result) setDowngradeDialog(result);
+                          }}
+                        >
+                          Downgrade to {plan.name}
+                        </Button>
+                      );
+                    }
+                    return (
+                      <PaddleCheckoutButton
+                        priceId={priceId}
+                        planId={plan.id}
+                        type="subscription"
+                        onSuccess={handlePaddleSuccess}
+                      />
+                    );
+                  })()}
                 </div>
               );
             })}
@@ -558,6 +636,52 @@ const BillingPage = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Downgrade dialog */}
+      <Dialog open={!!downgradeDialog} onOpenChange={(open) => !open && setDowngradeDialog(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-display">
+              {downgradeDialog?.blocked ? "Cannot Downgrade Yet" : "Confirm Downgrade"}
+            </DialogTitle>
+            <DialogDescription>
+              {downgradeDialog?.blocked
+                ? "Your current usage exceeds the limits of this plan. Please reduce usage first."
+                : `Downgrade to ${PLAN_DISPLAY.find(p => p.id === downgradeDialog?.planId)?.name}? Your limits will change at the end of the current billing period.`}
+            </DialogDescription>
+          </DialogHeader>
+
+          {downgradeDialog?.blocked && downgradeDialog.issues.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-sm font-medium">To downgrade, you need to:</p>
+              <ul className="space-y-1.5">
+                {downgradeDialog.issues.map((issue) => (
+                  <li key={issue.resource} className="flex items-center justify-between text-sm">
+                    <span>
+                      Reduce {RESOURCE_LABELS_DG[issue.resource]} from <strong>{issue.resource === "storage" ? issue.current.toFixed(1) : issue.current}</strong> to <strong>{issue.limit}</strong>
+                    </span>
+                    <Button variant="link" size="sm" className="h-auto p-0 text-xs" asChild>
+                      <Link to={RESOURCE_LINKS[issue.resource]}>Manage →</Link>
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDowngradeDialog(null)}>Cancel</Button>
+            {!downgradeDialog?.blocked && downgradeDialog?.planId && (
+              <PaddleCheckoutButton
+                priceId={(isAnnual ? PADDLE_PRICE_IDS[downgradeDialog.planId]?.annual : PADDLE_PRICE_IDS[downgradeDialog.planId]?.monthly) || ""}
+                planId={downgradeDialog.planId}
+                type="subscription"
+                onSuccess={(txId) => { setDowngradeDialog(null); handlePaddleSuccess(txId); }}
+              />
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
