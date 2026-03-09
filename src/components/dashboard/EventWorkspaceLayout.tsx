@@ -9,6 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { PUBLISH_CHECKS } from "@/pages/workspace/WebsiteSection";
 import { SaveAsTemplateDialog } from "@/components/templates/SaveAsTemplateDialog";
+import AiChatWidget from "@/components/ai/AiChatWidget";
 
 const sectionLabels: Record<string, string> = {
   hero: "Hero", info: "Event Info", agenda: "Agenda", organizers: "Organizers", speakers: "Speakers",
@@ -115,9 +116,10 @@ export const EventWorkspaceLayout: React.FC = () => {
     <EventWorkspaceProvider eventId={id}>
       <div className="flex flex-col h-full">
         <WorkspaceHeader />
-        <div className="flex-1 overflow-auto p-6">
+      <div className="flex-1 overflow-auto p-6">
           <Outlet />
         </div>
+        <AiChatWidget />
       </div>
     </EventWorkspaceProvider>
   );

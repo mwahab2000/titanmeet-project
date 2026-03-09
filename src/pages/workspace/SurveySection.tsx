@@ -13,9 +13,11 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, Pencil, Copy, Trash2, Send, Link2, Users, BarChart3, Mail, CheckCircle2, Clock, Eye, Loader2, MessageSquare, Download, Phone } from "lucide-react";
+import { Plus, Pencil, Copy, Trash2, Send, Link2, Users, BarChart3, Mail, CheckCircle2, Clock, Eye, Loader2, MessageSquare, Download, Phone, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { callAi, type SurveyAnalysisResult } from "@/lib/ai-api";
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend } from "recharts";
 
 const SurveySection = () => {
   const { event, isArchived } = useEventWorkspace();
@@ -271,6 +273,7 @@ const SurveySection = () => {
               <TabsTrigger value="send">Send</TabsTrigger>
               <TabsTrigger value="tracking">Tracking</TabsTrigger>
               <TabsTrigger value="results">Results & Statistics</TabsTrigger>
+              {statusCounts.submitted > 0 && <TabsTrigger value="ai-analysis" className="gap-1"><Sparkles className="h-3 w-3" /> AI Analysis</TabsTrigger>}
             </TabsList>
 
             {/* ── Send Tab ── */}
@@ -398,6 +401,10 @@ const SurveySection = () => {
               )}
             </TabsContent>
 
+            {/* ── AI Analysis Tab ── */}
+            <TabsContent value="ai-analysis">
+              <AiSurveyAnalysis questions={stats.questions} answers={stats.answers} responses={stats.responses} />
+            </TabsContent>
             {/* ── Results Tab ── */}
             <TabsContent value="results" className="space-y-6">
               <div className="flex justify-end">
@@ -553,6 +560,147 @@ function QuestionStats({ question, answers, total }: { question: any; answers: a
   }
 
   return <p className="text-sm text-muted-foreground">{answers.length} answer(s)</p>;
+}
+
+/* ── AI Survey Analysis Component ── */
+const SENTIMENT_COLORS = ["#22c55e", "#94a3b8", "#ef4444"];
+
+function AiSurveyAnalysis({ questions, answers, responses }: { questions: any[]; answers: any[]; responses: any[] }) {
+  const [analysis, setAnalysis] = useState<SurveyAnalysisResult | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
+
+  const analyze = async () => {
+    setLoading(true);
+    setError(false);
+    try {
+      const result = await callAi<SurveyAnalysisResult>({
+        action: "survey_analysis",
+        prompt: "Analyze these survey responses",
+        context: {
+          totalResponses: responses.length,
+          questions: questions.map(q => ({ text: q.question_text, type: q.type })),
+          sampleAnswers: answers.slice(0, 50).map(a => ({
+            questionId: a.question_id,
+            text: a.value_text,
+            number: a.value_number,
+          })),
+        },
+      });
+      setAnalysis(result);
+    } catch {
+      setError(true);
+    }
+    setLoading(false);
+  };
+
+  if (!analysis && !loading) {
+    return (
+      <div className="py-8 text-center space-y-3">
+        <Sparkles className="h-8 w-8 mx-auto text-purple-400" />
+        <p className="text-sm text-muted-foreground">Get AI-powered insights from your survey responses.</p>
+        <Button onClick={analyze} className="bg-purple-600 hover:bg-purple-700 text-white gap-1.5">
+          <Sparkles className="h-4 w-4" /> Analyze Responses
+        </Button>
+        {error && <p className="text-sm text-destructive">Analysis failed. <button onClick={analyze} className="underline">Retry</button></p>}
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="py-8 text-center space-y-3">
+        <Loader2 className="h-8 w-8 mx-auto animate-spin text-purple-500" />
+        <p className="text-sm text-muted-foreground">Analyzing responses...</p>
+      </div>
+    );
+  }
+
+  if (!analysis) return null;
+
+  const sentimentData = [
+    { name: "Positive", value: analysis.sentiment.positive },
+    { name: "Neutral", value: analysis.sentiment.neutral },
+    { name: "Negative", value: analysis.sentiment.negative },
+  ];
+
+  return (
+    <div className="space-y-4">
+      {/* Summary */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm flex items-center gap-2"><Sparkles className="h-4 w-4 text-purple-500" /> Summary</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm">{analysis.summary}</p>
+        </CardContent>
+      </Card>
+
+      <div className="grid sm:grid-cols-2 gap-4">
+        {/* Sentiment Donut */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Sentiment</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-48">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={sentimentData} cx="50%" cy="50%" innerRadius={40} outerRadius={70} paddingAngle={3} dataKey="value" label={({ name, value }) => `${name} ${value}%`}>
+                    {sentimentData.map((_, i) => (
+                      <Cell key={i} fill={SENTIMENT_COLORS[i]} />
+                    ))}
+                  </Pie>
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Key Themes */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Key Themes</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-2">
+              {analysis.keyThemes.map((theme, i) => (
+                <Badge key={i} variant="secondary">{theme}</Badge>
+              ))}
+            </div>
+            {analysis.npsScore !== null && (
+              <div className="mt-4 p-3 rounded-lg bg-muted">
+                <p className="text-xs text-muted-foreground">NPS Score</p>
+                <p className="text-2xl font-bold font-display">{analysis.npsScore}</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Top Insights */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm">Top Insights</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ul className="space-y-2">
+            {analysis.topInsights.map((insight, i) => (
+              <li key={i} className="flex items-start gap-2 text-sm">
+                <CheckCircle2 className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+                {insight}
+              </li>
+            ))}
+          </ul>
+        </CardContent>
+      </Card>
+
+      <Button variant="outline" size="sm" onClick={analyze} disabled={loading} className="gap-1">
+        <Sparkles className="h-3 w-3" /> Regenerate Analysis
+      </Button>
+    </div>
+  );
 }
 
 export default SurveySection;

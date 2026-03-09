@@ -19,8 +19,9 @@ import { cn } from "@/lib/utils";
 import {
   ArrowLeft, ArrowRight, CalendarIcon, Check, X, Plus, Trash2,
   Upload, Eye, ExternalLink, Loader2, Zap, Building2, Image,
-  MapPin, Users, ListChecks, ClipboardCheck, Rocket, Save
+  MapPin, Users, ListChecks, ClipboardCheck, Rocket, Save, Sparkles
 } from "lucide-react";
+import { callAi, type EventBuilderResult } from "@/lib/ai-api";
 
 /* ── helpers ─────────────────────────────────────────────────── */
 const slugify = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -89,6 +90,30 @@ const QuickEventWizard = () => {
 
   /* ── agenda ──────────────────────────────────────────────── */
   const [agenda, setAgenda] = useState<MiniAgendaItem[]>([{ title: "", start_time: "", description: "" }]);
+
+  /* ── AI builder ─────────────────────────────────────────── */
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [aiGenerated, setAiGenerated] = useState(false);
+
+  const handleAiGenerate = async () => {
+    if (!aiPrompt.trim()) return;
+    setAiGenerating(true);
+    try {
+      const result = await callAi<EventBuilderResult>({ action: "event_builder", prompt: aiPrompt });
+      if (result.title) { setTitle(result.title); setSlug(slugify(result.title)); }
+      if (result.description) setDescription(result.description);
+      if (result.suggestedTheme) { /* theme can be applied later */ }
+      if (result.agenda?.length) {
+        setAgenda(result.agenda.map(a => ({ title: a.title, start_time: a.time || "", description: `Speaker: ${a.speaker || "TBD"} · ${a.duration_minutes || 30}min` })));
+      }
+      setAiGenerated(true);
+      toast.success("AI generated event details! Review and adjust as needed.");
+    } catch (err: any) {
+      toast.error(err.message || "AI generation failed");
+    }
+    setAiGenerating(false);
+  };
 
   /* ── publish ─────────────────────────────────────────────── */
   const [publishing, setPublishing] = useState(false);
@@ -407,6 +432,36 @@ const QuickEventWizard = () => {
           {/* ── Step 1: Basics ───────────────────────────── */}
           {stepKey === "basics" && (
             <div className="space-y-5">
+              {/* AI Builder */}
+              <div className="space-y-2 p-4 rounded-xl border border-purple-200 dark:border-purple-800/50 bg-purple-50/50 dark:bg-purple-950/20">
+                <label className="text-sm font-medium flex items-center gap-1.5 text-purple-700 dark:text-purple-300">
+                  <Sparkles className="h-4 w-4" /> Describe your event with AI
+                </label>
+                <div className="flex gap-2">
+                  <Input
+                    value={aiPrompt}
+                    onChange={(e) => setAiPrompt(e.target.value)}
+                    placeholder="e.g. 'Tech conference for 200 people in Cairo on Oct 15 with 3 keynote speakers and a gala dinner'"
+                    className="flex-1"
+                    onKeyDown={(e) => { if (e.key === "Enter") handleAiGenerate(); }}
+                  />
+                  <Button
+                    onClick={handleAiGenerate}
+                    disabled={aiGenerating || !aiPrompt.trim()}
+                    className="bg-purple-600 hover:bg-purple-700 text-white gap-1.5 shrink-0"
+                  >
+                    {aiGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                    {aiGenerating ? "Generating..." : "Generate with AI"}
+                  </Button>
+                </div>
+                {aiGenerated && (
+                  <div className="flex items-center gap-2 text-xs text-purple-600 dark:text-purple-400">
+                    <Check className="h-3 w-3" /> AI filled the form.
+                    <button onClick={handleAiGenerate} className="underline hover:no-underline">Regenerate</button>
+                  </div>
+                )}
+              </div>
+
               <h2 className="font-display text-lg font-semibold">Client & Event Basics</h2>
 
               {/* Client selection */}

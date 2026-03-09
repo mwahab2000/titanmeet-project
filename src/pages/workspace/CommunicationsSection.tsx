@@ -8,11 +8,13 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useEventWorkspace } from "@/contexts/EventWorkspaceContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Send, Users, User } from "lucide-react";
+import { Send, Users, User, Sparkles, Loader2, Clock, ChevronDown } from "lucide-react";
 import { format } from "date-fns";
+import { callAi, type CommsDraftResult, type BestSendTimeResult } from "@/lib/ai-api";
 
 interface LogEntry {
   id: string;
@@ -42,6 +44,62 @@ const CommunicationsSection = () => {
   const [sending, setSending] = useState(false);
   const [recipientMode, setRecipientMode] = useState<"all" | "selected">("all");
   const [selectedAttendeeIds, setSelectedAttendeeIds] = useState<Set<string>>(new Set());
+  const [aiDrafting, setAiDrafting] = useState(false);
+  const [bestTimeLoading, setBestTimeLoading] = useState(false);
+  const [bestTimeResult, setBestTimeResult] = useState<BestSendTimeResult | null>(null);
+
+  const AI_DRAFT_TYPES = [
+    { value: "invitation", label: "Invitation" },
+    { value: "reminder_3day", label: "Reminder (3 days before)" },
+    { value: "day_of", label: "Day-of reminder" },
+    { value: "thank_you", label: "Post-event thank you" },
+    { value: "cancellation", label: "Cancellation notice" },
+  ];
+
+  const handleAiDraft = async (draftType: string) => {
+    if (!event) return;
+    setAiDrafting(true);
+    try {
+      const result = await callAi<CommsDraftResult>({
+        action: "communications_draft",
+        prompt: draftType,
+        context: {
+          eventTitle: event.title,
+          eventDate: event.event_date,
+          venue: event.venue_name,
+          attendeeCount: attendees.length,
+          communicationType: draftType,
+        },
+      });
+      if (result.subject) setSubject(result.subject);
+      if (result.body) setMessage(result.body);
+      toast.success("AI draft ready! Review and send.");
+    } catch (err: any) {
+      toast.error(err.message || "AI draft failed");
+    }
+    setAiDrafting(false);
+  };
+
+  const handleBestTime = async () => {
+    if (!event) return;
+    setBestTimeLoading(true);
+    try {
+      const result = await callAi<BestSendTimeResult>({
+        action: "best_send_time",
+        prompt: "Recommend best time",
+        context: {
+          eventTitle: event.title,
+          eventDate: event.event_date,
+          attendeeCount: attendees.length,
+          channel,
+        },
+      });
+      setBestTimeResult(result);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to get recommendation");
+    }
+    setBestTimeLoading(false);
+  };
 
   const loadLogs = useCallback(async () => {
     if (!event) return;
@@ -234,9 +292,38 @@ const CommunicationsSection = () => {
               </p>
             )}
 
-            {/* Message */}
+            {/* Message + AI Draft */}
             <div className="space-y-1">
-              <Label className="text-xs">Message</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Message</Label>
+                <div className="flex items-center gap-1">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="sm" className="gap-1 text-purple-600 border-purple-200 hover:bg-purple-50 dark:border-purple-800 dark:hover:bg-purple-950/30 h-7 text-xs" disabled={aiDrafting}>
+                        {aiDrafting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                        Draft with AI
+                        <ChevronDown className="h-3 w-3" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-48 p-1" align="end">
+                      {AI_DRAFT_TYPES.map((t) => (
+                        <button key={t.value} onClick={() => handleAiDraft(t.value)} className="w-full text-left px-3 py-1.5 text-sm rounded hover:bg-muted transition-colors">
+                          {t.label}
+                        </button>
+                      ))}
+                    </PopoverContent>
+                  </Popover>
+                  <Button variant="ghost" size="sm" className="gap-1 h-7 text-xs" onClick={handleBestTime} disabled={bestTimeLoading}>
+                    {bestTimeLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Clock className="h-3 w-3" />}
+                    💡 Best send time
+                  </Button>
+                </div>
+              </div>
+              {bestTimeResult && (
+                <p className="text-xs text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/20 rounded px-2 py-1">
+                  📅 <strong>{bestTimeResult.recommendedTime}</strong> — {bestTimeResult.reason}
+                </p>
+              )}
               <Textarea value={message} onChange={e => setMessage(e.target.value)} rows={3} />
             </div>
 

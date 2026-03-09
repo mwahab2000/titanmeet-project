@@ -2,12 +2,15 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useEventWorkspace } from "@/contexts/EventWorkspaceContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, Trash2, Copy, Check, X } from "lucide-react";
+import { Plus, Trash2, Copy, Check, X, Sparkles, Loader2 } from "lucide-react";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { callAi, type AgendaItemAI } from "@/lib/ai-api";
 
 interface AgendaItem {
   id: string;
@@ -96,6 +99,50 @@ const AgendaSection = () => {
   const [speakers, setSpeakers] = useState<Speaker[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [aiModalOpen, setAiModalOpen] = useState(false);
+  const [aiEventType, setAiEventType] = useState("Conference");
+  const [aiDuration, setAiDuration] = useState("8");
+  const [aiSpeakers, setAiSpeakers] = useState("3");
+  const [aiRequirements, setAiRequirements] = useState("");
+  const [aiGenerating, setAiGenerating] = useState(false);
+
+  const handleAiGenerate = async () => {
+    if (!event) return;
+    setAiGenerating(true);
+    try {
+      const result = await callAi<AgendaItemAI[]>({
+        action: "agenda_generation",
+        prompt: `Generate an agenda for a ${aiEventType} event`,
+        context: {
+          eventType: aiEventType,
+          totalDurationHours: Number(aiDuration),
+          numberOfSpeakers: Number(aiSpeakers),
+          specialRequirements: aiRequirements,
+          eventTitle: event.title,
+          eventDate: event.event_date,
+        },
+      });
+      if (Array.isArray(result) && result.length > 0) {
+        for (let i = 0; i < result.length; i++) {
+          const item = result[i];
+          await supabase.from("agenda_items").insert({
+            event_id: event.id,
+            title: `✨ ${item.title}`,
+            start_time: item.time || null,
+            description: item.description || null,
+            order_index: items.length + i,
+            day_number: 1,
+          } as any);
+        }
+        load();
+        toast.success(`${result.length} agenda items generated!`);
+        setAiModalOpen(false);
+      }
+    } catch (err: any) {
+      toast.error(err.message || "AI generation failed");
+    }
+    setAiGenerating(false);
+  };
 
   const load = useCallback(async () => {
     if (!event) return;
@@ -152,14 +199,22 @@ const AgendaSection = () => {
   const roomsForDay = (day: number) => rooms.filter((r) => r.days.length === 0 || r.days.includes(day));
 
   return (
+    <>
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="font-display">Agenda</CardTitle>
-        {!isArchived && (
-          <Button size="sm" variant="outline" className="gap-1" onClick={addItem}>
-            <Plus className="h-4 w-4" /> Add Row
-          </Button>
-        )}
+        <div className="flex gap-2">
+          {!isArchived && items.length < 2 && (
+            <Button size="sm" variant="outline" className="gap-1 text-purple-600 border-purple-200 hover:bg-purple-50 dark:border-purple-800" onClick={() => setAiModalOpen(true)}>
+              <Sparkles className="h-4 w-4" /> Generate with AI
+            </Button>
+          )}
+          {!isArchived && (
+            <Button size="sm" variant="outline" className="gap-1" onClick={addItem}>
+              <Plus className="h-4 w-4" /> Add Row
+            </Button>
+          )}
+        </div>
       </CardHeader>
       <CardContent>
         {items.length === 0 && <p className="text-sm text-muted-foreground">No agenda items yet.</p>}
@@ -265,6 +320,50 @@ const AgendaSection = () => {
         )}
       </CardContent>
     </Card>
+
+    {/* AI Agenda Modal */}
+    <Dialog open={aiModalOpen} onOpenChange={setAiModalOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2"><Sparkles className="h-5 w-5 text-purple-500" /> Generate Agenda with AI</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-1">
+            <Label className="text-sm">Event Type</Label>
+            <Select value={aiEventType} onValueChange={setAiEventType}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {["Conference", "Workshop", "Gala", "Seminar", "Networking"].map(t => (
+                  <SelectItem key={t} value={t}>{t}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label className="text-sm">Duration (hours)</Label>
+              <Input type="number" value={aiDuration} onChange={e => setAiDuration(e.target.value)} min="1" max="24" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-sm">Number of Speakers</Label>
+              <Input type="number" value={aiSpeakers} onChange={e => setAiSpeakers(e.target.value)} min="0" max="20" />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-sm">Special Requirements</Label>
+            <Input value={aiRequirements} onChange={e => setAiRequirements(e.target.value)} placeholder="e.g. Include a panel discussion" />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setAiModalOpen(false)}>Cancel</Button>
+          <Button onClick={handleAiGenerate} disabled={aiGenerating} className="bg-purple-600 hover:bg-purple-700 text-white gap-1">
+            {aiGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+            {aiGenerating ? "Generating..." : "Generate"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 };
 
