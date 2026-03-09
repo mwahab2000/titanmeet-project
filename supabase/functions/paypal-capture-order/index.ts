@@ -279,13 +279,15 @@ Deno.serve(async (req) => {
     } catch { /* swallow */ }
 
     // 11) Notification
-    await serviceClient.rpc("create_notification", {
-      _user_id: paymentIntent.user_id,
-      _type: "payment_confirmed",
-      _title: "Payment confirmed",
-      _message: `Your payment of $${(paymentIntent.amount_usd_cents / 100).toFixed(2)} has been confirmed. Access active for 30 days.`,
-      _link: "/dashboard/billing",
-    }).catch(() => {/* swallow */});
+    try {
+      await serviceClient.rpc("create_notification", {
+        _user_id: paymentIntent.user_id,
+        _type: "payment_confirmed",
+        _title: "Payment confirmed",
+        _message: `Your payment of $${(paymentIntent.amount_usd_cents / 100).toFixed(2)} has been confirmed. Access active for 30 days.`,
+        _link: "/dashboard/billing",
+      });
+    } catch { /* swallow */ }
 
     console.log(`[${correlationId}] Complete. access_until=${finalAccessUntil.toISOString()}`);
 
