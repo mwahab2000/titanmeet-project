@@ -109,17 +109,18 @@ const BillingPage = () => {
         body: { order_id: orderId },
       });
 
-      // supabase.functions.invoke returns non-2xx as error, but data may still contain details
       if (error) {
-        // Try to extract structured error from the response
         const errData = data || {};
         const issue = errData.issue || errData.code || "unknown";
         const userMsg = errData.error || "Payment capture failed.";
         const debugId = errData.debug_id || errData.correlationId || "";
+        const isSandboxCard = errData.code === "sandbox_card_not_supported" || issue === "COMPLIANCE_VIOLATION";
 
         console.error("[PayPal Capture] Failed:", { issue, userMsg, debugId, errData });
 
-        if (import.meta.env.DEV) {
+        if (isSandboxCard) {
+          toast.error("Card/guest checkout is not supported in PayPal sandbox. Please use a PayPal sandbox buyer account to complete payment.", { duration: 8000 });
+        } else if (import.meta.env.DEV) {
           toast.error(`Capture failed: ${userMsg} (issue: ${issue}, debug: ${debugId})`);
         } else {
           toast.error(userMsg);
