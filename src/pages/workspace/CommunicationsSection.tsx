@@ -18,6 +18,7 @@ import { callAi, type CommsDraftResult, type BestSendTimeResult } from "@/lib/ai
 import { SectionHint } from "@/components/ui/section-hint";
 import { usePlanLimits } from "@/hooks/usePlanLimits";
 import { PlanLimitGate } from "@/components/billing/PlanLimitGate";
+import { useUpgradeModal } from "@/hooks/useUpgradeModal";
 
 interface LogEntry {
   id: string;
