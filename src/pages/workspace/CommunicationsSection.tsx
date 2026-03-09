@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { Send, Users, User, Sparkles, Loader2, Clock, ChevronDown } from "lucide-react";
 import { format } from "date-fns";
 import { callAi, type CommsDraftResult, type BestSendTimeResult } from "@/lib/ai-api";
+import { SectionHint } from "@/components/ui/section-hint";
 
 interface LogEntry {
   id: string;
