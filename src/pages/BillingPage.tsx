@@ -9,7 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { CreditCard, TrendingUp, AlertTriangle, CheckCircle, Clock, XCircle, RefreshCw, ShieldCheck, Crown, Link as LinkIcon } from "lucide-react";
 import { useBilling } from "@/hooks/useBilling";
-import { calculateOverages, formatCents, usagePercent } from "@/lib/billing";
+import { formatCents, usagePercent } from "@/lib/billing";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
