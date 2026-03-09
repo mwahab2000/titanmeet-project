@@ -16,6 +16,8 @@ import { Send, Users, User, Sparkles, Loader2, Clock, ChevronDown } from "lucide
 import { format } from "date-fns";
 import { callAi, type CommsDraftResult, type BestSendTimeResult } from "@/lib/ai-api";
 import { SectionHint } from "@/components/ui/section-hint";
+import { usePlanLimits } from "@/hooks/usePlanLimits";
+import { PlanLimitGate } from "@/components/billing/PlanLimitGate";
 
 interface LogEntry {
   id: string;
