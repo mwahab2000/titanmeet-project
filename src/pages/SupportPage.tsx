@@ -11,9 +11,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, MessageSquare, Clock, Search, Building2, Palette, Mail, ClipboardList, Bus, CreditCard, AlertTriangle, Download, ExternalLink, BookOpen } from "lucide-react";
+import { Plus, MessageSquare, Clock, Search, AlertTriangle, Download, BookOpen } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { helpArticles, type HelpArticle } from "@/components/support/HelpArticleContent";
+import HelpArticleModal from "@/components/support/HelpArticleModal";
 
 // ── Constants ──────────────────────────────────────────────
 
@@ -43,68 +45,6 @@ const CATEGORIES = [
 
 const CATEGORY_LABELS: Record<string, string> = Object.fromEntries(CATEGORIES.map(c => [c.value, c.label]));
 
-// ── Help Center Articles ───────────────────────────────────
-
-interface HelpArticle {
-  icon: React.ElementType;
-  title: string;
-  description: string;
-  readTime: string;
-  url: string;
-}
-
-const helpArticles: HelpArticle[] = [
-  {
-    icon: Building2,
-    title: "Client & Event Hierarchy",
-    description: "Understand how Clients and Events are structured in TitanMeet — the foundation of every event you create.",
-    readTime: "3 min",
-    url: "https://help.titanmeet.com/articles/client-event-hierarchy",
-  },
-  {
-    icon: Palette,
-    title: "Understanding Themes",
-    description: "Learn about the three event themes — Corporate Clean, Elegant Premium, and Modern Conference — and how to choose the right one.",
-    readTime: "4 min",
-    url: "https://help.titanmeet.com/articles/understanding-themes",
-  },
-  {
-    icon: Mail,
-    title: "Invitations: Email vs WhatsApp vs Link",
-    description: "Compare the three invitation channels, learn when to use each, and understand delivery tracking and RSVP flows.",
-    readTime: "5 min",
-    url: "https://help.titanmeet.com/articles/invitations-channels",
-  },
-  {
-    icon: ClipboardList,
-    title: "Surveys: Create, Send & Results",
-    description: "Build pre or post-event surveys, send them to attendees, and read the collected results with visual charts.",
-    readTime: "4 min",
-    url: "https://help.titanmeet.com/articles/surveys-guide",
-  },
-  {
-    icon: Bus,
-    title: "Transportation: Routes & Stops",
-    description: "Set up bus routes and pickup stops for coordinated attendee transport. Routes and stops appear on the public event page.",
-    readTime: "3 min",
-    url: "https://help.titanmeet.com/articles/transportation-routes",
-  },
-  {
-    icon: CreditCard,
-    title: "Billing & Plan Limits",
-    description: "Understand plan tiers, usage limits on clients, events, attendees and emails, and how overage and upgrades work.",
-    readTime: "4 min",
-    url: "https://help.titanmeet.com/articles/billing-plan-limits",
-  },
-  {
-    icon: AlertTriangle,
-    title: "Why can't I publish? (Troubleshooting)",
-    description: "Go through the 7-point publish checklist to find and fix what's blocking your event from going live.",
-    readTime: "3 min",
-    url: "https://help.titanmeet.com/articles/publish-troubleshooting",
-  },
-];
-
 const QUICK_REF_PDF_URL = "https://help.titanmeet.com/downloads/titanmeet-quick-reference.pdf";
 
 // ── Types ──────────────────────────────────────────────────
@@ -131,6 +71,7 @@ const SupportPage = () => {
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [ticketSearch, setTicketSearch] = useState("");
   const [helpSearch, setHelpSearch] = useState("");
+  const [selectedArticle, setSelectedArticle] = useState<HelpArticle | null>(null);
 
   // Create form state
   const [subject, setSubject] = useState("");
@@ -316,12 +257,11 @@ const SupportPage = () => {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredArticles.map((article) => (
-                <a
-                  key={article.title}
-                  href={article.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="group block"
+                <button
+                  key={article.slug}
+                  type="button"
+                  onClick={() => setSelectedArticle(article)}
+                  className="group block text-left w-full"
                 >
                   <Card className="h-full transition-colors hover:border-primary/40 group-hover:shadow-md">
                     <CardHeader className="pb-2">
@@ -333,16 +273,15 @@ const SupportPage = () => {
                           {article.readTime}
                         </Badge>
                       </div>
-                      <CardTitle className="text-sm font-semibold mt-2 flex items-center gap-1.5 group-hover:text-primary transition-colors">
+                      <CardTitle className="text-sm font-semibold mt-2 group-hover:text-primary transition-colors">
                         {article.title}
-                        <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-70 transition-opacity" />
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
                       <p className="text-xs text-muted-foreground leading-relaxed">{article.description}</p>
                     </CardContent>
                   </Card>
-                </a>
+                </button>
               ))}
             </div>
           )}
@@ -366,6 +305,12 @@ const SupportPage = () => {
               </Button>
             </CardContent>
           </Card>
+
+          <HelpArticleModal
+            article={selectedArticle}
+            open={!!selectedArticle}
+            onOpenChange={(open) => { if (!open) setSelectedArticle(null); }}
+          />
         </TabsContent>
 
         {/* ── My Tickets Tab ── */}
