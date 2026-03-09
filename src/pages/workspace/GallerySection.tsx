@@ -23,6 +23,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useSignedUrls } from "@/hooks/useSignedUrls";
+import { SectionHint } from "@/components/ui/section-hint";
 
 interface SortableImageProps {
   id: string;
