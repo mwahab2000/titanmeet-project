@@ -215,7 +215,7 @@ const AttendeesSection = () => {
 
     // Soft limit check for attendees
     if (!planLimits.canCreate("attendees")) {
-      toast.error("Monthly attendee limit reached. Upgrade your plan to add more.");
+      openUpgradeModal("attendees");
       return null;
     } else if (planLimits.attendees.percent >= 80) {
       toast.warning(`You've used ${planLimits.attendees.percent}% of your monthly attendee limit.`);

@@ -80,56 +80,58 @@ const App = () => (
           ) : (
             /* ── Main domain / local dev ── */
             <AuthProvider>
-              <Routes>
-                <Route path="/" element={<Index />} />
-                <Route path="/login" element={<Login />} />
-                <Route path="/dashboard" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
-                  <Route index element={<Dashboard />} />
-                  <Route path="events" element={<Events />} />
-                  <Route path="events/new" element={<CreateEvent />} />
-                  <Route path="events/quick-setup" element={<QuickEventWizard />} />
-                  <Route path="events/drafts" element={<DraftsPage />} />
-                  <Route path="clients" element={<ClientsPage />} />
-                  <Route path="clients/new" element={<CreateClient />} />
-                  <Route path="clients/:clientId/edit" element={<EditClient />} />
-                  <Route path="templates" element={<TemplatesPage />} />
-                  <Route path="attendees" element={<Attendees />} />
-                  <Route path="settings" element={<DashboardSettings />} />
-                  <Route path="billing" element={<BillingPage />} />
-                  <Route path="notifications" element={<NotificationsPage />} />
-                  <Route path="support" element={<SupportPage />} />
-                  <Route path="support/:ticketId" element={<SupportTicketDetail />} />
-                  <Route path="admin/billing" element={<AdminRoute><AdminBillingPage /></AdminRoute>} />
-                  <Route path="admin/support" element={<AdminRoute><AdminSupportPage /></AdminRoute>} />
-                  
-                  <Route path="events/:id" element={<EventWorkspaceLayout />}>
-                    <Route path="hero" element={<HeroSection />} />
-                    <Route path="info" element={<EventInfoSection />} />
-                    <Route path="agenda" element={<AgendaSection />} />
-                    <Route path="organizers" element={<OrganizersSection />} />
-                    <Route path="speakers" element={<SpeakersSection />} />
-                    <Route path="attendees" element={<AttendeesSection />} />
-                    <Route path="groups" element={<GroupsSection />} />
-                    <Route path="assign-groups" element={<AssignGroupsSection />} />
-                    <Route path="transportation" element={<TransportationSection />} />
-                    <Route path="dress-code" element={<DressCodeSection />} />
-                    <Route path="gallery" element={<GallerySection />} />
-                    <Route path="venue" element={<VenueSection />} />
-                    <Route path="announcements" element={<AnnouncementsSection />} />
-                    <Route path="event-announcements" element={<EventAnnouncementsSection />} />
-                    <Route path="survey" element={<SurveySection />} />
-                    <Route path="communications" element={<CommunicationsSection />} />
-                    <Route path="website" element={<WebsiteSection />} />
-                    <Route path="invitations" element={<InvitationsSection />} />
+              <UpgradeModalProvider>
+                <UpgradeModal />
+                <Routes>
+                  <Route path="/" element={<Index />} />
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/dashboard" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
+                    <Route index element={<Dashboard />} />
+                    <Route path="events" element={<Events />} />
+                    <Route path="events/new" element={<CreateEvent />} />
+                    <Route path="events/quick-setup" element={<QuickEventWizard />} />
+                    <Route path="events/drafts" element={<DraftsPage />} />
+                    <Route path="clients" element={<ClientsPage />} />
+                    <Route path="clients/new" element={<CreateClient />} />
+                    <Route path="clients/:clientId/edit" element={<EditClient />} />
+                    <Route path="templates" element={<TemplatesPage />} />
+                    <Route path="attendees" element={<Attendees />} />
+                    <Route path="settings" element={<DashboardSettings />} />
+                    <Route path="billing" element={<BillingPage />} />
+                    <Route path="notifications" element={<NotificationsPage />} />
+                    <Route path="support" element={<SupportPage />} />
+                    <Route path="support/:ticketId" element={<SupportTicketDetail />} />
+                    <Route path="admin/billing" element={<AdminRoute><AdminBillingPage /></AdminRoute>} />
+                    <Route path="admin/support" element={<AdminRoute><AdminSupportPage /></AdminRoute>} />
+                    
+                    <Route path="events/:id" element={<EventWorkspaceLayout />}>
+                      <Route path="hero" element={<HeroSection />} />
+                      <Route path="info" element={<EventInfoSection />} />
+                      <Route path="agenda" element={<AgendaSection />} />
+                      <Route path="organizers" element={<OrganizersSection />} />
+                      <Route path="speakers" element={<SpeakersSection />} />
+                      <Route path="attendees" element={<AttendeesSection />} />
+                      <Route path="groups" element={<GroupsSection />} />
+                      <Route path="assign-groups" element={<AssignGroupsSection />} />
+                      <Route path="transportation" element={<TransportationSection />} />
+                      <Route path="dress-code" element={<DressCodeSection />} />
+                      <Route path="gallery" element={<GallerySection />} />
+                      <Route path="venue" element={<VenueSection />} />
+                      <Route path="announcements" element={<AnnouncementsSection />} />
+                      <Route path="event-announcements" element={<EventAnnouncementsSection />} />
+                      <Route path="survey" element={<SurveySection />} />
+                      <Route path="communications" element={<CommunicationsSection />} />
+                      <Route path="website" element={<WebsiteSection />} />
+                      <Route path="invitations" element={<InvitationsSection />} />
+                    </Route>
                   </Route>
-                </Route>
-                <Route path="/dashboard/events/:id/preview" element={<ProtectedRoute><PreviewEventPage /></ProtectedRoute>} />
-                <Route path="/s/:token" element={<PublicSurveyPage />} />
-                <Route path="/i/:token" element={<InviteLandingPage />} />
-                {/* Dev fallback: path-based public event routing */}
-                <Route path="/:clientSlug/:eventSlug" element={<PublicEventPage />} />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
+                  <Route path="/dashboard/events/:id/preview" element={<ProtectedRoute><PreviewEventPage /></ProtectedRoute>} />
+                  <Route path="/s/:token" element={<PublicSurveyPage />} />
+                  <Route path="/i/:token" element={<InviteLandingPage />} />
+                  <Route path="/:clientSlug/:eventSlug" element={<PublicEventPage />} />
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </UpgradeModalProvider>
             </AuthProvider>
           )}
         </BrowserRouter>

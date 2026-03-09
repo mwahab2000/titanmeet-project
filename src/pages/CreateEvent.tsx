@@ -97,7 +97,7 @@ const CreateEvent = () => {
       <Button variant="ghost" className="mb-4 gap-2" onClick={() => navigate(-1)}>
         <ArrowLeft className="h-4 w-4" /> Back
       </Button>
-      <PlanLimitGate resource={planLimits.activeEvents} resourceLabel="active events" planName={planLimits.planId}>
+      <PlanLimitGate resource={planLimits.activeEvents} resourceLabel="active events" planName={planLimits.planId} upgradeTrigger="events">
         <Card>
           <CardHeader><CardTitle className="font-display text-2xl">Create Event</CardTitle></CardHeader>
           <CardContent>

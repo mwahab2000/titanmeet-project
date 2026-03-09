@@ -75,7 +75,7 @@ const CreateClient = () => {
 
   return (
     <div className="max-w-lg">
-      <PlanLimitGate resource={planLimits.clients} resourceLabel="clients" planName={planLimits.planId}>
+      <PlanLimitGate resource={planLimits.clients} resourceLabel="clients" planName={planLimits.planId} upgradeTrigger="clients">
         <Card>
           <CardHeader><CardTitle className="font-display text-2xl">Create Client</CardTitle></CardHeader>
           <CardContent>

@@ -155,7 +155,7 @@ const CommunicationsSection = () => {
     // Email soft limit check
     if (channel === "email") {
       if (!planLimits.canCreate("emails")) {
-        toast.error("Monthly email limit reached. Upgrade your plan to send more.");
+        openUpgradeModal("emails");
         return;
       } else if (planLimits.emails.percent >= 80) {
         toast.warning(`You've used ${planLimits.emails.percent}% of your monthly email limit.`);
