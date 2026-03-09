@@ -7,6 +7,7 @@ import { useIsMobile, useIsTablet } from "@/hooks/use-mobile";
 import { LayoutDashboard, Building2, Calendar, CreditCard, Settings, Menu } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import { useEventWorkspaceOptional } from "@/contexts/EventWorkspaceContext";
+import { FirstLoginTour } from "@/components/onboarding/FirstLoginTour";
 
 const mobileNavItems = [
   { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
@@ -44,6 +45,7 @@ export const DashboardLayout = () => {
   return (
     <div className="min-h-screen bg-background">
       <DashboardSidebar />
+      <FirstLoginTour />
       <div className={`${mainMargin} min-h-screen transition-all duration-200 ${isMobile ? "pb-16" : ""}`}>
         <header className="flex items-center justify-end border-b border-border px-8 py-3">
           <NotificationBell />

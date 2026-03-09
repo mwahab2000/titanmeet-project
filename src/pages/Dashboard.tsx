@@ -198,7 +198,7 @@ const Dashboard = () => {
           animate="visible"
           custom={cellIndex++}
         >
-          <Card className="h-full">
+          <Card className="h-full" data-tour="tour-quick-setup">
             <CardHeader className="pb-2">
               <CardTitle className="font-display text-sm">Quick Actions</CardTitle>
             </CardHeader>
