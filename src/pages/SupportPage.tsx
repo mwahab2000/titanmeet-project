@@ -11,9 +11,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, MessageSquare, Clock, Search, Building2, Palette, Mail, ClipboardList, Bus, CreditCard, AlertTriangle, Download, ExternalLink, BookOpen } from "lucide-react";
+import { Plus, MessageSquare, Clock, Search, AlertTriangle, Download, ExternalLink, BookOpen } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { helpArticles, type HelpArticle } from "@/components/support/HelpArticleContent";
+import HelpArticleModal from "@/components/support/HelpArticleModal";
 
 // ── Constants ──────────────────────────────────────────────
 
