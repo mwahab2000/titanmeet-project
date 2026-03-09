@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Calendar, Users, TrendingUp, Clock, AlertTriangle, ArrowUpRight, Zap, FileEdit, Plus, Copy } from "lucide-react";
 import { motion } from "framer-motion";
 import AIInsightsCard from "@/components/ai/AIInsightsCard";
+import UsageMeters from "@/components/billing/UsageMeters";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
