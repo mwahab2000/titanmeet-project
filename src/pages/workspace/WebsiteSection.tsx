@@ -147,6 +147,7 @@ const WebsiteSection = () => {
           description="Choose your event theme, run the publish checklist, and go live. Copy your public URL to share with attendees."
         />
       )}
+      <PublishReadinessCard event={event} navigate={navigate} />
       <h2 className="text-2xl font-bold font-display">Public Website</h2>
 
       {/* Preview button - always available for owners */}
