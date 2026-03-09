@@ -20,7 +20,7 @@ const cellVariants = {
   visible: (i: number) => ({
     opacity: 1,
     y: 0,
-    transition: { delay: i * 0.07, duration: 0.4, ease: "easeOut" },
+    transition: { delay: i * 0.07, duration: 0.4, ease: [0, 0, 0.2, 1] as const },
   }),
 };
 
