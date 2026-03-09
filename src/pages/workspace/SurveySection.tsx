@@ -273,6 +273,7 @@ const SurveySection = () => {
               <TabsTrigger value="send">Send</TabsTrigger>
               <TabsTrigger value="tracking">Tracking</TabsTrigger>
               <TabsTrigger value="results">Results & Statistics</TabsTrigger>
+              {statusCounts.submitted > 0 && <TabsTrigger value="ai-analysis" className="gap-1"><Sparkles className="h-3 w-3" /> AI Analysis</TabsTrigger>}
             </TabsList>
 
             {/* ── Send Tab ── */}
