@@ -8,6 +8,7 @@ import { useNavigate } from "react-router-dom";
 import { buildPublicEventUrl, buildPublicEventUrlAbsolute } from "@/lib/subdomain";
 import { toast } from "sonner";
 import { callAi, type SeoResult } from "@/lib/ai-api";
+import { SectionHint } from "@/components/ui/section-hint";
 
 const themes = [
   { id: "corporate", name: "Corporate Clean", desc: "Structured, business-focused", color: "bg-[hsl(210,20%,95%)]" },
