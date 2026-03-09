@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { Plus, Trash2, Copy, Check, X, Sparkles, Loader2 } from "lucide-react";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { callAi, type AgendaItemAI } from "@/lib/ai-api";
+import { SectionHint } from "@/components/ui/section-hint";
 
 interface AgendaItem {
   id: string;
