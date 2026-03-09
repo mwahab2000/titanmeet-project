@@ -1,47 +1,14 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-
-/* ── Plan limit definitions ── */
-interface Limits {
-  clients: number;
-  activeEvents: number;
-  attendeesPerMonth: number;
-  emailsPerMonth: number;
-  storageGB: number;
-}
-
-const PLAN_LIMITS: Record<string, Limits> = {
-  starter: {
-    clients: 3,
-    activeEvents: 5,
-    attendeesPerMonth: 500,
-    emailsPerMonth: 2000,
-    storageGB: 5,
-  },
-  professional: {
-    clients: 15,
-    activeEvents: 25,
-    attendeesPerMonth: 5000,
-    emailsPerMonth: 20000,
-    storageGB: 25,
-  },
-  enterprise: {
-    clients: Infinity,
-    activeEvents: Infinity,
-    attendeesPerMonth: 50000,
-    emailsPerMonth: 200000,
-    storageGB: 100,
-  },
-};
 
 export interface ResourceStatus {
   used: number;
   limit: number;
   percent: number;
-  /** Hard = block at limit; Soft = warn at 80%, block at 100% */
+  /** Hard = block at limit (clients, events); Soft = warn 80%, block 100% */
   isHard: boolean;
-  /** True when existing usage already exceeded limit on load (grandfathered) */
+  /** True when existing usage already exceeds limit (grandfathered) */
   grandfathered: boolean;
 }
 
@@ -53,20 +20,23 @@ export interface PlanLimitsResult {
   emails: ResourceStatus;
   storage: ResourceStatus;
   loading: boolean;
-  /** Can create a new item of this resource type? */
-  canCreate: (resource: keyof Omit<PlanLimitsResult, "planId" | "loading" | "canCreate" | "refresh">) => boolean;
+  cycleStart: Date | null;
+  canCreate: (resource: keyof Pick<PlanLimitsResult, "clients" | "activeEvents" | "attendees" | "emails" | "storage">) => boolean;
   refresh: () => void;
 }
 
 function buildStatus(used: number, limit: number, isHard: boolean): ResourceStatus {
-  const percent = limit <= 0 || limit === Infinity ? 0 : Math.min(100, Math.round((used / limit) * 100));
-  return { used, limit, percent, isHard, grandfathered: used > limit && limit !== Infinity };
+  const effective = limit <= 0 || limit === Infinity ? Infinity : limit;
+  const percent = effective === Infinity ? 0 : Math.min(100, Math.round((used / effective) * 100));
+  return { used, limit: effective, percent, isHard, grandfathered: used > effective && effective !== Infinity };
 }
 
 export function usePlanLimits(): PlanLimitsResult {
   const { user } = useAuth();
   const [planId, setPlanId] = useState("starter");
-  const [usage, setUsage] = useState({ clients: 0, activeEvents: 0, attendees: 0, emails: 0, storageMB: 0 });
+  const [limits, setLimits] = useState({ clients: 3, activeEvents: 5, attendees: 500, emails: 2000, storageGB: 5 });
+  const [usage, setUsage] = useState({ clients: 0, activeEvents: 0, attendees: 0, emails: 0, storageBytes: 0 });
+  const [cycleStart, setCycleStart] = useState<Date | null>(null);
   const [loading, setLoading] = useState(true);
   const [tick, setTick] = useState(0);
 
@@ -77,30 +47,46 @@ export function usePlanLimits(): PlanLimitsResult {
     const load = async () => {
       setLoading(true);
 
-      // Billing cycle start = 1st of current month
-      const cycleStart = new Date();
-      cycleStart.setDate(1);
-      cycleStart.setHours(0, 0, 0, 0);
-      const cycleISO = cycleStart.toISOString();
-
-      const [subRes, clientsRes, eventsRes, attendeesRes, emailsRes] = await Promise.all([
-        supabase.from("account_subscriptions").select("plan_id").eq("user_id", user.id).single(),
-        supabase.from("clients").select("id", { count: "exact", head: true }),
-        supabase.from("events").select("id", { count: "exact", head: true }).in("status", ["draft", "published", "ongoing"]),
-        supabase.from("attendees").select("id", { count: "exact", head: true }).gte("confirmed_at", cycleISO),
-        supabase.from("communications_log").select("id", { count: "exact", head: true }).eq("channel", "email").gte("created_at", cycleISO),
+      // Fetch subscription + plan limits and usage in parallel
+      const [subRes, usageRes] = await Promise.all([
+        supabase
+          .from("account_subscriptions")
+          .select("plan_id, subscription_plans(max_clients, max_active_events, max_attendees, max_emails, max_storage_gb)")
+          .eq("user_id", user.id)
+          .single(),
+        supabase.rpc("get_user_usage", { p_user_id: user.id }),
       ]);
 
       if (cancelled) return;
 
-      setPlanId(subRes.data?.plan_id || "starter");
-      setUsage({
-        clients: clientsRes.count || 0,
-        activeEvents: eventsRes.count || 0,
-        attendees: attendeesRes.count || 0,
-        emails: emailsRes.count || 0,
-        storageMB: 0,
-      });
+      const plan = subRes.data?.plan_id || "starter";
+      setPlanId(plan);
+
+      // Read limits from subscription_plans join
+      const sp = (subRes.data as any)?.subscription_plans;
+      if (sp) {
+        setLimits({
+          clients: sp.max_clients ?? 3,
+          activeEvents: sp.max_active_events ?? 5,
+          attendees: sp.max_attendees ?? 500,
+          emails: sp.max_emails ?? 2000,
+          storageGB: sp.max_storage_gb ?? 5,
+        });
+      }
+
+      // Read usage from RPC result
+      const u = usageRes.data as any;
+      if (u) {
+        setUsage({
+          clients: u.clients ?? 0,
+          activeEvents: u.activeEvents ?? 0,
+          attendees: u.attendees ?? 0,
+          emails: u.emails ?? 0,
+          storageBytes: u.storageBytes ?? 0,
+        });
+        if (u.cycleStart) setCycleStart(new Date(u.cycleStart));
+      }
+
       setLoading(false);
     };
 
@@ -108,37 +94,23 @@ export function usePlanLimits(): PlanLimitsResult {
     return () => { cancelled = true; };
   }, [user, tick]);
 
-  const limits = PLAN_LIMITS[planId] || PLAN_LIMITS.starter;
-
   const result = useMemo<PlanLimitsResult>(() => {
     const clients = buildStatus(usage.clients, limits.clients, true);
     const activeEvents = buildStatus(usage.activeEvents, limits.activeEvents, true);
-    const attendees = buildStatus(usage.attendees, limits.attendeesPerMonth, false);
-    const emails = buildStatus(usage.emails, limits.emailsPerMonth, false);
-    const storage = buildStatus(usage.storageMB / 1024, limits.storageGB, false);
+    const attendees = buildStatus(usage.attendees, limits.attendees, false);
+    const emails = buildStatus(usage.emails, limits.emails, false);
+    const storage = buildStatus(usage.storageBytes / (1024 * 1024 * 1024), limits.storageGB, false);
 
-    const canCreate = (resource: keyof Omit<PlanLimitsResult, "planId" | "loading" | "canCreate" | "refresh">) => {
+    const canCreate = (resource: keyof Pick<PlanLimitsResult, "clients" | "activeEvents" | "attendees" | "emails" | "storage">) => {
       const r = { clients, activeEvents, attendees, emails, storage }[resource];
       if (!r) return true;
       if (r.limit === Infinity) return true;
-      // Hard limits: block at limit
       if (r.isHard) return r.used < r.limit;
-      // Soft limits: block at 100%
       return r.percent < 100;
     };
 
-    return {
-      planId,
-      clients,
-      activeEvents,
-      attendees,
-      emails,
-      storage,
-      loading,
-      canCreate,
-      refresh: () => setTick((t) => t + 1),
-    };
-  }, [planId, usage, limits, loading]);
+    return { planId, clients, activeEvents, attendees, emails, storage, loading, cycleStart, canCreate, refresh: () => setTick(t => t + 1) };
+  }, [planId, usage, limits, loading, cycleStart]);
 
   return result;
 }
