@@ -41,6 +41,7 @@ interface Attendee {
 const CommunicationsSection = () => {
   const { event, isArchived } = useEventWorkspace();
   const planLimits = usePlanLimits();
+  const { openUpgradeModal } = useUpgradeModal();
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [attendees, setAttendees] = useState<Attendee[]>([]);
   const [channel, setChannel] = useState("email");
