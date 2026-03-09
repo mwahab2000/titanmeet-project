@@ -114,6 +114,15 @@ const GallerySection = React.forwardRef<HTMLDivElement>((_, ref) => {
 
   return (
     <Card ref={ref}>
+      {galleryImages.length === 0 && (
+        <div className="px-6 pt-6">
+          <SectionHint
+            sectionKey="gallery"
+            title="Gallery"
+            description="Upload event photos. The gallery appears as a full image grid section on the public page. Best used after the event."
+          />
+        </div>
+      )}
       <CardHeader>
         <CardTitle className="font-display flex items-center gap-2">
           <Images className="h-5 w-5" /> Photo Gallery

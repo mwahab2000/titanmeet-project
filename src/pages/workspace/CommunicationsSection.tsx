@@ -224,6 +224,13 @@ const CommunicationsSection = () => {
 
   return (
     <div className="space-y-4">
+      {logs.length === 0 && (
+        <SectionHint
+          sectionKey="communications"
+          title="Communications"
+          description="Send bulk emails or WhatsApp messages to all attendees, a specific group, or selected individuals. All messages are logged here."
+        />
+      )}
       {!isArchived && (
         <Card>
           <CardHeader>

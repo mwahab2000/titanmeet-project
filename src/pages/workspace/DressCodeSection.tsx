@@ -176,6 +176,13 @@ const DressCodeSection = () => {
 
   return (
     <div className="space-y-6 max-w-3xl">
+      {entries.length === 0 && (
+        <SectionHint
+          sectionKey="dress-code"
+          title="Dress Code"
+          description="Specify the dress code for your event and optionally upload reference images. This section is shown on the public page if filled."
+        />
+      )}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-bold font-display flex items-center gap-2">

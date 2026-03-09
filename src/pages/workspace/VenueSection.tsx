@@ -12,6 +12,7 @@ import { useSignedUrls } from "@/hooks/useSignedUrls";
 import { Separator } from "@/components/ui/separator";
 import { differenceInDays, parseISO } from "date-fns";
 import { Checkbox } from "@/components/ui/checkbox";
+import { SectionHint } from "@/components/ui/section-hint";
 
 interface Room {
   id?: string;

@@ -55,6 +55,13 @@ const AnnouncementsSection = () => {
           {items[preview]?.text || "..."}
         </div>
       )}
+      {items.length === 0 && (
+        <SectionHint
+          sectionKey="announcements"
+          title="Announcements"
+          description="Add scrolling ticker announcements that appear at the top of your public event page in real-time."
+        />
+      )}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="font-display">Announcements</CardTitle>

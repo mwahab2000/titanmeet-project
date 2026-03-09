@@ -50,6 +50,14 @@ const AssignGroupsSection = () => {
   if (!event) return null;
 
   return (
+    <div className="space-y-4">
+      {(attendees.length === 0 || groups.length === 0) && (
+        <SectionHint
+          sectionKey="assign-groups"
+          title="Assign Groups"
+          description="Assign your attendees to the groups you've created. Attendees can belong to one group at a time."
+        />
+      )}
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_2fr] gap-4">
       {/* Unassigned */}
       <Card
