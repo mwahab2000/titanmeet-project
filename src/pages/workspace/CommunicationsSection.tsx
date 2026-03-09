@@ -292,9 +292,38 @@ const CommunicationsSection = () => {
               </p>
             )}
 
-            {/* Message */}
+            {/* Message + AI Draft */}
             <div className="space-y-1">
-              <Label className="text-xs">Message</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Message</Label>
+                <div className="flex items-center gap-1">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="sm" className="gap-1 text-purple-600 border-purple-200 hover:bg-purple-50 dark:border-purple-800 dark:hover:bg-purple-950/30 h-7 text-xs" disabled={aiDrafting}>
+                        {aiDrafting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                        Draft with AI
+                        <ChevronDown className="h-3 w-3" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-48 p-1" align="end">
+                      {AI_DRAFT_TYPES.map((t) => (
+                        <button key={t.value} onClick={() => handleAiDraft(t.value)} className="w-full text-left px-3 py-1.5 text-sm rounded hover:bg-muted transition-colors">
+                          {t.label}
+                        </button>
+                      ))}
+                    </PopoverContent>
+                  </Popover>
+                  <Button variant="ghost" size="sm" className="gap-1 h-7 text-xs" onClick={handleBestTime} disabled={bestTimeLoading}>
+                    {bestTimeLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Clock className="h-3 w-3" />}
+                    💡 Best send time
+                  </Button>
+                </div>
+              </div>
+              {bestTimeResult && (
+                <p className="text-xs text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/20 rounded px-2 py-1">
+                  📅 <strong>{bestTimeResult.recommendedTime}</strong> — {bestTimeResult.reason}
+                </p>
+              )}
               <Textarea value={message} onChange={e => setMessage(e.target.value)} rows={3} />
             </div>
 

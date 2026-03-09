@@ -199,14 +199,22 @@ const AgendaSection = () => {
   const roomsForDay = (day: number) => rooms.filter((r) => r.days.length === 0 || r.days.includes(day));
 
   return (
+    <>
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="font-display">Agenda</CardTitle>
-        {!isArchived && (
-          <Button size="sm" variant="outline" className="gap-1" onClick={addItem}>
-            <Plus className="h-4 w-4" /> Add Row
-          </Button>
-        )}
+        <div className="flex gap-2">
+          {!isArchived && items.length < 2 && (
+            <Button size="sm" variant="outline" className="gap-1 text-purple-600 border-purple-200 hover:bg-purple-50 dark:border-purple-800" onClick={() => setAiModalOpen(true)}>
+              <Sparkles className="h-4 w-4" /> Generate with AI
+            </Button>
+          )}
+          {!isArchived && (
+            <Button size="sm" variant="outline" className="gap-1" onClick={addItem}>
+              <Plus className="h-4 w-4" /> Add Row
+            </Button>
+          )}
+        </div>
       </CardHeader>
       <CardContent>
         {items.length === 0 && <p className="text-sm text-muted-foreground">No agenda items yet.</p>}
