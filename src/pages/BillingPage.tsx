@@ -147,6 +147,8 @@ const BillingPage = () => {
   const [loadingPayments, setLoadingPayments] = useState(true);
   const [isAnnual, setIsAnnual] = useState(false);
   const [cancellingSubscription, setCancellingSubscription] = useState(false);
+  const [downgradeDialog, setDowngradeDialog] = useState<{ planId: string; blocked: boolean; issues: { resource: string; current: number; limit: number }[] } | null>(null);
+  const planLimits = usePlanLimits();
 
   const loadPaymentIntents = useCallback(async () => {
     if (!user) return;
