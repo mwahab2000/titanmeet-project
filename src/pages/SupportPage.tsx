@@ -305,6 +305,12 @@ const SupportPage = () => {
               </Button>
             </CardContent>
           </Card>
+
+          <HelpArticleModal
+            article={selectedArticle}
+            open={!!selectedArticle}
+            onOpenChange={(open) => { if (!open) setSelectedArticle(null); }}
+          />
         </TabsContent>
 
         {/* ── My Tickets Tab ── */}
