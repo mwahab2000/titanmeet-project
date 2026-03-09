@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { Link } from "react-router-dom";
 import { Calendar, Users, TrendingUp, Clock, AlertTriangle, ArrowUpRight, Zap, FileEdit } from "lucide-react";
+import AIInsightsCard from "@/components/ai/AIInsightsCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
