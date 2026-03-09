@@ -71,6 +71,7 @@ const SupportPage = () => {
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [ticketSearch, setTicketSearch] = useState("");
   const [helpSearch, setHelpSearch] = useState("");
+  const [selectedArticle, setSelectedArticle] = useState<HelpArticle | null>(null);
 
   // Create form state
   const [subject, setSubject] = useState("");
