@@ -11,6 +11,7 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Lock, Copy, Check } from "lucide-react";
 import { useState } from "react";
+import { SectionHint } from "@/components/ui/section-hint";
 
 const EventInfoSection = () => {
   const { event, autosave, isArchived } = useEventWorkspace();
