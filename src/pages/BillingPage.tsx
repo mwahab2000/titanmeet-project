@@ -266,9 +266,6 @@ const BillingPage = () => {
     );
   }
 
-  const overages = calculateOverages(usage, currentPlan, currentPlan);
-  const totalOverageCents = overages.reduce((sum, o) => sum + o.amount_cents, 0);
-
   const usageMetrics = [
     { label: "Clients", used: usage.clients_count, limit: currentPlan.max_clients },
     { label: "Active Events", used: usage.active_events_count, limit: currentPlan.max_active_events },
