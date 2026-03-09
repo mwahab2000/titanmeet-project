@@ -55,6 +55,31 @@ const PADDLE_PRICE_IDS: Record<string, { monthly: string; annual: string }> = {
   enterprise:   { monthly: import.meta.env.VITE_PADDLE_PRICE_ENTERPRISE_MONTHLY   || "", annual: import.meta.env.VITE_PADDLE_PRICE_ENTERPRISE_ANNUAL   || "" },
 };
 
+/* Plan numeric limits for downgrade checks */
+const PLAN_NUMERIC_LIMITS: Record<string, Record<string, number>> = {
+  starter: { clients: 3, events: 5, attendees: 500, emails: 2000, storage: 5 },
+  professional: { clients: 15, events: 25, attendees: 5000, emails: 20000, storage: 25 },
+  enterprise: { clients: Infinity, events: Infinity, attendees: 50000, emails: 200000, storage: 100 },
+};
+
+const PLAN_ORDER_IDX: Record<string, number> = { starter: 0, professional: 1, enterprise: 2 };
+
+const RESOURCE_LABELS_DG: Record<string, string> = {
+  clients: "clients",
+  events: "active events",
+  attendees: "attendees",
+  emails: "emails",
+  storage: "storage (GB)",
+};
+
+const RESOURCE_LINKS: Record<string, string> = {
+  clients: "/dashboard/clients",
+  events: "/dashboard/events",
+  attendees: "/dashboard/attendees",
+  emails: "/dashboard/billing",
+  storage: "/dashboard/settings",
+};
+
 interface PlanDisplay {
   id: string;
   name: string;
