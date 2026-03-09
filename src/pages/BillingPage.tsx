@@ -526,14 +526,31 @@ const BillingPage = () => {
                     </Button>
                   ) : !priceId ? (
                     <p className="text-sm text-muted-foreground text-center py-2">Plan not configured</p>
-                  ) : (
-                    <PaddleCheckoutButton
-                      priceId={priceId}
-                      planId={plan.id}
-                      type="subscription"
-                      onSuccess={handlePaddleSuccess}
-                    />
-                  )}
+                  ) : (() => {
+                    const isDowngrade = (PLAN_ORDER_IDX[plan.id] ?? 0) < (PLAN_ORDER_IDX[subscription?.plan_id || "starter"] ?? 0);
+                    if (isDowngrade) {
+                      return (
+                        <Button
+                          className="w-full"
+                          variant="outline"
+                          onClick={() => {
+                            const result = checkDowngrade(plan.id);
+                            if (result) setDowngradeDialog(result);
+                          }}
+                        >
+                          Downgrade to {plan.name}
+                        </Button>
+                      );
+                    }
+                    return (
+                      <PaddleCheckoutButton
+                        priceId={priceId}
+                        planId={plan.id}
+                        type="subscription"
+                        onSuccess={handlePaddleSuccess}
+                      />
+                    );
+                  })()}
                 </div>
               );
             })}
