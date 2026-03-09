@@ -10,6 +10,8 @@ import { toast } from "sonner";
 import { Trash2, Upload, Mail, Bell, Users2, Download, FileDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SectionHint } from "@/components/ui/section-hint";
+import { usePlanLimits } from "@/hooks/usePlanLimits";
+import { PlanLimitGate } from "@/components/billing/PlanLimitGate";
 
 interface Attendee {
   id: string;
@@ -171,6 +173,7 @@ function parseCsvFile(text: string, existingEmails: Set<string>): CsvImportResul
 
 const AttendeesSection = () => {
   const { event, isArchived } = useEventWorkspace();
+  const planLimits = usePlanLimits();
   const [items, setItems] = useState<Attendee[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [sendingId, setSendingId] = useState<string | null>(null);
@@ -207,6 +210,14 @@ const AttendeesSection = () => {
     if (!event) return null;
     const emailErr = validateField("email", attendee.email);
     if (emailErr && attendee.email) { toast.error("Fix email format before saving"); return null; }
+
+    // Soft limit check for attendees
+    if (!planLimits.canCreate("attendees")) {
+      toast.error("Monthly attendee limit reached. Upgrade your plan to add more.");
+      return null;
+    } else if (planLimits.attendees.percent >= 80) {
+      toast.warning(`You've used ${planLimits.attendees.percent}% of your monthly attendee limit.`);
+    }
 
     const { data, error } = await supabase
       .from("attendees")

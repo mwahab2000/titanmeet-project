@@ -53,3 +53,6 @@ verify_jwt = false
 
 [functions.paddle-cancel-subscription]
 verify_jwt = false
+
+[functions.check-plan-limits]
+verify_jwt = false

@@ -9,6 +9,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { ArrowLeft } from "lucide-react";
+import { usePlanLimits } from "@/hooks/usePlanLimits";
+import { PlanLimitGate } from "@/components/billing/PlanLimitGate";
 
 const slugify = (text: string) => text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
@@ -20,6 +22,7 @@ const CreateEvent = () => {
   const [title, setTitle] = useState("");
   const [slug, setSlug] = useState("");
   const [clientId, setClientId] = useState("");
+  const planLimits = usePlanLimits();
 
   useEffect(() => {
     supabase.from("clients").select("id, name, slug").then(({ data }) => setClients(data || []));
@@ -30,6 +33,16 @@ const CreateEvent = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
+
+    // Server-side limit check
+    const { data: limitCheck } = await supabase.functions.invoke("check-plan-limits", {
+      body: { resource: "active_events" },
+    });
+    if (limitCheck && !limitCheck.allowed) {
+      toast.error(limitCheck.reason || "Event limit reached. Please upgrade your plan.");
+      return;
+    }
+
     setLoading(true);
 
     // Pre-check slug uniqueness within the selected client
@@ -71,40 +84,50 @@ const CreateEvent = () => {
     navigate(`/dashboard/events/${data.id}/hero`);
   };
 
+  if (planLimits.loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-lg">
       <Button variant="ghost" className="mb-4 gap-2" onClick={() => navigate(-1)}>
         <ArrowLeft className="h-4 w-4" /> Back
       </Button>
-      <Card>
-        <CardHeader><CardTitle className="font-display text-2xl">Create Event</CardTitle></CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label>Client (optional)</Label>
-              <Select value={clientId} onValueChange={setClientId}>
-                <SelectTrigger><SelectValue placeholder="Select client..." /></SelectTrigger>
-                <SelectContent>
-                  {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              {clients.length === 0 && <p className="text-xs text-muted-foreground">No clients yet. <a href="/dashboard/clients/new" className="underline text-primary">Create one</a></p>}
-            </div>
-            <div className="space-y-2">
-              <Label>Event Title *</Label>
-              <Input value={title} onChange={e => handleTitleChange(e.target.value)} required />
-            </div>
-            <div className="space-y-2">
-              <Label>Event Slug *</Label>
-              <Input value={slug} onChange={e => setSlug(slugify(e.target.value))} required />
-              <p className="text-xs text-muted-foreground">Public URL path for this event</p>
-            </div>
-            <Button type="submit" className="gradient-titan border-0 text-primary-foreground" disabled={loading}>
-              {loading ? "Creating..." : "Create & Open Workspace"}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+      <PlanLimitGate resource={planLimits.activeEvents} resourceLabel="active events" planName={planLimits.planId}>
+        <Card>
+          <CardHeader><CardTitle className="font-display text-2xl">Create Event</CardTitle></CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label>Client (optional)</Label>
+                <Select value={clientId} onValueChange={setClientId}>
+                  <SelectTrigger><SelectValue placeholder="Select client..." /></SelectTrigger>
+                  <SelectContent>
+                    {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                {clients.length === 0 && <p className="text-xs text-muted-foreground">No clients yet. <a href="/dashboard/clients/new" className="underline text-primary">Create one</a></p>}
+              </div>
+              <div className="space-y-2">
+                <Label>Event Title *</Label>
+                <Input value={title} onChange={e => handleTitleChange(e.target.value)} required />
+              </div>
+              <div className="space-y-2">
+                <Label>Event Slug *</Label>
+                <Input value={slug} onChange={e => setSlug(slugify(e.target.value))} required />
+                <p className="text-xs text-muted-foreground">Public URL path for this event</p>
+              </div>
+              <Button type="submit" className="gradient-titan border-0 text-primary-foreground" disabled={loading}>
+                {loading ? "Creating..." : "Create & Open Workspace"}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </PlanLimitGate>
     </div>
   );
 };

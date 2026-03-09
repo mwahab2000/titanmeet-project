@@ -16,6 +16,8 @@ import { Send, Users, User, Sparkles, Loader2, Clock, ChevronDown } from "lucide
 import { format } from "date-fns";
 import { callAi, type CommsDraftResult, type BestSendTimeResult } from "@/lib/ai-api";
 import { SectionHint } from "@/components/ui/section-hint";
+import { usePlanLimits } from "@/hooks/usePlanLimits";
+import { PlanLimitGate } from "@/components/billing/PlanLimitGate";
 
 interface LogEntry {
   id: string;
@@ -37,6 +39,7 @@ interface Attendee {
 
 const CommunicationsSection = () => {
   const { event, isArchived } = useEventWorkspace();
+  const planLimits = usePlanLimits();
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [attendees, setAttendees] = useState<Attendee[]>([]);
   const [channel, setChannel] = useState("email");
@@ -146,6 +149,17 @@ const CommunicationsSection = () => {
 
   const send = async () => {
     if (!event || !message.trim()) return;
+
+    // Email soft limit check
+    if (channel === "email") {
+      if (!planLimits.canCreate("emails")) {
+        toast.error("Monthly email limit reached. Upgrade your plan to send more.");
+        return;
+      } else if (planLimits.emails.percent >= 80) {
+        toast.warning(`You've used ${planLimits.emails.percent}% of your monthly email limit.`);
+      }
+    }
+
     const recipients = getRecipients();
     if (recipients.length === 0) {
       toast.error("No recipients selected");
