@@ -193,22 +193,7 @@ const WebsiteSection = () => {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader><CardTitle className="text-lg">Publish Readiness Checklist</CardTitle></CardHeader>
-        <CardContent className="space-y-3">
-          {checks.map((c) => (
-            <div key={c.label} className="flex items-center gap-3 text-sm">
-              {c.ok ? <Check className="h-4 w-4 text-primary" /> : <X className="h-4 w-4 text-destructive" />}
-              <span className={c.ok ? "" : "text-muted-foreground"}>{c.label}</span>
-            </div>
-          ))}
-          <div className="pt-2 border-t border-border mt-4">
-            <p className="text-xs text-muted-foreground">
-              {allPass ? "All checks passed — this event can be published." : "Fix the items above before publishing."}
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+
 
       {/* AI SEO Optimizer */}
       <SeoOptimizerCard event={event} autosave={autosave} isArchived={isArchived} />
