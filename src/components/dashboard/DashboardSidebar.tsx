@@ -307,10 +307,18 @@ export const DashboardSidebar = () => {
     { to: "/dashboard/settings", icon: Settings, label: "Settings", active: isActive("/dashboard/settings") },
   ];
 
+  const tourIdMap: Record<string, string> = {
+    "/dashboard/clients": "tour-clients",
+    "/dashboard/events": "tour-events",
+    "/dashboard/billing": "tour-billing",
+    "/dashboard/support": "tour-support",
+  };
+
   const renderLink = (link: { to: string; icon: LucideIcon; label: string; active: boolean; badge?: string }) => {
     const inner = (
       <Link
         to={link.to}
+        data-tour={tourIdMap[link.to] || undefined}
         className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
           isIconOnly ? "justify-center" : ""
         } ${
