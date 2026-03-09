@@ -3,6 +3,7 @@ import type { PublicEventData } from "@/lib/publicSite/types";
 import { Calendar, MapPin, ArrowDown } from "lucide-react";
 import { format } from "date-fns";
 import { motion } from "framer-motion";
+import { Button } from "@/components/ui/button";
 
 const AnimatedShaderBackground = lazy(() => import("@/components/ui/animated-shader-background"));
 
