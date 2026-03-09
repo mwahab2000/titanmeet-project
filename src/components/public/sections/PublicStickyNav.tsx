@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import type { PublicEventData } from "@/lib/publicSite/types";
+import { Menu } from "lucide-react";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
 interface Props { data: PublicEventData; className?: string; }
 
