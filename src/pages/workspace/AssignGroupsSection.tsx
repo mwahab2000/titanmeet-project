@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useEventWorkspace } from "@/contexts/EventWorkspaceContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { SectionHint } from "@/components/ui/section-hint";
 
 interface Attendee { id: string; name: string; email: string; }
 interface Group { id: string; name: string; capacity: number | null; }
