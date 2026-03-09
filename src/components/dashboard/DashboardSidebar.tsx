@@ -1,38 +1,85 @@
 import { Link, useLocation } from "react-router-dom";
-import { Calendar, LayoutDashboard, Settings, LogOut, Plus, Building2, Image, Images, Info, ListOrdered, UserCog, UsersRound, Layers, Bus, MapPin, Megaphone, ClipboardList, MessageSquare, Users, Mic, Globe, Shirt, CreditCard, LifeBuoy, Shield, FileEdit, Copy, MailPlus } from "lucide-react";
+import { Calendar, LayoutDashboard, Settings, LogOut, Plus, Building2, Image, Images, Info, ListOrdered, UserCog, UsersRound, Layers, Bus, MapPin, Megaphone, ClipboardList, MessageSquare, Users, Mic, Globe, Shirt, CreditCard, LifeBuoy, Shield, FileEdit, Copy, MailPlus, ChevronDown, ChevronRight as ChevronRightIcon, Palette, UserCheck, Truck, Sparkles, Send, type LucideIcon } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import logo from "@/assets/logo.png";
-import { useState, useEffect, useCallback, useContext } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useEventWorkspaceOptional } from "@/contexts/EventWorkspaceContext";
 import { useBilling } from "@/hooks/useBilling";
 import { useAdminRole } from "@/hooks/useAdminRole";
+import { useIsMobile, useIsTablet } from "@/hooks/use-mobile";
 
 type CompletionStatus = "empty" | "partial" | "done";
 
-const workspaceSections = [
-  { icon: Image, label: "Hero", path: "hero" },
-  { icon: Info, label: "Event Info", path: "info" },
-  { icon: Mic, label: "Speakers", path: "speakers" },
-  { icon: ListOrdered, label: "Agenda", path: "agenda" },
-  { icon: UserCog, label: "Organizers", path: "organizers" },
-  { icon: UsersRound, label: "Attendees", path: "attendees" },
-  { icon: Layers, label: "Groups", path: "groups" },
-  { icon: Users, label: "Assign Groups", path: "assign-groups" },
-  { icon: Bus, label: "Transportation", path: "transportation" },
-  { icon: Shirt, label: "Dress Code", path: "dress-code" },
-  { icon: Images, label: "Gallery", path: "gallery" },
-  { icon: MapPin, label: "Venue", path: "venue" },
-  { icon: Megaphone, label: "Announcements", path: "announcements" },
-  { icon: Megaphone, label: "Event Alerts", path: "event-announcements" },
-  { icon: ClipboardList, label: "Survey", path: "survey" },
-  { icon: MessageSquare, label: "Communications", path: "communications" },
-  { icon: Globe, label: "Website", path: "website" },
-  { icon: MailPlus, label: "Invitations", path: "invitations" },
+interface WorkspaceSection {
+  icon: LucideIcon;
+  label: string;
+  path: string;
+}
+
+interface SectionGroup {
+  label: string;
+  icon: LucideIcon;
+  sections: WorkspaceSection[];
+}
+
+const sectionGroups: SectionGroup[] = [
+  {
+    label: "Content",
+    icon: Palette,
+    sections: [
+      { icon: Image, label: "Hero", path: "hero" },
+      { icon: Info, label: "Event Info", path: "info" },
+      { icon: Mic, label: "Speakers", path: "speakers" },
+      { icon: ListOrdered, label: "Agenda", path: "agenda" },
+      { icon: UserCog, label: "Organizers", path: "organizers" },
+    ],
+  },
+  {
+    label: "Attendees",
+    icon: UserCheck,
+    sections: [
+      { icon: UsersRound, label: "Attendees", path: "attendees" },
+      { icon: Layers, label: "Groups", path: "groups" },
+      { icon: Users, label: "Assign Groups", path: "assign-groups" },
+    ],
+  },
+  {
+    label: "Logistics",
+    icon: Truck,
+    sections: [
+      { icon: Bus, label: "Transportation", path: "transportation" },
+      { icon: MapPin, label: "Venue", path: "venue" },
+      { icon: Shirt, label: "Dress Code", path: "dress-code" },
+    ],
+  },
+  {
+    label: "Engagement",
+    icon: Sparkles,
+    sections: [
+      { icon: Images, label: "Gallery", path: "gallery" },
+      { icon: Megaphone, label: "Announcements", path: "announcements" },
+      { icon: Megaphone, label: "Event Alerts", path: "event-announcements" },
+      { icon: ClipboardList, label: "Survey", path: "survey" },
+      { icon: MessageSquare, label: "Communications", path: "communications" },
+    ],
+  },
+  {
+    label: "Publish",
+    icon: Send,
+    sections: [
+      { icon: Globe, label: "Website", path: "website" },
+      { icon: MailPlus, label: "Invitations", path: "invitations" },
+    ],
+  },
 ];
+
+// Flatten for compatibility
+const workspaceSections = sectionGroups.flatMap(g => g.sections);
 
 const dotColor: Record<CompletionStatus, string> = {
   empty: "bg-muted-foreground/40",
@@ -58,6 +105,7 @@ function computeCompletion(event: any, counts: Record<string, number>): Record<s
     gallery: (Array.isArray(event.gallery_images) ? event.gallery_images : []).length > 0 ? "done" : "empty",
     venue: event.venue_name ? "done" : "empty",
     announcements: counts.announcements > 0 ? "done" : "empty",
+    "event-announcements": "done",
     survey: counts.survey > 0 ? "done" : "empty",
     communications: "done",
     website: "done",
@@ -65,19 +113,130 @@ function computeCompletion(event: any, counts: Record<string, number>): Record<s
   };
 }
 
+function getGroupDotColor(group: SectionGroup, completionMap: Record<string, CompletionStatus>): string {
+  const statuses = group.sections.map(s => completionMap[s.path]).filter(Boolean);
+  if (statuses.length === 0) return dotColor.empty;
+  if (statuses.every(s => s === "done")) return dotColor.done;
+  if (statuses.some(s => s === "done" || s === "partial")) return dotColor.partial;
+  return dotColor.empty;
+}
+
+interface GroupedSectionsProps {
+  activeEventId: string;
+  completionMap: Record<string, CompletionStatus>;
+  eventTitle: string;
+  isWorkspaceActive: (section: string) => boolean;
+  isIconOnly?: boolean;
+}
+
+export const GroupedWorkspaceSections = ({ activeEventId, completionMap, eventTitle, isWorkspaceActive, isIconOnly }: GroupedSectionsProps) => {
+  const location = useLocation();
+  const currentSection = location.pathname.split("/").pop() || "";
+
+  // Determine which group should be open based on current section
+  const activeGroupIndex = sectionGroups.findIndex(g => g.sections.some(s => s.path === currentSection));
+
+  const [openGroups, setOpenGroups] = useState<Record<number, boolean>>(() => {
+    const initial: Record<number, boolean> = {};
+    sectionGroups.forEach((_, i) => { initial[i] = true; });
+    return initial;
+  });
+
+  const toggleGroup = (index: number) => {
+    setOpenGroups(prev => ({ ...prev, [index]: !prev[index] }));
+  };
+
+  return (
+    <div className="space-y-1">
+      <div className="px-3 py-1.5 text-xs font-semibold text-sidebar-foreground/60 truncate">
+        {eventTitle}
+      </div>
+      {sectionGroups.map((group, groupIdx) => {
+        const isOpen = openGroups[groupIdx] ?? true;
+        const groupDot = getGroupDotColor(group, completionMap);
+
+        return (
+          <div key={group.label}>
+            <button
+              onClick={() => toggleGroup(groupIdx)}
+              className="flex w-full items-center justify-between px-3 py-1.5 group"
+            >
+              <div className="flex items-center gap-2">
+                <span className={`h-1.5 w-1.5 rounded-full ${groupDot}`} />
+                <span className="text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/50">
+                  {group.label}
+                </span>
+              </div>
+              <ChevronDown
+                className="h-3 w-3 text-sidebar-foreground/40 transition-transform duration-200"
+                style={{ transform: isOpen ? "rotate(0deg)" : "rotate(-180deg)" }}
+              />
+            </button>
+            <div
+              className="overflow-hidden transition-all duration-200"
+              style={{ maxHeight: isOpen ? "500px" : "0px" }}
+            >
+              {group.sections.map((section) => {
+                const status = completionMap[section.path];
+                if (isIconOnly) {
+                  return (
+                    <TooltipProvider key={section.path} delayDuration={0}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Link
+                            to={`/dashboard/events/${activeEventId}/${section.path}`}
+                            className={`flex items-center justify-center rounded-md px-2 py-1.5 transition-colors ${
+                              isWorkspaceActive(section.path)
+                                ? "bg-sidebar-accent text-sidebar-primary"
+                                : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                            }`}
+                          >
+                            <section.icon className="h-3.5 w-3.5" />
+                          </Link>
+                        </TooltipTrigger>
+                        <TooltipContent side="right">{section.label}</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  );
+                }
+                return (
+                  <Link
+                    key={section.path}
+                    to={`/dashboard/events/${activeEventId}/${section.path}`}
+                    className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                      isWorkspaceActive(section.path)
+                        ? "bg-sidebar-accent text-sidebar-primary"
+                        : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                    }`}
+                  >
+                    <section.icon className="h-3.5 w-3.5" />
+                    {section.label}
+                    {status && <span className={`ml-auto h-1.5 w-1.5 rounded-full ${dotColor[status]}`} />}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
 export const DashboardSidebar = () => {
   const location = useLocation();
-  const { signOut, user } = useAuth();
+  const { signOut } = useAuth();
   const { currentPlan } = useBilling();
   const { isAdmin } = useAdminRole();
+  const isMobile = useIsMobile();
+  const isTablet = useIsTablet();
   const [activeEventId, setActiveEventId] = useState<string | null>(null);
   const [activeEventTitle, setActiveEventTitle] = useState<string>("");
   const [localCompletionMap, setLocalCompletionMap] = useState<Record<string, CompletionStatus>>({});
+  const [tabletExpanded, setTabletExpanded] = useState(false);
 
-  // Use workspace context when available (inside EventWorkspaceLayout)
   const workspaceCtx = useEventWorkspaceOptional();
 
-  // Detect active event from URL
   useEffect(() => {
     const match = location.pathname.match(/\/dashboard\/events\/([^/]+)\//);
     if (match && match[1] !== "new") {
@@ -87,7 +246,6 @@ export const DashboardSidebar = () => {
     }
   }, [location.pathname]);
 
-  // Load active event data (only when workspace context is NOT available)
   useEffect(() => {
     if (!activeEventId || workspaceCtx) {
       if (!activeEventId) {
@@ -121,155 +279,151 @@ export const DashboardSidebar = () => {
     load();
   }, [activeEventId, workspaceCtx]);
 
-  // Use workspace context's completion map when available, otherwise fall back to local
   const completionMap = workspaceCtx?.completionMap ?? localCompletionMap;
   const eventTitle = workspaceCtx?.event?.title || activeEventTitle;
   const isActive = (path: string) => location.pathname === path;
 
   const isWorkspaceActive = (section: string) =>
-    activeEventId && location.pathname === `/dashboard/events/${activeEventId}/${section}`;
+    activeEventId ? location.pathname === `/dashboard/events/${activeEventId}/${section}` : false;
+
+  // Hide sidebar entirely on mobile
+  if (isMobile) return null;
+
+  const isIconOnly = isTablet && !tabletExpanded;
+  const sidebarWidth = isIconOnly ? "w-16" : "w-64";
+
+  const navLinks = [
+    { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard", active: isActive("/dashboard") },
+    { to: "/dashboard/clients", icon: Building2, label: "Clients", active: location.pathname.startsWith("/dashboard/clients") },
+    { to: "/dashboard/events", icon: Calendar, label: "Events", active: isActive("/dashboard/events") || !!activeEventId },
+    { to: "/dashboard/events/drafts", icon: FileEdit, label: "Drafts", active: isActive("/dashboard/events/drafts") },
+    { to: "/dashboard/templates", icon: Copy, label: "Templates", active: isActive("/dashboard/templates") },
+  ];
+
+  const bottomLinks = [
+    { to: "/dashboard/billing", icon: CreditCard, label: "Billing", active: isActive("/dashboard/billing"), badge: currentPlan?.name },
+    { to: "/dashboard/support", icon: LifeBuoy, label: "Support", active: location.pathname.startsWith("/dashboard/support") },
+    ...(isAdmin ? [{ to: "/dashboard/admin/support", icon: Shield, label: "Manage Tickets", active: isActive("/dashboard/admin/support") }] : []),
+    { to: "/dashboard/settings", icon: Settings, label: "Settings", active: isActive("/dashboard/settings") },
+  ];
+
+  const renderLink = (link: { to: string; icon: LucideIcon; label: string; active: boolean; badge?: string }) => {
+    const inner = (
+      <Link
+        to={link.to}
+        className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+          isIconOnly ? "justify-center" : ""
+        } ${
+          link.active ? "bg-sidebar-accent text-sidebar-primary" : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+        }`}
+      >
+        <link.icon className="h-4 w-4 shrink-0" />
+        {!isIconOnly && (
+          <>
+            {link.label}
+            {link.badge && (
+              <Badge variant="outline" className="ml-auto text-[10px] px-1.5 py-0 h-5 border-sidebar-border text-sidebar-foreground/60">
+                {link.badge}
+              </Badge>
+            )}
+          </>
+        )}
+      </Link>
+    );
+
+    if (isIconOnly) {
+      return (
+        <TooltipProvider key={link.to} delayDuration={0}>
+          <Tooltip>
+            <TooltipTrigger asChild>{inner}</TooltipTrigger>
+            <TooltipContent side="right">{link.label}</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      );
+    }
+
+    return <div key={link.to}>{inner}</div>;
+  };
 
   return (
-    <aside className="fixed left-0 top-0 z-40 flex h-screen w-64 flex-col bg-sidebar border-r border-sidebar-border overflow-y-auto">
-      <div className="flex h-16 items-center gap-2 border-b border-sidebar-border px-6">
+    <aside className={`fixed left-0 top-0 z-40 flex h-screen ${sidebarWidth} flex-col bg-sidebar border-r border-sidebar-border overflow-y-auto transition-all duration-200`}>
+      <div className={`flex h-16 items-center gap-2 border-b border-sidebar-border ${isIconOnly ? "justify-center px-2" : "px-6"}`}>
         <img src={logo} alt="TitanMeet" className="h-8 w-8" />
-        <span className="font-display text-lg font-bold text-sidebar-primary">TitanMeet</span>
+        {!isIconOnly && <span className="font-display text-lg font-bold text-sidebar-primary">TitanMeet</span>}
       </div>
 
-      <div className="p-4">
-        <Button className="w-full gradient-titan border-0 text-primary-foreground gap-2" asChild>
-          <Link to="/dashboard/events/new">
-            <Plus className="h-4 w-4" /> Create Event
-          </Link>
-        </Button>
-      </div>
+      {!isIconOnly && (
+        <div className="p-4">
+          <Button className="w-full gradient-titan border-0 text-primary-foreground gap-2" asChild>
+            <Link to="/dashboard/events/new">
+              <Plus className="h-4 w-4" /> Create Event
+            </Link>
+          </Button>
+        </div>
+      )}
+      {isIconOnly && (
+        <div className="p-2">
+          <TooltipProvider delayDuration={0}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button className="w-full gradient-titan border-0 text-primary-foreground p-0 h-10 w-10 mx-auto" size="icon" asChild>
+                  <Link to="/dashboard/events/new"><Plus className="h-4 w-4" /></Link>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right">Create Event</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+      )}
 
       <nav className="flex-1 space-y-1 px-3">
-        <Link
-          to="/dashboard"
-          className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-            isActive("/dashboard") ? "bg-sidebar-accent text-sidebar-primary" : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-          }`}
-        >
-          <LayoutDashboard className="h-4 w-4" /> Dashboard
-        </Link>
+        {navLinks.map(renderLink)}
 
-        <Link
-          to="/dashboard/clients"
-          className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-            location.pathname.startsWith("/dashboard/clients") ? "bg-sidebar-accent text-sidebar-primary" : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-          }`}
-        >
-          <Building2 className="h-4 w-4" /> Clients
-        </Link>
-
-        <Link
-          to="/dashboard/events"
-          className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-            (isActive("/dashboard/events") || activeEventId) ? "bg-sidebar-accent text-sidebar-primary" : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-          }`}
-        >
-          <Calendar className="h-4 w-4" /> Events
-        </Link>
-
-        <Link
-          to="/dashboard/events/drafts"
-          className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-            isActive("/dashboard/events/drafts") ? "bg-sidebar-accent text-sidebar-primary" : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-          }`}
-        >
-          <FileEdit className="h-4 w-4" /> Drafts
-        </Link>
-
-        <Link
-          to="/dashboard/templates"
-          className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-            isActive("/dashboard/templates") ? "bg-sidebar-accent text-sidebar-primary" : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-          }`}
-        >
-          <Copy className="h-4 w-4" /> Templates
-        </Link>
         {activeEventId && (
-          <div className="ml-4 space-y-0.5 border-l border-sidebar-border pl-2">
-            <div className="px-3 py-1.5 text-xs font-semibold text-sidebar-foreground/60 truncate">
-              {eventTitle}
-            </div>
-            {workspaceSections.map((section) => {
-              const status = completionMap[section.path];
-              return (
-                <Link
-                  key={section.path}
-                  to={`/dashboard/events/${activeEventId}/${section.path}`}
-                  className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-                    isWorkspaceActive(section.path)
-                      ? "bg-sidebar-accent text-sidebar-primary"
-                      : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                  }`}
-                >
-                  <section.icon className="h-3.5 w-3.5" />
-                  {section.label}
-                  {status && <span className={`ml-auto h-1.5 w-1.5 rounded-full ${dotColor[status]}`} />}
-                </Link>
-              );
-            })}
+          <div className={`${isIconOnly ? "" : "ml-4"} space-y-0.5 ${isIconOnly ? "" : "border-l border-sidebar-border pl-2"}`}>
+            <GroupedWorkspaceSections
+              activeEventId={activeEventId}
+              completionMap={completionMap}
+              eventTitle={isIconOnly ? "" : eventTitle}
+              isWorkspaceActive={isWorkspaceActive}
+              isIconOnly={isIconOnly}
+            />
           </div>
         )}
 
-        <Link
-          to="/dashboard/billing"
-          className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-            isActive("/dashboard/billing") ? "bg-sidebar-accent text-sidebar-primary" : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-          }`}
-        >
-          <CreditCard className="h-4 w-4" /> Billing
-          {currentPlan && (
-            <Badge variant="outline" className="ml-auto text-[10px] px-1.5 py-0 h-5 border-sidebar-border text-sidebar-foreground/60">
-              {currentPlan.name}
-            </Badge>
-          )}
-        </Link>
-
-        <Link
-          to="/dashboard/support"
-          className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-            location.pathname.startsWith("/dashboard/support") ? "bg-sidebar-accent text-sidebar-primary" : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-          }`}
-        >
-          <LifeBuoy className="h-4 w-4" /> Support
-        </Link>
-
-        {isAdmin && (
-          <Link
-            to="/dashboard/admin/support"
-            className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-              isActive("/dashboard/admin/support") ? "bg-sidebar-accent text-sidebar-primary" : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-            }`}
-          >
-            <Shield className="h-4 w-4" /> Manage Tickets
-          </Link>
-        )}
-
-        <Link
-          to="/dashboard/settings"
-          className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-            isActive("/dashboard/settings") ? "bg-sidebar-accent text-sidebar-primary" : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-          }`}
-        >
-          <Settings className="h-4 w-4" /> Settings
-        </Link>
+        {bottomLinks.map(renderLink)}
       </nav>
 
       <div className="border-t border-sidebar-border p-3 space-y-1">
-        <div className="flex items-center justify-between rounded-lg px-3 py-2">
-          <span className="text-sm font-medium text-sidebar-foreground">Theme</span>
-          <ThemeToggle className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground" />
-        </div>
+        {!isIconOnly && (
+          <div className="flex items-center justify-between rounded-lg px-3 py-2">
+            <span className="text-sm font-medium text-sidebar-foreground">Theme</span>
+            <ThemeToggle className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground" />
+          </div>
+        )}
+        {isIconOnly && (
+          <div className="flex justify-center py-2">
+            <ThemeToggle className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground" />
+          </div>
+        )}
         <button
           onClick={() => signOut()}
-          className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-destructive"
+          className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-destructive ${isIconOnly ? "justify-center" : ""}`}
         >
-          <LogOut className="h-4 w-4" /> Sign Out
+          <LogOut className="h-4 w-4" />
+          {!isIconOnly && "Sign Out"}
         </button>
+        {isTablet && (
+          <button
+            onClick={() => setTabletExpanded(!tabletExpanded)}
+            className="flex w-full items-center justify-center rounded-lg px-3 py-2.5 text-sidebar-foreground/60 hover:bg-sidebar-accent transition-colors"
+          >
+            <ChevronRightIcon
+              className="h-4 w-4 transition-transform duration-200"
+              style={{ transform: tabletExpanded ? "rotate(180deg)" : "rotate(0deg)" }}
+            />
+          </button>
+        )}
       </div>
     </aside>
   );
