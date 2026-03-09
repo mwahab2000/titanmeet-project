@@ -224,6 +224,31 @@ const BillingPage = () => {
   const isCanceledButActive = subscription?.cancel_at_period_end && !isAccessExpired;
   const canCancelSubscription = subscription?.provider_subscription_id && subscription?.status === "active" && !subscription?.cancel_at_period_end;
 
+  /** Check if switching to targetPlanId is a downgrade that exceeds limits */
+  const checkDowngrade = (targetPlanId: string) => {
+    const currentIdx = PLAN_ORDER_IDX[subscription?.plan_id || "starter"] ?? 0;
+    const targetIdx = PLAN_ORDER_IDX[targetPlanId] ?? 0;
+    // Not a downgrade
+    if (targetIdx >= currentIdx) return null;
+
+    const targetLimits = PLAN_NUMERIC_LIMITS[targetPlanId] || PLAN_NUMERIC_LIMITS.starter;
+    const usageMap: Record<string, number> = {
+      clients: planLimits.clients.used,
+      events: planLimits.activeEvents.used,
+      attendees: planLimits.attendees.used,
+      emails: planLimits.emails.used,
+      storage: planLimits.storage.used,
+    };
+
+    const issues: { resource: string; current: number; limit: number }[] = [];
+    for (const [key, limit] of Object.entries(targetLimits)) {
+      if (limit !== Infinity && usageMap[key] > limit) {
+        issues.push({ resource: key, current: usageMap[key], limit });
+      }
+    }
+    return { planId: targetPlanId, blocked: issues.length > 0, issues };
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
