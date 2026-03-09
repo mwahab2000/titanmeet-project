@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { SectionHint } from "@/components/ui/section-hint";
 
 const InvitationsSection = () => {
   const { event, isArchived } = useEventWorkspace();
@@ -153,6 +154,13 @@ const InvitationsSection = () => {
 
   return (
     <div className="space-y-6">
+      {invites.length === 0 && (
+        <SectionHint
+          sectionKey="invitations"
+          title="Invitations"
+          description="Generate and send personalised RSVP links to your attendees via email or WhatsApp. Track confirmed, pending, and declined responses here."
+        />
+      )}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h2 className="font-display text-lg font-semibold">Event Invitations</h2>
         {!isArchived && (

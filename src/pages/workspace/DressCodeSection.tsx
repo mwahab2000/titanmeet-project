@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Plus, Trash2, Upload, X, Shirt } from "lucide-react";
 import { differenceInDays, parseISO } from "date-fns";
 import { useSignedUrl } from "@/hooks/useSignedUrls";
+import { SectionHint } from "@/components/ui/section-hint";
 
 /** Small component to display a signed dress-code reference image */
 const DressCodeRefImage = ({ path, alt }: { path: string; alt: string }) => {
@@ -175,6 +176,13 @@ const DressCodeSection = () => {
 
   return (
     <div className="space-y-6 max-w-3xl">
+      {entries.length === 0 && (
+        <SectionHint
+          sectionKey="dress-code"
+          title="Dress Code"
+          description="Specify the dress code for your event and optionally upload reference images. This section is shown on the public page if filled."
+        />
+      )}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-bold font-display flex items-center gap-2">

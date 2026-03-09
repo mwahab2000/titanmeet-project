@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import TransportSettingsCard, { type TransportSettings } from "./transport/TransportSettingsCard";
 import RoutesCard, { type TransportRoute, type TransportStop } from "./transport/RoutesCard";
+import { SectionHint } from "@/components/ui/section-hint";
 
 const defaultSettings = (eventId: string): TransportSettings => ({
   event_id: eventId,
@@ -62,6 +63,13 @@ const TransportationSection = () => {
   const s = settings || defaultSettings(event.id);
   return (
     <div className="space-y-6">
+      {routes.length === 0 && (
+        <SectionHint
+          sectionKey="transportation"
+          title="Transportation"
+          description="Add bus routes and pickup stops for coordinated attendee transport. Routes and stops are displayed on the public event page."
+        />
+      )}
       <TransportSettingsCard settings={s} onChange={upsertSettings} disabled={isArchived} />
       {s.enabled && (
         <RoutesCard eventId={event.id} disabled={isArchived} routes={routes} stops={stops} reload={loadAll} />

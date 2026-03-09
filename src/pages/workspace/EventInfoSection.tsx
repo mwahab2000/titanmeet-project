@@ -11,6 +11,7 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Lock, Copy, Check } from "lucide-react";
 import { useState } from "react";
+import { SectionHint } from "@/components/ui/section-hint";
 
 const EventInfoSection = () => {
   const { event, autosave, isArchived } = useEventWorkspace();
@@ -29,6 +30,15 @@ const EventInfoSection = () => {
 
   return (
     <Card>
+      {!event.title && !event.description && !event.event_date && (
+        <div className="px-6 pt-6">
+          <SectionHint
+            sectionKey="event-info"
+            title="Event Info"
+            description="Set your event title, date, description, and URL slug. All of these are required to publish your event."
+          />
+        </div>
+      )}
       <CardHeader><CardTitle className="font-display">Event Info</CardTitle></CardHeader>
       <CardContent className="space-y-5">
         <div className="space-y-2">

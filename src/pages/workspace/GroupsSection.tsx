@@ -6,6 +6,7 @@ import { useEventWorkspace } from "@/contexts/EventWorkspaceContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Plus, Trash2 } from "lucide-react";
+import { SectionHint } from "@/components/ui/section-hint";
 
 interface Group { id: string; name: string; capacity: number | null; }
 
@@ -47,6 +48,15 @@ const GroupsSection = () => {
 
   return (
     <Card>
+      {items.length === 0 && (
+        <div className="px-6 pt-6">
+          <SectionHint
+            sectionKey="groups"
+            title="Groups"
+            description="Create named groups (e.g. VIP, Staff, Press) to organise your attendees. Groups enable targeted communications and transport assignments."
+          />
+        </div>
+      )}
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="font-display">Groups</CardTitle>
       </CardHeader>

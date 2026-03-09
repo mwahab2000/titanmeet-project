@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Plus, Trash2, Pin, ExternalLink, Megaphone, Eye } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { SectionHint } from "@/components/ui/section-hint";
 
 interface EventAnnouncement {
   id: string;
@@ -137,6 +138,13 @@ const EventAnnouncementsSection = () => {
 
   return (
     <div className="space-y-4">
+      {items.length === 0 && (
+        <SectionHint
+          sectionKey="event-alerts"
+          title="Event Alerts"
+          description="Send push notifications directly to attendees who have RSVPed. Use for last-minute updates and day-of instructions."
+        />
+      )}
       {/* Live preview ticker */}
       {items.length > 0 && <TickerPreview items={items.filter(i => i.target === "public")} />}
 

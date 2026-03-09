@@ -8,6 +8,7 @@ import { useNavigate } from "react-router-dom";
 import { buildPublicEventUrl, buildPublicEventUrlAbsolute } from "@/lib/subdomain";
 import { toast } from "sonner";
 import { callAi, type SeoResult } from "@/lib/ai-api";
+import { SectionHint } from "@/components/ui/section-hint";
 
 const themes = [
   { id: "corporate", name: "Corporate Clean", desc: "Structured, business-focused", color: "bg-[hsl(210,20%,95%)]" },
@@ -49,6 +50,13 @@ const WebsiteSection = () => {
 
   return (
     <div className="space-y-6 max-w-3xl">
+      {event.status !== "published" && (
+        <SectionHint
+          sectionKey="website"
+          title="Website"
+          description="Choose your event theme, run the publish checklist, and go live. Copy your public URL to share with attendees."
+        />
+      )}
       <h2 className="text-2xl font-bold font-display">Public Website</h2>
 
       {/* Preview button - always available for owners */}

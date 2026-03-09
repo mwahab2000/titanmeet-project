@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { X, Upload } from "lucide-react";
 import { useSignedUrls } from "@/hooks/useSignedUrls";
+import { SectionHint } from "@/components/ui/section-hint";
 
 const HeroSection = React.forwardRef<HTMLDivElement>((_, ref) => {
   const { event, autosave, isArchived } = useEventWorkspace();
@@ -41,6 +42,15 @@ const HeroSection = React.forwardRef<HTMLDivElement>((_, ref) => {
 
   return (
     <Card ref={ref}>
+      {heroPaths.length === 0 && !event.title && (
+        <div className="px-6 pt-6">
+          <SectionHint
+            sectionKey="hero"
+            title="Hero Section"
+            description="Upload your event cover image and set your hero tagline. This is the first thing attendees see on your public page. Required to publish."
+          />
+        </div>
+      )}
       <CardHeader><CardTitle className="font-display">Hero Section</CardTitle></CardHeader>
       <CardContent className="space-y-5">
         <div className="space-y-2">

@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Trash2, Upload, Mail, Bell, Users2, Download, FileDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { SectionHint } from "@/components/ui/section-hint";
 
 interface Attendee {
   id: string;
@@ -450,6 +451,13 @@ const AttendeesSection = () => {
 
   return (
     <div className="space-y-4">
+      {realItems.length === 0 && (
+        <SectionHint
+          sectionKey="attendees"
+          title="Attendees"
+          description="Add guests individually or import a CSV file. Attendees are required to send invitations and communications."
+        />
+      )}
       {/* Stats bar */}
       <div className="flex flex-wrap gap-3">
         <div className="rounded-lg border border-border bg-card px-4 py-2 text-center">

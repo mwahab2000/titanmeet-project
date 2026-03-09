@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { Send, Users, User, Sparkles, Loader2, Clock, ChevronDown } from "lucide-react";
 import { format } from "date-fns";
 import { callAi, type CommsDraftResult, type BestSendTimeResult } from "@/lib/ai-api";
+import { SectionHint } from "@/components/ui/section-hint";
 
 interface LogEntry {
   id: string;
@@ -223,6 +224,13 @@ const CommunicationsSection = () => {
 
   return (
     <div className="space-y-4">
+      {logs.length === 0 && (
+        <SectionHint
+          sectionKey="communications"
+          title="Communications"
+          description="Send bulk emails or WhatsApp messages to all attendees, a specific group, or selected individuals. All messages are logged here."
+        />
+      )}
       {!isArchived && (
         <Card>
           <CardHeader>

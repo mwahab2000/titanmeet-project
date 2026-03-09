@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { callAi, type SurveyAnalysisResult } from "@/lib/ai-api";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend } from "recharts";
+import { SectionHint } from "@/components/ui/section-hint";
 
 const SurveySection = () => {
   const { event, isArchived } = useEventWorkspace();
@@ -198,6 +199,13 @@ const SurveySection = () => {
 
   return (
     <div className="space-y-6">
+      {surveys.length === 0 && (
+        <SectionHint
+          sectionKey="survey"
+          title="Survey"
+          description="Build a pre or post-event survey and send it to your attendees. Results are collected and displayed with charts here."
+        />
+      )}
       {/* Survey list + actions */}
       <div className="flex items-center justify-between">
         <h2 className="font-display text-lg font-semibold">Surveys</h2>

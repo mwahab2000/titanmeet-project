@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { Plus, Trash2, Copy, Check, X, Sparkles, Loader2 } from "lucide-react";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { callAi, type AgendaItemAI } from "@/lib/ai-api";
+import { SectionHint } from "@/components/ui/section-hint";
 
 interface AgendaItem {
   id: string;
@@ -200,6 +201,13 @@ const AgendaSection = () => {
 
   return (
     <>
+    {items.length === 0 && (
+      <SectionHint
+        sectionKey="agenda"
+        title="Agenda"
+        description="Build your event schedule here. Attendees can see the full agenda on the public page. Add sessions with times and descriptions."
+      />
+    )}
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="font-display">Agenda</CardTitle>

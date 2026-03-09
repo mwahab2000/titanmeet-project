@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useEventWorkspace } from "@/contexts/EventWorkspaceContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { SectionHint } from "@/components/ui/section-hint";
 
 interface Attendee { id: string; name: string; email: string; }
 interface Group { id: string; name: string; capacity: number | null; }
@@ -49,6 +50,14 @@ const AssignGroupsSection = () => {
   if (!event) return null;
 
   return (
+    <div className="space-y-4">
+      {(attendees.length === 0 || groups.length === 0) && (
+        <SectionHint
+          sectionKey="assign-groups"
+          title="Assign Groups"
+          description="Assign your attendees to the groups you've created. Attendees can belong to one group at a time."
+        />
+      )}
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_2fr] gap-4">
       {/* Unassigned */}
       <Card
@@ -94,6 +103,7 @@ const AssignGroupsSection = () => {
         })}
         {groups.length === 0 && <p className="text-sm text-muted-foreground">Create groups first.</p>}
       </div>
+    </div>
     </div>
   );
 };
