@@ -19,6 +19,7 @@ const themes = [
   { id: "elegant", name: "Elegant Premium", desc: "Warm tones, refined serif", color: "bg-[hsl(30,20%,95%)]" },
   { id: "modern", name: "Modern Conference", desc: "Tech-forward, bold primary", color: "bg-[hsl(220,60%,95%)]" },
   { id: "midnight-gala", name: "Midnight Gala", desc: "Dark luxury, gold accents, serif elegance", color: "bg-[#0D0D14]" },
+  { id: "tech-summit", name: "Tech Summit", desc: "Dark, monospace, developer conference", color: "bg-[#0E1420]" },
 ];
 
 const CHECK_SECTION_MAP: Record<string, string | null> = {

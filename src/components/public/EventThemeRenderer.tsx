@@ -4,6 +4,7 @@ import { ThemePublicElegant } from "./themes/ThemePublicElegant";
 import { ThemePublicModern } from "./themes/ThemePublicModern";
 import { ThemePublicCorporateMui } from "./themes/ThemePublicCorporateMui";
 import { ThemePublicMidnightGala } from "./themes/ThemePublicMidnightGala";
+import { ThemePublicTechSummit } from "./themes/ThemePublicTechSummit";
 
 interface Props {
   data: PublicEventData;
@@ -15,6 +16,7 @@ const themeMap: Record<string, React.FC<Props>> = {
   modern: ThemePublicModern,
   "corporate-mui": ThemePublicCorporateMui,
   "midnight-gala": ThemePublicMidnightGala,
+  "tech-summit": ThemePublicTechSummit,
 };
 
 export const EventThemeRenderer: React.FC<Props> = ({ data }) => {
