@@ -21,6 +21,7 @@ const themes = [
   { id: "midnight-gala", name: "Midnight Gala", desc: "Dark luxury, gold accents, serif elegance", color: "bg-[#0D0D14]" },
   { id: "tech-summit", name: "Tech Summit", desc: "Dark, monospace, developer conference", color: "bg-[#0E1420]" },
   { id: "nature-wellness", name: "Nature & Wellness", desc: "Organic, warm, earthy retreat feel", color: "bg-[#FAF7F2]" },
+  { id: "creative-festival", name: "Creative Festival", desc: "Bold, maximalist, vivid creative energy", color: "bg-gradient-to-br from-violet-600 to-pink-600" },
 ];
 
 const CHECK_SECTION_MAP: Record<string, string | null> = {
