@@ -7,6 +7,7 @@ import { useIsMobile, useIsTablet } from "@/hooks/use-mobile";
 import { LayoutDashboard, Building2, Calendar, CreditCard, Settings, Menu } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import { useEventWorkspaceOptional } from "@/contexts/EventWorkspaceContext";
+import { FirstLoginTour } from "@/components/onboarding/FirstLoginTour";
 
 const mobileNavItems = [
   { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
