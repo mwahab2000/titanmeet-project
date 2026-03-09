@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import TransportSettingsCard, { type TransportSettings } from "./transport/TransportSettingsCard";
 import RoutesCard, { type TransportRoute, type TransportStop } from "./transport/RoutesCard";
+import { SectionHint } from "@/components/ui/section-hint";
 
 const defaultSettings = (eventId: string): TransportSettings => ({
   event_id: eventId,
