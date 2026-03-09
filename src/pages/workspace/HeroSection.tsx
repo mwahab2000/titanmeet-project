@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { X, Upload } from "lucide-react";
 import { useSignedUrls } from "@/hooks/useSignedUrls";
+import { SectionHint } from "@/components/ui/section-hint";
 
 const HeroSection = React.forwardRef<HTMLDivElement>((_, ref) => {
   const { event, autosave, isArchived } = useEventWorkspace();
