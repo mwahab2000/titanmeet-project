@@ -1145,6 +1145,44 @@ export type Database = {
           },
         ]
       }
+      plan_limit_overrides: {
+        Row: {
+          created_at: string | null
+          custom_limit: number | null
+          id: string
+          is_grandfathered: boolean | null
+          reason: string | null
+          resource: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          custom_limit?: number | null
+          id?: string
+          is_grandfathered?: boolean | null
+          reason?: string | null
+          resource: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          custom_limit?: number | null
+          id?: string
+          is_grandfathered?: boolean | null
+          reason?: string | null
+          resource?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_limit_overrides_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -1257,6 +1295,47 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      storage_usage: {
+        Row: {
+          client_id: string
+          created_at: string | null
+          file_name: string
+          file_size_bytes: number
+          file_type: string | null
+          id: string
+          storage_path: string
+          updated_at: string | null
+        }
+        Insert: {
+          client_id: string
+          created_at?: string | null
+          file_name: string
+          file_size_bytes: number
+          file_type?: string | null
+          id?: string
+          storage_path: string
+          updated_at?: string | null
+        }
+        Update: {
+          client_id?: string
+          created_at?: string | null
+          file_name?: string
+          file_size_bytes?: number
+          file_type?: string | null
+          id?: string
+          storage_path?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "storage_usage_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
             referencedColumns: ["id"]
           },
         ]
@@ -1826,6 +1905,53 @@ export type Database = {
           },
         ]
       }
+      usage_snapshots: {
+        Row: {
+          active_events_count: number | null
+          attendees_count: number | null
+          billing_cycle_end: string
+          billing_cycle_start: string
+          clients_count: number | null
+          emails_count: number | null
+          id: string
+          snapshot_taken_at: string | null
+          storage_bytes: number | null
+          user_id: string
+        }
+        Insert: {
+          active_events_count?: number | null
+          attendees_count?: number | null
+          billing_cycle_end: string
+          billing_cycle_start: string
+          clients_count?: number | null
+          emails_count?: number | null
+          id?: string
+          snapshot_taken_at?: string | null
+          storage_bytes?: number | null
+          user_id: string
+        }
+        Update: {
+          active_events_count?: number | null
+          attendees_count?: number | null
+          billing_cycle_end?: string
+          billing_cycle_start?: string
+          clients_count?: number | null
+          emails_count?: number | null
+          id?: string
+          snapshot_taken_at?: string | null
+          storage_bytes?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "usage_snapshots_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           id: string
@@ -1925,6 +2051,7 @@ export type Database = {
         }
         Returns: string
       }
+      get_user_usage: { Args: { p_user_id: string }; Returns: Json }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
