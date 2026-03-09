@@ -8,11 +8,13 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useEventWorkspace } from "@/contexts/EventWorkspaceContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Send, Users, User } from "lucide-react";
+import { Send, Users, User, Sparkles, Loader2, Clock, ChevronDown } from "lucide-react";
 import { format } from "date-fns";
+import { callAi, type CommsDraftResult, type BestSendTimeResult } from "@/lib/ai-api";
 
 interface LogEntry {
   id: string;
