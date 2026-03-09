@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { usePlanLimits } from "@/hooks/usePlanLimits";
+import { PlanLimitGate } from "@/components/billing/PlanLimitGate";
 
 const slugify = (text: string) => text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
@@ -17,6 +19,7 @@ const CreateClient = () => {
   const [slug, setSlug] = useState("");
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
+  const planLimits = usePlanLimits();
 
   const handleNameChange = (val: string) => {
     setName(val);
@@ -26,6 +29,16 @@ const CreateClient = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
+
+    // Server-side limit check
+    const { data: limitCheck } = await supabase.functions.invoke("check-plan-limits", {
+      body: { resource: "clients" },
+    });
+    if (limitCheck && !limitCheck.allowed) {
+      toast.error(limitCheck.reason || "Client limit reached. Please upgrade your plan.");
+      return;
+    }
+
     setLoading(true);
 
     // Check slug uniqueness
@@ -52,31 +65,41 @@ const CreateClient = () => {
     navigate("/dashboard/events/new");
   };
 
+  if (planLimits.loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-lg">
-      <Card>
-        <CardHeader><CardTitle className="font-display text-2xl">Create Client</CardTitle></CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label>Client Name *</Label>
-              <Input value={name} onChange={e => handleNameChange(e.target.value)} required />
-            </div>
-            <div className="space-y-2">
-              <Label>Client Slug *</Label>
-              <Input value={slug} onChange={e => setSlug(slugify(e.target.value))} required pattern="[a-z0-9-]+" />
-              <p className="text-xs text-muted-foreground">Used in the public URL: {slug || "..."}.titanmeet.com</p>
-            </div>
-            <div className="space-y-2">
-              <Label>Logo (optional)</Label>
-              <Input type="file" accept="image/*" onChange={e => setLogoFile(e.target.files?.[0] || null)} />
-            </div>
-            <Button type="submit" className="gradient-titan border-0 text-primary-foreground" disabled={loading}>
-              {loading ? "Saving..." : "Save Client"}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+      <PlanLimitGate resource={planLimits.clients} resourceLabel="clients" planName={planLimits.planId}>
+        <Card>
+          <CardHeader><CardTitle className="font-display text-2xl">Create Client</CardTitle></CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label>Client Name *</Label>
+                <Input value={name} onChange={e => handleNameChange(e.target.value)} required />
+              </div>
+              <div className="space-y-2">
+                <Label>Client Slug *</Label>
+                <Input value={slug} onChange={e => setSlug(slugify(e.target.value))} required pattern="[a-z0-9-]+" />
+                <p className="text-xs text-muted-foreground">Used in the public URL: {slug || "..."}.titanmeet.com</p>
+              </div>
+              <div className="space-y-2">
+                <Label>Logo (optional)</Label>
+                <Input type="file" accept="image/*" onChange={e => setLogoFile(e.target.files?.[0] || null)} />
+              </div>
+              <Button type="submit" className="gradient-titan border-0 text-primary-foreground" disabled={loading}>
+                {loading ? "Saving..." : "Save Client"}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </PlanLimitGate>
     </div>
   );
 };
