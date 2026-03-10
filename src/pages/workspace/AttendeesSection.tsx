@@ -334,18 +334,20 @@ const AttendeesSection = () => {
   };
 
   const buildSummaryMessage = (res: SendResponse): string => {
-    const parts: string[] = [];
-    if (res.skipped_no_email) parts.push(`Skipped(no email): ${res.skipped_no_email}`);
-    if (res.skipped_no_phone) parts.push(`Skipped(no phone): ${res.skipped_no_phone}`);
-    if (res.skipped_email_not_configured) parts.push(`Skipped(email not configured): ${res.skipped_email_not_configured}`);
-    if (res.failed_email) parts.push(`Failed email: ${res.failed_email}`);
-    if (res.failed_whatsapp) parts.push(`Failed WhatsApp: ${res.failed_whatsapp}`);
-    if (res.email_not_configured) parts.push("Email not configured — set GMAIL_USER & GMAIL_APP_PASSWORD in Supabase secrets");
-    if (res.email_auth_failed) parts.push(res.email_error_sample || "SMTP auth failed — use Google Workspace App Password");
-    if (res.whatsapp_not_configured) parts.push("WhatsApp not configured — set Twilio secrets");
-    if (res.error) parts.push(res.error);
-    if (res.correlationId) parts.push(`(Correlation: ${res.correlationId})`);
-    return parts.join(". ");
+    const lines: string[] = [];
+    if (res.skipped_no_email) lines.push(`Skipped (no email): ${res.skipped_no_email}`);
+    if (res.skipped_no_phone) lines.push(`Skipped (no phone): ${res.skipped_no_phone}`);
+    if (res.skipped_email_not_configured) lines.push(`Skipped (email not configured): ${res.skipped_email_not_configured}`);
+    if (res.failed_email) lines.push(`Failed email: ${res.failed_email}`);
+    if (res.failed_whatsapp) lines.push(`Failed WhatsApp: ${res.failed_whatsapp}`);
+    if (res.email_not_configured) lines.push("⚠ Email not configured — set GMAIL_USER & GMAIL_APP_PASSWORD in Supabase secrets");
+    if (res.email_auth_failed) lines.push("⚠ SMTP auth failed — use a Google Workspace App Password with 2-Step Verification");
+    if (res.whatsapp_not_configured) lines.push("⚠ WhatsApp not configured — set Twilio secrets");
+    if (res.email_error_sample) lines.push(`Email error: ${res.email_error_sample.slice(0, 150)}`);
+    if (res.whatsapp_error_sample) lines.push(`WhatsApp error: ${res.whatsapp_error_sample.slice(0, 150)}`);
+    if (res.error) lines.push(`Error: ${res.error}`);
+    if (res.correlationId) lines.push(`Correlation: ${res.correlationId}`);
+    return lines.join(" | ");
   };
 
   const handleSendResponse = (res: SendResponse, successLabel: string): boolean => {
