@@ -109,11 +109,16 @@ Deno.serve(async (req) => {
         } else if (transporter) {
           try {
             const confirmRsvpUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/confirm-rsvp?token=${invite.token}`;
-            const html = buildEmailHtml(eventTitle, attendee.name, inviteUrl, publicEventUrl, eventData?.start_date, confirmRsvpUrl);
+            const html = isReminder
+              ? buildReminderEmailHtml(eventTitle, attendee.name, inviteUrl, publicEventUrl, eventData?.start_date, confirmRsvpUrl)
+              : buildEmailHtml(eventTitle, attendee.name, inviteUrl, publicEventUrl, eventData?.start_date, confirmRsvpUrl);
+            const subject = isReminder
+              ? `Reminder: Please confirm for ${eventTitle}`
+              : `You're Invited: ${eventTitle}`;
             const info = await transporter.sendMail({
               from: `TitanMeet <${Deno.env.get("GMAIL_USER")}>`,
               to: attendee.email,
-              subject: `You're Invited: ${eventTitle}`,
+              subject,
               html,
             });
 
