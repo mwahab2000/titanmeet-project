@@ -135,7 +135,7 @@ const PaddleCheckoutButton = ({
           // Refresh to pick up webhook-updated subscription
           setTimeout(() => {
             window.location.reload();
-          }, 2500);
+          }, 3000);
         }
         if (event.name === "checkout.closed") {
           // User closed the overlay
