@@ -477,7 +477,6 @@ const BillingPage = () => {
                   planId={subscription.plan_id}
                   type="subscription"
                   onSuccess={handlePaddleSuccess}
-                  label="Resubscribe"
                 />
               </div>
             )}
