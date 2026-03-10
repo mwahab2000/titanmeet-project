@@ -161,7 +161,11 @@ Deno.serve(async (req) => {
         .replace(/<script[\s\S]*?<\/script>/gi, "")
         .replace(/on\w+\s*=\s*"[^"]*"/gi, "")
         .replace(/on\w+\s*=\s*'[^']*'/gi, "");
-      await sendEmail(to, subject || "(No subject)", `<p>${safeMessage.replace(/\n/g, "<br>")}</p>`);
+      // If message looks like HTML, send as-is
+      // If plain text, wrap in paragraph tags
+      const isHtml = safeMessage.trim().startsWith("<");
+      const htmlBody = isHtml ? safeMessage : `<p>${safeMessage.replace(/\n/g, "<br>")}</p>`;
+      await sendEmail(to, subject || "(No subject)", htmlBody);
       result = { sent: true };
     } else if (channel === "sms") {
       result = await sendTwilio(to, message, false);
