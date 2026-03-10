@@ -35,8 +35,18 @@ Deno.serve(async (req) => {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) return json({ ...summary, error: "Unauthorized" }, 401);
 
+    // ── DEBUG: env diagnostics (temporary) ──
+    const envUrl = Deno.env.get("SUPABASE_URL") || "";
+    const srkExists = !!Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const anonExists = !!Deno.env.get("SUPABASE_ANON_KEY");
+    console.log("[send-event-invitations] ENV CHECK", {
+      SUPABASE_URL: envUrl,
+      SERVICE_ROLE_KEY_exists: srkExists,
+      ANON_KEY_exists: anonExists,
+    });
+
     const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
+      envUrl,
       Deno.env.get("SUPABASE_ANON_KEY")!,
       { global: { headers: { Authorization: authHeader } } }
     );
@@ -52,6 +62,11 @@ Deno.serve(async (req) => {
       channels,
       is_reminder,
     });
+
+    // ── Ownership check ──
+    const { data: owns, error: ownsErr } = await supabase.rpc("owns_event", { _event_id: event_id });
+    console.log("[send-event-invitations] owns_event result", { owns, error: ownsErr?.message ?? null });
+    if (!owns) return json({ ...summary, error: "Forbidden", owns_event_error: ownsErr?.message ?? null }, 403);
 
     const sendChannels: string[] = Array.isArray(channels) && channels.length > 0
       ? channels.filter((c: string) => ["email", "whatsapp"].includes(c))
