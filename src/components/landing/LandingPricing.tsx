@@ -3,36 +3,7 @@ import { Link } from "react-router-dom";
 import { motion, useInView } from "framer-motion";
 import { Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
-
-const plans = [
-  {
-    name: "Starter",
-    monthlyPrice: 149,
-    annualPrice: 119,
-    desc: "Perfect for individuals launching their first few events.",
-    features: ["3 clients", "5 active events/mo", "500 attendees/mo", "2,000 emails/mo", "5 GB storage", "Standard support"],
-    cta: "Start with Starter",
-    popular: false,
-  },
-  {
-    name: "Professional",
-    monthlyPrice: 399,
-    annualPrice: 319,
-    desc: "Designed for growing agencies and frequent organizers.",
-    features: ["10 clients", "20 active events/mo", "3,000 attendees/mo", "10,000 emails/mo", "20 GB storage", "Priority support"],
-    cta: "Get Started Now",
-    popular: true,
-  },
-  {
-    name: "Enterprise",
-    monthlyPrice: 1099,
-    annualPrice: 879,
-    desc: "Enterprise-grade volume for large-scale operations.",
-    features: ["30 clients", "75 active events/mo", "15,000 attendees/mo", "50,000 emails/mo", "100 GB storage", "Premium support"],
-    cta: "Start with Enterprise",
-    popular: false,
-  },
-];
+import { PLANS, PLAN_ORDER, getPlanFeatures } from "@/config/plans";
 
 export const LandingPricing = () => {
   const ref = useRef(null);
@@ -89,19 +60,21 @@ export const LandingPricing = () => {
         </motion.div>
 
         <div className="grid gap-8 md:grid-cols-3 max-w-5xl mx-auto">
-          {plans.map((plan, i) => {
+          {PLAN_ORDER.map((planId, i) => {
+            const plan = PLANS[planId];
+            const features = getPlanFeatures(planId);
             const price = annual ? plan.annualPrice : plan.monthlyPrice;
             return (
               <motion.div
-                key={plan.name}
+                key={planId}
                 initial={{ opacity: 0, y: 40 }}
                 animate={isInView ? { opacity: 1, y: 0 } : {}}
                 transition={{ delay: 0.3 + i * 0.12 }}
                 className={`glass-card-landing rounded-xl p-8 border transition-all duration-300 relative ${
-                  plan.popular ? "border-[hsl(var(--titan-green)/0.5)] scale-105" : "border-[hsl(var(--landing-border)/0.3)]"
+                  plan.highlight ? "border-[hsl(var(--titan-green)/0.5)] scale-105" : "border-[hsl(var(--landing-border)/0.3)]"
                 }`}
               >
-                {plan.popular && (
+                {plan.highlight && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full gradient-titan px-4 py-1 text-xs font-semibold text-white">
                     Most Popular
                   </div>
@@ -111,9 +84,9 @@ export const LandingPricing = () => {
                   <span className="font-display text-4xl font-bold">${price}</span>
                   <span className="text-[hsl(var(--landing-fg-muted))]">/mo</span>
                 </div>
-                <p className="text-sm text-[hsl(var(--landing-fg-muted))] mb-6">{plan.desc}</p>
+                <p className="text-sm text-[hsl(var(--landing-fg-muted))] mb-6">{plan.description}</p>
                 <ul className="space-y-3 mb-8">
-                  {plan.features.map((feat) => (
+                  {features.map((feat) => (
                     <li key={feat} className="flex items-center gap-2 text-sm text-[hsl(var(--landing-fg-muted))]">
                       <Check className="h-4 w-4 text-[hsl(var(--titan-green))]" />
                       {feat}
@@ -122,13 +95,13 @@ export const LandingPricing = () => {
                 </ul>
                 <Button
                   className={`w-full font-semibold ${
-                    plan.popular
+                    plan.highlight
                       ? "gradient-titan border-0 text-white"
                       : "bg-[hsl(var(--landing-fg)/0.1)] text-[hsl(var(--landing-fg))] hover:bg-[hsl(var(--landing-fg)/0.2)] border-0"
                   }`}
                   asChild
                 >
-                  <Link to="/login?tab=signup">{plan.cta}</Link>
+                  <Link to="/login?tab=signup">{plan.buttonText}</Link>
                 </Button>
               </motion.div>
             );
@@ -140,7 +113,7 @@ export const LandingPricing = () => {
           transition={{ delay: 0.7 }}
           className="text-center text-sm text-[hsl(var(--landing-fg-muted)/0.6)] mt-8 max-w-2xl mx-auto"
         >
-          All plans include unlimited RSVPs and survey responses. Overage fees apply for extra clients, events, attendees, emails, and storage beyond your plan limits.
+          All plans include unlimited RSVPs and survey responses. Limits are enforced at creation — no surprise overage charges.
         </motion.p>
       </div>
     </section>
