@@ -79,13 +79,8 @@ export function useBilling() {
 
       let sub = subRes.data as AccountSubscription | null;
       if (!sub) {
-        // Auto-create starter subscription for existing users
-        const { data: newSub } = await supabase
-          .from("account_subscriptions")
-          .insert({ user_id: user.id, plan_id: "starter" })
-          .select()
-          .single();
-        sub = newSub as AccountSubscription | null;
+        setLoading(false);
+        return;
       }
       setSubscription(sub);
 

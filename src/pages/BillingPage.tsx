@@ -272,11 +272,76 @@ const BillingPage = () => {
     );
   }
 
-  if (!currentPlan || !subscription) {
+  if (!subscription) {
     return (
-      <div className="max-w-4xl">
-        <h1 className="font-display text-3xl font-bold mb-2">Billing</h1>
-        <p className="text-muted-foreground">No subscription found. Contact support.</p>
+      <div className="max-w-5xl space-y-6">
+        <div>
+          <h1 className="font-display text-3xl font-bold">Billing & Subscription</h1>
+          <p className="text-muted-foreground">No active subscription found. Choose a plan below to get started.</p>
+        </div>
+
+        {/* Sandbox Testing Mode */}
+        <Alert className="border-primary/30 bg-primary/5">
+          <ShieldCheck className="h-4 w-4 text-primary" />
+          <AlertTitle>Sandbox Testing Mode</AlertTitle>
+          <AlertDescription>
+            Use test card <code className="bg-muted px-1 rounded text-xs">4242 4242 4242 4242</code> with any future expiry and CVC.
+          </AlertDescription>
+        </Alert>
+
+        {/* Annual toggle */}
+        <div className="flex items-center justify-center gap-3">
+          <span className={`text-sm font-medium ${!isAnnual ? "text-foreground" : "text-muted-foreground"}`}>Monthly</span>
+          <Switch checked={isAnnual} onCheckedChange={setIsAnnual} />
+          <span className={`text-sm font-medium ${isAnnual ? "text-foreground" : "text-muted-foreground"}`}>
+            Annual <Badge variant="secondary" className="ml-1 text-[10px]">Save 20%</Badge>
+          </span>
+        </div>
+
+        {/* Plan cards */}
+        <div className="grid gap-4 md:grid-cols-3">
+          {PLAN_DISPLAY.map((plan) => {
+            const priceId = isAnnual
+              ? PLANS[plan.id]?.paddlePriceIdAnnual
+              : PLANS[plan.id]?.paddlePriceIdMonthly;
+            return (
+              <Card key={plan.id} className={plan.popular ? "border-primary shadow-lg relative" : ""}>
+                {plan.popular && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                    <Badge className="bg-primary text-primary-foreground"><Crown className="h-3 w-3 mr-1" /> Most Popular</Badge>
+                  </div>
+                )}
+                <CardHeader>
+                  <CardTitle className="font-display">{plan.name}</CardTitle>
+                  <CardDescription>{PLANS[plan.id]?.description}</CardDescription>
+                  <p className="text-3xl font-bold mt-2">
+                    ${isAnnual ? plan.annualPrice / 100 : plan.monthlyPrice / 100}
+                    <span className="text-sm text-muted-foreground font-normal">/mo</span>
+                  </p>
+                  {isAnnual && (
+                    <p className="text-xs text-muted-foreground">${plan.annualTotal / 100}/year</p>
+                  )}
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <ul className="text-sm space-y-1">
+                    <li>✓ {plan.clients} clients</li>
+                    <li>✓ {plan.events} events</li>
+                    <li>✓ {plan.attendees} attendees/mo</li>
+                    <li>✓ {plan.emails} emails/mo</li>
+                    <li>✓ {plan.storage} storage</li>
+                    <li>✓ {plan.support} support</li>
+                  </ul>
+                  <PaddleCheckoutButton
+                    priceId={priceId || ""}
+                    planId={plan.id}
+                    type="subscription"
+                    onSuccess={handlePaddleSuccess}
+                  />
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
       </div>
     );
   }
