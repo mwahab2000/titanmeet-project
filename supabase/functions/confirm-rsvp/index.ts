@@ -2,22 +2,19 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, handleCorsOptions } from "../_shared/cors.ts";
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return handleCorsOptions(req);
-  }
-
+  if (req.method === "OPTIONS") return handleCorsOptions(req);
   const corsHeaders = getCorsHeaders(req);
-  const appUrl = Deno.env.get("VITE_APP_URL") || "https://titanmeet.com";
+
+  const json = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), {
+      status,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
 
   const url = new URL(req.url);
   const token = url.searchParams.get("token");
 
-  if (!token) {
-    return new Response(null, {
-      status: 302,
-      headers: { ...corsHeaders, Location: `${appUrl}/rsvp/invalid` },
-    });
-  }
+  if (!token) return json({ error: "Missing token" }, 400);
 
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
@@ -27,49 +24,17 @@ Deno.serve(async (req) => {
   // Look up token in event_invites table (unified token system)
   const { data: invite, error } = await supabase
     .from("event_invites")
-    .select("id, attendee_id, status, opened_at, rsvp_at")
+    .select("id, attendee_id, status, rsvp_at, opened_at")
     .eq("token", token)
     .single();
 
   if (error || !invite) {
-    return new Response(null, {
-      status: 302,
-      headers: { ...corsHeaders, Location: `${appUrl}/rsvp/invalid` },
-    });
+    return json({ error: "Invalid or expired token" }, 404);
   }
 
-  // Check if attendee is already confirmed
-  const { data: attendee } = await supabase
-    .from("attendees")
-    .select("confirmed, name, event_id")
-    .eq("id", invite.attendee_id)
-    .single();
-
-  if (!attendee) {
-    return new Response(null, {
-      status: 302,
-      headers: { ...corsHeaders, Location: `${appUrl}/rsvp/invalid` },
-    });
-  }
-
-  // Fetch event title
-  const { data: eventData } = await supabase
-    .from("events")
-    .select("title")
-    .eq("id", attendee.event_id)
-    .single();
-
-  const attendeeName = attendee.name || "";
-  const eventTitle = eventData?.title || "";
-
-  if (attendee.confirmed) {
-    return new Response(null, {
-      status: 302,
-      headers: {
-        ...corsHeaders,
-        Location: `${appUrl}/rsvp/already-confirmed?name=${encodeURIComponent(attendeeName)}&event=${encodeURIComponent(eventTitle)}`,
-      },
-    });
+  // Already confirmed
+  if (invite.status === "rsvp_yes" || invite.rsvp_at) {
+    return json({ success: true, already_confirmed: true });
   }
 
   const now = new Date().toISOString();
@@ -90,10 +55,5 @@ Deno.serve(async (req) => {
     })
     .eq("id", invite.id);
 
-  const redirectUrl = `${appUrl}/rsvp/confirmed?name=${encodeURIComponent(attendeeName)}&event=${encodeURIComponent(eventTitle)}`;
-
-  return new Response(null, {
-    status: 302,
-    headers: { ...corsHeaders, Location: redirectUrl },
-  });
+  return json({ success: true, already_confirmed: false });
 });
