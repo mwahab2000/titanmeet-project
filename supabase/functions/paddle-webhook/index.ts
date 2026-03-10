@@ -177,6 +177,8 @@ Deno.serve(async (req) => {
 
         await serviceClient.from("account_entitlements").upsert({
           user_id: userId,
+          plan_id: planSlug,
+          status: "active",
           access_until: finalAccess.toISOString(),
           source: eventData.subscription_id ? "subscription" : "one_time_payment",
           updated_at: now.toISOString(),
