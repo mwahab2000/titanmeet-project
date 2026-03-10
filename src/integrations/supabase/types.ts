@@ -17,19 +17,31 @@ export type Database = {
       account_entitlements: {
         Row: {
           access_until: string
+          created_at: string | null
+          id: string | null
+          plan_id: string | null
           source: string
+          status: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
           access_until?: string
+          created_at?: string | null
+          id?: string | null
+          plan_id?: string | null
           source?: string
+          status?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
           access_until?: string
+          created_at?: string | null
+          id?: string | null
+          plan_id?: string | null
           source?: string
+          status?: string | null
           updated_at?: string
           user_id?: string
         }
