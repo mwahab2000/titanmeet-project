@@ -335,6 +335,7 @@ const AttendeesSection = () => {
 
   const buildSummaryMessage = (res: SendResponse): string => {
     const lines: string[] = [];
+    if ((res as any).reason === "no_attendees_found") lines.push(`⚠ No attendees found for event_id ${(res as any).received_event_id || "?"}`);
     if (res.skipped_no_email) lines.push(`Skipped (no email): ${res.skipped_no_email}`);
     if (res.skipped_no_phone) lines.push(`Skipped (no phone): ${res.skipped_no_phone}`);
     if (res.skipped_email_not_configured) lines.push(`Skipped (email not configured): ${res.skipped_email_not_configured}`);
