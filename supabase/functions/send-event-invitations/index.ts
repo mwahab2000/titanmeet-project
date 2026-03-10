@@ -22,7 +22,8 @@ Deno.serve(async (req) => {
     );
 
     const body = await req.json();
-    const { event_id, attendee_ids, channels, base_url } = body;
+    const { event_id, attendee_ids, channels, base_url, is_reminder } = body;
+    const isReminder = is_reminder === true;
     if (!event_id) return json({ error: "Missing event_id" }, 400);
 
     const sendChannels: string[] = Array.isArray(channels) && channels.length > 0
