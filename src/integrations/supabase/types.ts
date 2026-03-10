@@ -1367,6 +1367,7 @@ export type Database = {
           overage_emails_per_1000_cents: number
           overage_event_cents: number
           overage_storage_per_5gb_cents: number
+          slug: string | null
           support_tier: string
         }
         Insert: {
@@ -1386,6 +1387,7 @@ export type Database = {
           overage_emails_per_1000_cents?: number
           overage_event_cents?: number
           overage_storage_per_5gb_cents?: number
+          slug?: string | null
           support_tier?: string
         }
         Update: {
@@ -1405,6 +1407,7 @@ export type Database = {
           overage_emails_per_1000_cents?: number
           overage_event_cents?: number
           overage_storage_per_5gb_cents?: number
+          slug?: string | null
           support_tier?: string
         }
         Relationships: []
