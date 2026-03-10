@@ -100,8 +100,20 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
+    // ── DEBUG: probe DB connection ──
+    const { count: probeCount, error: probeErr } = await db
+      .from("attendees")
+      .select("id", { count: "exact", head: true })
+      .eq("event_id", event_id);
+    console.log("[send-event-invitations] DB PROBE", {
+      event_id,
+      attendees_count_in_db: probeCount,
+      probe_error: probeErr?.message ?? null,
+    });
+
     // Load event info
-    const { data: eventData } = await db.from("events").select("title, slug, start_date, client_id, clients(slug)").eq("id", event_id).single();
+    const { data: eventData, error: eventErr } = await db.from("events").select("title, slug, start_date, client_id, clients(slug)").eq("id", event_id).single();
+    console.log("[send-event-invitations] event lookup", { found: !!eventData, title: eventData?.title, error: eventErr?.message ?? null });
     const eventTitle = eventData?.title || "Event";
 
     // Get attendees
