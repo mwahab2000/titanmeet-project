@@ -50,11 +50,7 @@ const STATUS_LABELS: Record<string, { label: string; icon: React.ReactNode; vari
   canceled: { label: "Canceled", icon: <XCircle className="h-3 w-3" />, variant: "destructive" },
 };
 
-const PADDLE_PRICE_IDS: Record<string, { monthly: string; annual: string }> = {
-  starter:      { monthly: import.meta.env.VITE_PADDLE_PRICE_STARTER_MONTHLY      || "", annual: import.meta.env.VITE_PADDLE_PRICE_STARTER_ANNUAL      || "" },
-  professional: { monthly: import.meta.env.VITE_PADDLE_PRICE_PROFESSIONAL_MONTHLY || "", annual: import.meta.env.VITE_PADDLE_PRICE_PROFESSIONAL_ANNUAL || "" },
-  enterprise:   { monthly: import.meta.env.VITE_PADDLE_PRICE_ENTERPRISE_MONTHLY   || "", annual: import.meta.env.VITE_PADDLE_PRICE_ENTERPRISE_ANNUAL   || "" },
-};
+// Paddle price IDs now come from PLANS config (single source of truth)
 
 const PLAN_NUMERIC_LIMITS: Record<string, Record<string, number>> = Object.fromEntries(
   PLAN_ORDER.map((id) => [
@@ -473,7 +469,7 @@ const BillingPage = () => {
             {(isCanceledButActive || isSubscriptionEnded) && (
               <div className="mt-2">
                 <PaddleCheckoutButton
-                  priceId={(isAnnual ? PADDLE_PRICE_IDS[subscription.plan_id]?.annual : PADDLE_PRICE_IDS[subscription.plan_id]?.monthly) || ""}
+                  priceId={(isAnnual ? PLANS[subscription.plan_id]?.paddlePriceIdAnnual : PLANS[subscription.plan_id]?.paddlePriceIdMonthly) || ""}
                   planId={subscription.plan_id}
                   type="subscription"
                   onSuccess={handlePaddleSuccess}
@@ -572,8 +568,8 @@ const BillingPage = () => {
           <div className="grid gap-4 md:grid-cols-3">
             {PLAN_DISPLAY.map((plan) => {
               const isCurrent = plan.id === subscription?.plan_id;
-              const paddlePrices = PADDLE_PRICE_IDS[plan.id];
-              const priceId = isAnnual ? paddlePrices?.annual : paddlePrices?.monthly;
+              const planConfig = PLANS[plan.id];
+              const priceId = isAnnual ? planConfig?.paddlePriceIdAnnual : planConfig?.paddlePriceIdMonthly;
               const displayPrice = isAnnual ? plan.annualPrice : plan.monthlyPrice;
 
               return (

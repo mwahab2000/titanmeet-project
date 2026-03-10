@@ -132,6 +132,10 @@ const PaddleCheckoutButton = ({
           const transactionId = event.data?.transaction_id || event.data?.id || "";
           onSuccess?.(transactionId);
           toast.success("Payment confirmed! Your access will update in a moment.");
+          // Refresh to pick up webhook-updated subscription
+          setTimeout(() => {
+            window.location.reload();
+          }, 2500);
         }
         if (event.name === "checkout.closed") {
           // User closed the overlay
