@@ -307,6 +307,8 @@ Deno.serve(async (req) => {
         if (userId) {
           await serviceClient.from("account_subscriptions").update({
             cancel_at_period_end: true,
+            cancelled_at: new Date().toISOString(),
+            status: "canceled",
             updated_at: new Date().toISOString(),
           }).eq("user_id", userId);
 
@@ -322,7 +324,7 @@ Deno.serve(async (req) => {
           } catch { /* swallow */ }
         }
 
-        // Log event — find PI by subscription
+        // Log event
         try {
           const { data: pi } = await serviceClient
             .from("payment_intents")
