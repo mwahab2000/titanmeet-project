@@ -329,11 +329,28 @@ const AttendeesSection = () => {
 
   const buildFailureReasons = (res: SendResponse): string[] => {
     const reasons: string[] = [];
+    if (res.email_not_configured) reasons.push("Email not configured — set GMAIL_USER & GMAIL_APP_PASSWORD in Supabase secrets");
+    if (res.email_auth_failed) reasons.push(res.email_auth_message || "SMTP authentication failed — use a Google Workspace App Password");
+    if (res.skipped_email_not_configured) reasons.push(`${res.skipped_email_not_configured} skipped (email not configured)`);
     if (res.skipped_no_email) reasons.push(`${res.skipped_no_email} missing email`);
     if (res.skipped_no_phone) reasons.push(`${res.skipped_no_phone} missing phone`);
     if (res.failed_email) reasons.push(`${res.failed_email} email failure(s)`);
     if (res.failed_whatsapp) reasons.push(`${res.failed_whatsapp} WhatsApp failure(s)`);
     return reasons;
+  };
+
+  const showConfigToast = (res: SendResponse) => {
+    if (res.email_not_configured) {
+      toast.error(
+        "Email sending not configured. For Google Workspace: enable 2-Step Verification, generate an App Password, then set GMAIL_USER and GMAIL_APP_PASSWORD in Supabase Edge Function secrets.",
+        { duration: 10000 }
+      );
+    } else if (res.email_auth_failed) {
+      toast.error(
+        res.email_auth_message || "SMTP authentication failed. Ensure you are using a Google Workspace App Password (not your regular password). Enable 2-Step Verification first.",
+        { duration: 10000 }
+      );
+    }
   };
 
   const sendInvitation = async (attendee: Attendee) => {
