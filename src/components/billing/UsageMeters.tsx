@@ -32,11 +32,6 @@ function formatValue(key: ResourceKey, value: number, limit: number): string {
   return `${displayVal}${suffix} / ${limit}${suffix}`;
 }
 
-function getResetDate(): string {
-  const now = new Date();
-  const next = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-  return next.toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" });
-}
 
 interface UsageMetersProps {
   compact?: boolean;
