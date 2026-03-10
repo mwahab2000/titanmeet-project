@@ -55,8 +55,8 @@ const ClientsPage = () => {
             <Building2 className="mb-4 h-12 w-12 text-muted-foreground/50" />
             <p className="mb-2 text-lg font-medium">No clients yet</p>
             <p className="mb-4 text-sm text-muted-foreground">Create your first client to get started</p>
-            <Button className="gradient-titan border-0 text-primary-foreground" asChild>
-              <Link to="/dashboard/clients/new">Create Client</Link>
+            <Button className="gradient-titan border-0 text-primary-foreground" onClick={handleNewClient}>
+              Create Client
             </Button>
           </CardContent>
         </Card>

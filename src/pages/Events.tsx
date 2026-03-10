@@ -64,14 +64,14 @@ const Events = () => {
           <p className="text-muted-foreground">Manage all your events</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button className="gradient-titan border-0 text-primary-foreground gap-2" asChild>
-            <Link to="/dashboard/events/quick-setup"><Zap className="h-4 w-4" /> Quick Setup</Link>
+          <Button className="gradient-titan border-0 text-primary-foreground gap-2" onClick={() => handleCreateEvent("/dashboard/events/quick-setup")}>
+            <Zap className="h-4 w-4" /> Quick Setup
           </Button>
           <Button variant="outline" className="gap-2" asChild>
             <Link to="/dashboard/templates"><Copy className="h-4 w-4" /> From Template</Link>
           </Button>
-          <Button variant="outline" className="gap-2" asChild>
-            <Link to="/dashboard/events/new"><Plus className="h-4 w-4" /> Full Setup</Link>
+          <Button variant="outline" className="gap-2" onClick={() => handleCreateEvent("/dashboard/events/new")}>
+            <Plus className="h-4 w-4" /> Full Setup
           </Button>
         </div>
       </div>
