@@ -62,7 +62,6 @@ Deno.serve(async (req) => {
     }));
     if (toInsert.length > 0) {
       await db.from("event_invites").insert(toInsert);
-      // Reload after insert
       const { data: newInvites } = await db.from("event_invites").select("id, attendee_id, token, status").eq("event_id", event_id);
       (newInvites || []).forEach((i: any) => existingMap.set(i.attendee_id, i));
     }
@@ -134,7 +133,7 @@ Deno.serve(async (req) => {
               attendee_id: attendee.id,
               channel: "email",
               to_address: attendee.email,
-              subject: `You're Invited: ${eventTitle}`,
+              subject,
               message_body: html,
               provider: "gmail",
               provider_message_id: info?.messageId || null,
@@ -166,7 +165,9 @@ Deno.serve(async (req) => {
         } else if (TWILIO_SID && TWILIO_TOKEN && TWILIO_FROM) {
           try {
             const waTo = `whatsapp:${attendee.mobile.startsWith("+") ? attendee.mobile : "+" + attendee.mobile}`;
-            const messageBody = `Hi ${attendee.name}! 🎉\n\nYou're invited to *${eventTitle}*!\n\n👉 ${inviteUrl}\n\nThis link is personal to you. We look forward to seeing you!`;
+            const messageBody = isReminder
+              ? `Hi ${attendee.name}! ⏰\n\nFriendly reminder: You're invited to *${eventTitle}*. We haven't received your confirmation yet.\n\n👉 ${inviteUrl}\n\nPlease confirm your attendance!`
+              : `Hi ${attendee.name}! 🎉\n\nYou're invited to *${eventTitle}*!\n\n👉 ${inviteUrl}\n\nThis link is personal to you. We look forward to seeing you!`;
 
             const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_SID}/Messages.json`;
             const formData = new URLSearchParams();
@@ -276,26 +277,6 @@ function buildReminderEmailHtml(eventTitle: string, name: string, inviteUrl: str
       <div style="padding: 32px 24px;">
         <p style="color: #334155; font-size: 16px; margin-bottom: 8px;">Hi ${name},</p>
         <p style="color: #64748b; font-size: 14px; line-height: 1.6;">This is a friendly reminder that you've been invited to <strong>${eventTitle}</strong>${dateStr ? ` on <strong>${dateStr}</strong>` : ""}. We haven't received your confirmation yet.</p>
-        <div style="text-align: center; margin: 24px 0;">
-          ${confirmUrl ? `<a href="${confirmUrl}" style="display: inline-block; background: linear-gradient(135deg, #16a34a, #22c55e); color: #ffffff; text-decoration: none; padding: 14px 36px; border-radius: 8px; font-weight: 700; font-size: 16px; margin-bottom: 12px;">Confirm My Attendance ✓</a><br><br>` : ""}
-          <a href="${inviteUrl}" style="display: inline-block; background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #ffffff; text-decoration: none; padding: 12px 32px; border-radius: 8px; font-weight: 600; font-size: 14px;">View Event Details</a>
-        </div>
-        ${publicEventUrl ? `<p style="color: #94a3b8; font-size: 12px; text-align: center;">Or view the event page: <a href="${publicEventUrl}" style="color: #6366f1;">${publicEventUrl}</a></p>` : ""}
-        <p style="color: #94a3b8; font-size: 12px; text-align: center; margin-top: 16px;">This invitation is personal to you.</p>
-      </div>
-      <div style="background: #f8fafc; padding: 16px 24px; text-align: center;">
-        <p style="color: #94a3b8; font-size: 11px; margin: 0;">Powered by TitanMeet</p>
-      </div>
-    </div>
-  `;
-    <div style="font-family: 'Inter', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden;">
-      <div style="background: linear-gradient(135deg, #6366f1, #8b5cf6); padding: 32px 24px; text-align: center;">
-        <h1 style="color: #ffffff; margin: 0; font-size: 24px;">You're Invited!</h1>
-        <p style="color: #e0e7ff; margin: 8px 0 0; font-size: 16px;">${eventTitle}</p>
-      </div>
-      <div style="padding: 32px 24px;">
-        <p style="color: #334155; font-size: 16px; margin-bottom: 8px;">Hi ${name},</p>
-        <p style="color: #64748b; font-size: 14px; line-height: 1.6;">We're excited to invite you to <strong>${eventTitle}</strong>${dateStr ? ` on <strong>${dateStr}</strong>` : ""}.</p>
         <div style="text-align: center; margin: 24px 0;">
           ${confirmUrl ? `<a href="${confirmUrl}" style="display: inline-block; background: linear-gradient(135deg, #16a34a, #22c55e); color: #ffffff; text-decoration: none; padding: 14px 36px; border-radius: 8px; font-weight: 700; font-size: 16px; margin-bottom: 12px;">Confirm My Attendance ✓</a><br><br>` : ""}
           <a href="${inviteUrl}" style="display: inline-block; background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #ffffff; text-decoration: none; padding: 12px 32px; border-radius: 8px; font-weight: 600; font-size: 14px;">View Event Details</a>
