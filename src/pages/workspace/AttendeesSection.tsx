@@ -128,7 +128,6 @@ interface SendResponse {
 }
 
 // ── Channel icon helper (forwardRef to avoid Button ref warning) ──
-import React from "react";
 const ChannelIcon = React.forwardRef<HTMLSpanElement, { channel: InviteChannel }>(({ channel, ...props }, ref) => {
   if (channel === "whatsapp") return <span ref={ref} {...props}><MessageSquare className="h-3.5 w-3.5" /></span>;
   if (channel === "both") return (
