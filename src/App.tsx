@@ -54,7 +54,6 @@ import PublicEventPage from "./pages/public/PublicEventPage";
 import SubdomainEventPage from "./pages/public/SubdomainEventPage";
 import PublicSurveyPage from "./pages/public/PublicSurveyPage";
 import InviteLandingPage from "./pages/public/InviteLandingPage";
-import InvitationsSection from "./pages/workspace/InvitationsSection";
 
 const queryClient = new QueryClient();
 
@@ -122,7 +121,6 @@ const App = () => (
                       <Route path="survey" element={<SurveySection />} />
                       <Route path="communications" element={<CommunicationsSection />} />
                       <Route path="website" element={<WebsiteSection />} />
-                      <Route path="invitations" element={<InvitationsSection />} />
                     </Route>
                   </Route>
                   <Route path="/dashboard/events/:id/preview" element={<ProtectedRoute><PreviewEventPage /></ProtectedRoute>} />
