@@ -119,6 +119,11 @@ interface SendResponse {
   failed_whatsapp?: number;
   skipped_no_email?: number;
   skipped_no_phone?: number;
+  skipped_email_not_configured?: number;
+  email_not_configured?: boolean;
+  email_auth_failed?: boolean;
+  email_auth_message?: string;
+  email_config_message?: string;
   total?: number;
 }
 
