@@ -1,13 +1,26 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Plus, Building2, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
+import { usePlanLimits } from "@/hooks/usePlanLimits";
+import { useUpgradeModal } from "@/hooks/useUpgradeModal";
 
 const ClientsPage = () => {
   const [clients, setClients] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const planLimits = usePlanLimits();
+  const { openUpgradeModal } = useUpgradeModal();
+  const navigate = useNavigate();
+
+  const handleNewClient = () => {
+    if (!planLimits.canCreate("clients")) {
+      openUpgradeModal("clients");
+      return;
+    }
+    navigate("/dashboard/clients/new");
+  };
 
   useEffect(() => {
     supabase
@@ -27,10 +40,8 @@ const ClientsPage = () => {
           <h1 className="font-display text-3xl font-bold">Clients</h1>
           <p className="text-muted-foreground">Manage your clients</p>
         </div>
-        <Button className="gradient-titan border-0 text-primary-foreground gap-2" asChild>
-          <Link to="/dashboard/clients/new">
-            <Plus className="h-4 w-4" /> New Client
-          </Link>
+        <Button className="gradient-titan border-0 text-primary-foreground gap-2" onClick={handleNewClient}>
+          <Plus className="h-4 w-4" /> New Client
         </Button>
       </div>
 
@@ -44,8 +55,8 @@ const ClientsPage = () => {
             <Building2 className="mb-4 h-12 w-12 text-muted-foreground/50" />
             <p className="mb-2 text-lg font-medium">No clients yet</p>
             <p className="mb-4 text-sm text-muted-foreground">Create your first client to get started</p>
-            <Button className="gradient-titan border-0 text-primary-foreground" asChild>
-              <Link to="/dashboard/clients/new">Create Client</Link>
+            <Button className="gradient-titan border-0 text-primary-foreground" onClick={handleNewClient}>
+              Create Client
             </Button>
           </CardContent>
         </Card>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Plus, Search, Calendar, MapPin, Users, X, Zap, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,6 +7,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { format } from "date-fns";
+import { usePlanLimits } from "@/hooks/usePlanLimits";
+import { useUpgradeModal } from "@/hooks/useUpgradeModal";
 
 const statusFilters = ["all", "draft", "published", "ongoing", "completed", "archived", "cancelled"] as const;
 type StatusFilter = (typeof statusFilters)[number];
@@ -17,6 +19,17 @@ const Events = () => {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [loading, setLoading] = useState(true);
+  const planLimits = usePlanLimits();
+  const { openUpgradeModal } = useUpgradeModal();
+  const navigate = useNavigate();
+
+  const handleCreateEvent = (path: string) => {
+    if (!planLimits.canCreate("activeEvents")) {
+      openUpgradeModal("events");
+      return;
+    }
+    navigate(path);
+  };
 
   useEffect(() => {
     const fetchEvents = async () => {
@@ -51,14 +64,14 @@ const Events = () => {
           <p className="text-muted-foreground">Manage all your events</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button className="gradient-titan border-0 text-primary-foreground gap-2" asChild>
-            <Link to="/dashboard/events/quick-setup"><Zap className="h-4 w-4" /> Quick Setup</Link>
+          <Button className="gradient-titan border-0 text-primary-foreground gap-2" onClick={() => handleCreateEvent("/dashboard/events/quick-setup")}>
+            <Zap className="h-4 w-4" /> Quick Setup
           </Button>
           <Button variant="outline" className="gap-2" asChild>
             <Link to="/dashboard/templates"><Copy className="h-4 w-4" /> From Template</Link>
           </Button>
-          <Button variant="outline" className="gap-2" asChild>
-            <Link to="/dashboard/events/new"><Plus className="h-4 w-4" /> Full Setup</Link>
+          <Button variant="outline" className="gap-2" onClick={() => handleCreateEvent("/dashboard/events/new")}>
+            <Plus className="h-4 w-4" /> Full Setup
           </Button>
         </div>
       </div>
