@@ -67,7 +67,7 @@ export function useBilling() {
       // Fetch plans, subscription, and live usage counts in parallel
       const [plansRes, subRes, clientsRes, eventsRes, attendeesRes, emailsRes] = await Promise.all([
         supabase.from("subscription_plans").select("*").eq("is_active", true).order("display_order"),
-        supabase.from("account_subscriptions").select("*").eq("user_id", user.id).single(),
+        supabase.from("account_subscriptions").select("*").eq("user_id", user.id).maybeSingle(),
         supabase.from("clients").select("id", { count: "exact", head: true }),
         supabase.from("events").select("id", { count: "exact", head: true }).in("status", ["draft", "published", "ongoing"]),
         supabase.from("attendees").select("id", { count: "exact", head: true }),
