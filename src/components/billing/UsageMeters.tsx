@@ -32,11 +32,6 @@ function formatValue(key: ResourceKey, value: number, limit: number): string {
   return `${displayVal}${suffix} / ${limit}${suffix}`;
 }
 
-function getResetDate(): string {
-  const now = new Date();
-  const next = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-  return next.toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" });
-}
 
 interface UsageMetersProps {
   compact?: boolean;
@@ -156,7 +151,13 @@ export default function UsageMeters({ compact = false }: UsageMetersProps) {
 
         {!compact && !limits.loading && !isNoPlan && (
           <p className="text-xs text-muted-foreground pt-2 border-t border-border">
-            Attendees and emails reset on {getResetDate()}
+            Attendees and emails reset on {limits.cycleStart
+              ? new Date(
+                  limits.cycleStart.getFullYear(),
+                  limits.cycleStart.getMonth() + 1,
+                  limits.cycleStart.getDate()
+                ).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })
+              : "next billing date"}
           </p>
         )}
       </CardContent>
