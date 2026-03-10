@@ -1,5 +1,4 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { SmtpClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 import { getCorsHeaders, handleCorsOptions } from "../_shared/cors.ts";
 
 const RATE_LIMIT_WINDOW_MS = 3600000; // 1 hour
