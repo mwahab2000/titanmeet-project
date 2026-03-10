@@ -30,6 +30,19 @@ Deno.serve(async (req) => {
       : ["email"];
     if (sendChannels.length === 0) return json({ error: "No valid channels" }, 400);
 
+    // ── Pre-flight: check email config availability ──
+    let emailConfigured = true;
+    let emailConfigError = "";
+    if (sendChannels.includes("email")) {
+      const gmailUser = Deno.env.get("GMAIL_USER");
+      const gmailPass = Deno.env.get("GMAIL_APP_PASSWORD");
+      if (!gmailUser || !gmailPass) {
+        emailConfigured = false;
+        emailConfigError = "GMAIL_USER and/or GMAIL_APP_PASSWORD secrets are not set in Supabase Edge Function settings.";
+        console.warn("Email not configured:", emailConfigError);
+      }
+    }
+
     // Verify ownership
     const { data: owns } = await supabase.rpc("owns_event", { _event_id: event_id });
     if (!owns) return json({ error: "Forbidden" }, 403);
@@ -50,6 +63,22 @@ Deno.serve(async (req) => {
     }
     const { data: attendees } = await attendeeQuery;
     if (!attendees || attendees.length === 0) return json({ sent_email: 0, sent_whatsapp: 0, total: 0, message: "No attendees" });
+
+    // If email channel requested but not configured, return early with clear flag
+    if (sendChannels.length === 1 && sendChannels[0] === "email" && !emailConfigured) {
+      return json({
+        sent_email: 0,
+        sent_whatsapp: 0,
+        failed_email: 0,
+        failed_whatsapp: 0,
+        skipped_no_email: 0,
+        skipped_no_phone: 0,
+        skipped_email_not_configured: attendees.length,
+        email_not_configured: true,
+        email_config_message: emailConfigError,
+        total: attendees.length,
+      });
+    }
 
     // Ensure invites exist for all attendees (upsert)
     const existingInvites = await db.from("event_invites").select("id, attendee_id, token, status").eq("event_id", event_id);
@@ -76,7 +105,9 @@ Deno.serve(async (req) => {
     const rootUrl = base_url || "https://titanmeet.com";
     const now = new Date().toISOString();
     let sentEmail = 0, sentWhatsapp = 0, failedEmail = 0, failedWhatsapp = 0;
-    let skippedNoPhone = 0, skippedNoEmail = 0;
+    let skippedNoPhone = 0, skippedNoEmail = 0, skippedEmailNotConfigured = 0;
+    let emailAuthFailed = false;
+    let emailAuthMessage = "";
 
     // Build public event URL
     const clientSlug = (eventData as any)?.clients?.slug;
@@ -95,7 +126,9 @@ Deno.serve(async (req) => {
 
       // ── Email ──
       if (sendChannels.includes("email")) {
-        if (!attendee.email) {
+        if (!emailConfigured) {
+          skippedEmailNotConfigured++;
+        } else if (!attendee.email) {
           skippedNoEmail++;
         } else {
           try {
@@ -136,14 +169,35 @@ Deno.serve(async (req) => {
               }).eq("id", invite.id);
               sentEmail++;
             } else {
-              console.error(
-                "send-communication failed:", 
-                await emailRes.text()
-              );
+              const errBody = await emailRes.text();
+              console.error("send-communication failed:", errBody);
+
+              // Detect SMTP auth failures
+              const errLower = errBody.toLowerCase();
+              if (
+                errLower.includes("535") ||
+                errLower.includes("username and password not accepted") ||
+                errLower.includes("authentication") ||
+                errLower.includes("invalid login") ||
+                errLower.includes("auth")
+              ) {
+                emailAuthFailed = true;
+                emailAuthMessage = "SMTP authentication failed. Ensure you are using a Google Workspace App Password (not your regular password). Enable 2-Step Verification first, then generate an App Password.";
+                // Stop trying more emails — auth won't fix mid-batch
+                skippedEmailNotConfigured += (attendees.length - sentEmail - failedEmail - skippedNoEmail - 1);
+                failedEmail++;
+                break;
+              }
               failedEmail++;
             }
           } catch (emailErr) {
-            console.error("Email error:", String(emailErr));
+            const errStr = String(emailErr);
+            console.error("Email error:", errStr);
+            // Check for auth-related errors in exceptions too
+            if (errStr.includes("535") || errStr.includes("Username and Password not accepted") || errStr.includes("Invalid login")) {
+              emailAuthFailed = true;
+              emailAuthMessage = "SMTP authentication failed. Use a Google Workspace App Password with 2-Step Verification enabled.";
+            }
             failedEmail++;
           }
         }
@@ -224,6 +278,11 @@ Deno.serve(async (req) => {
       failed_whatsapp: failedWhatsapp,
       skipped_no_phone: skippedNoPhone,
       skipped_no_email: skippedNoEmail,
+      skipped_email_not_configured: skippedEmailNotConfigured,
+      email_not_configured: !emailConfigured,
+      email_auth_failed: emailAuthFailed,
+      email_auth_message: emailAuthMessage || undefined,
+      email_config_message: !emailConfigured ? emailConfigError : undefined,
       total: attendees.length,
     });
   } catch (err) {

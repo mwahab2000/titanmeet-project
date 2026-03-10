@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -119,20 +119,26 @@ interface SendResponse {
   failed_whatsapp?: number;
   skipped_no_email?: number;
   skipped_no_phone?: number;
+  skipped_email_not_configured?: number;
+  email_not_configured?: boolean;
+  email_auth_failed?: boolean;
+  email_auth_message?: string;
+  email_config_message?: string;
   total?: number;
 }
 
-// ── Channel icon helper ──
-function ChannelIcon({ channel }: { channel: InviteChannel }) {
-  if (channel === "whatsapp") return <MessageSquare className="h-3.5 w-3.5" />;
+// ── Channel icon helper (forwardRef to avoid Button ref warning) ──
+const ChannelIcon = React.forwardRef<HTMLSpanElement, { channel: InviteChannel }>(({ channel, ...props }, ref) => {
+  if (channel === "whatsapp") return <span ref={ref} {...props}><MessageSquare className="h-3.5 w-3.5" /></span>;
   if (channel === "both") return (
-    <span className="flex items-center gap-0.5">
+    <span ref={ref} {...props} className="flex items-center gap-0.5">
       <Mail className="h-3 w-3" />
       <MessageSquare className="h-3 w-3" />
     </span>
   );
-  return <Mail className="h-3.5 w-3.5" />;
-}
+  return <span ref={ref} {...props}><Mail className="h-3.5 w-3.5" /></span>;
+});
+ChannelIcon.displayName = "ChannelIcon";
 
 // ── Component ──
 
@@ -324,11 +330,28 @@ const AttendeesSection = () => {
 
   const buildFailureReasons = (res: SendResponse): string[] => {
     const reasons: string[] = [];
+    if (res.email_not_configured) reasons.push("Email not configured — set GMAIL_USER & GMAIL_APP_PASSWORD in Supabase secrets");
+    if (res.email_auth_failed) reasons.push(res.email_auth_message || "SMTP authentication failed — use a Google Workspace App Password");
+    if (res.skipped_email_not_configured) reasons.push(`${res.skipped_email_not_configured} skipped (email not configured)`);
     if (res.skipped_no_email) reasons.push(`${res.skipped_no_email} missing email`);
     if (res.skipped_no_phone) reasons.push(`${res.skipped_no_phone} missing phone`);
     if (res.failed_email) reasons.push(`${res.failed_email} email failure(s)`);
     if (res.failed_whatsapp) reasons.push(`${res.failed_whatsapp} WhatsApp failure(s)`);
     return reasons;
+  };
+
+  const showConfigToast = (res: SendResponse) => {
+    if (res.email_not_configured) {
+      toast.error(
+        "Email sending not configured. For Google Workspace: enable 2-Step Verification, generate an App Password, then set GMAIL_USER and GMAIL_APP_PASSWORD in Supabase Edge Function secrets.",
+        { duration: 10000 }
+      );
+    } else if (res.email_auth_failed) {
+      toast.error(
+        res.email_auth_message || "SMTP authentication failed. Ensure you are using a Google Workspace App Password (not your regular password). Enable 2-Step Verification first.",
+        { duration: 10000 }
+      );
+    }
   };
 
   const sendInvitation = async (attendee: Attendee) => {
@@ -347,8 +370,11 @@ const AttendeesSection = () => {
       const res = data as SendResponse;
       const totalSent = (res.sent_email || 0) + (res.sent_whatsapp || 0);
       if (totalSent === 0) {
-        const reasons = buildFailureReasons(res);
-        toast.error(`No invitation sent: ${reasons.join(", ") || "unknown reason"}`);
+        showConfigToast(res);
+        if (!res.email_not_configured && !res.email_auth_failed) {
+          const reasons = buildFailureReasons(res);
+          toast.error(`No invitation sent: ${reasons.join(", ")}`);
+        }
       } else {
         const { error: updateErr } = await supabase.from("attendees").update({
           invitation_sent: true,
@@ -400,7 +426,11 @@ const AttendeesSection = () => {
         setItems(prev => prev.map(a => a.id === attendee.id ? { ...a, last_reminder_sent_at: new Date().toISOString() } : a));
         toast.success(`Reminder sent to ${attendee.name || attendee.email}`);
       } else {
-        toast.error("Reminder could not be delivered");
+        showConfigToast(res);
+        if (!res.email_not_configured && !res.email_auth_failed) {
+          const reasons = buildFailureReasons(res);
+          toast.error(`Reminder not delivered: ${reasons.join(", ")}`);
+        }
       }
     } catch (e: any) { toast.error(e.message || "Failed to send reminder"); }
     finally { setSendingId(null); }
@@ -432,8 +462,11 @@ const AttendeesSection = () => {
       const res = data as SendResponse;
       const totalSent = (res.sent_email || 0) + (res.sent_whatsapp || 0);
       if (totalSent === 0) {
-        const reasons = buildFailureReasons(res);
-        toast.error(`No invitations sent: ${reasons.join(", ") || "unknown reason"}`);
+        showConfigToast(res);
+        if (!res.email_not_configured && !res.email_auth_failed) {
+          const reasons = buildFailureReasons(res);
+          toast.error(`No invitations sent: ${reasons.join(", ")}`);
+        }
       } else {
         const { error: updateErr } = await supabase.from("attendees").update({
           invitation_sent: true,
