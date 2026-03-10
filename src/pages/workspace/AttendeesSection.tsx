@@ -113,6 +113,8 @@ function parseCsvFile(text: string, existingEmails: Set<string>): CsvImportResul
 
 // ── Send response type ──
 interface SendResponse {
+  correlationId?: string;
+  channels?: string[];
   sent_email?: number;
   sent_whatsapp?: number;
   failed_email?: number;
@@ -121,10 +123,13 @@ interface SendResponse {
   skipped_no_phone?: number;
   skipped_email_not_configured?: number;
   email_not_configured?: boolean;
+  whatsapp_not_configured?: boolean;
   email_auth_failed?: boolean;
-  email_auth_message?: string;
+  email_error_sample?: string;
+  whatsapp_error_sample?: string;
   email_config_message?: string;
   total?: number;
+  error?: string;
 }
 
 // ── Channel icon helper (forwardRef to avoid Button ref warning) ──
