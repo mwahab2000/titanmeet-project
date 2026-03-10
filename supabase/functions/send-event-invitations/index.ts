@@ -83,43 +83,6 @@ Deno.serve(async (req) => {
     const eventSlug = eventData?.slug;
     const publicEventUrl = clientSlug && eventSlug ? `${rootUrl}/${clientSlug}/${eventSlug}` : null;
 
-    // Email helper — delegates to send-communication edge function
-    const sendEmail = async (
-      to: string,
-      subject: string,
-      html: string,
-    ): Promise<boolean> => {
-      try {
-        const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-        const resp = await fetch(
-          `${supabaseUrl}/functions/v1/send-communication`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: authHeader,
-            },
-            body: JSON.stringify({
-              channel: "email",
-              to,
-              subject,
-              message: html,
-              event_id,
-            }),
-          }
-        );
-        const result = await resp.json();
-        if (!resp.ok) {
-          console.error("send-communication error:", JSON.stringify(result));
-          return false;
-        }
-        return true;
-      } catch (e) {
-        console.error("sendEmail error:", e);
-        return false;
-      }
-    };
-
     // Twilio config
     const TWILIO_SID = Deno.env.get("TWILIO_ACCOUNT_SID");
     const TWILIO_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN");
@@ -136,27 +99,54 @@ Deno.serve(async (req) => {
           skippedNoEmail++;
         } else {
           try {
-            const confirmRsvpUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/confirm-rsvp?token=${invite.token}`;
-            const html = isReminder
-              ? buildReminderEmailHtml(eventTitle, attendee.name, inviteUrl, publicEventUrl, eventData?.start_date, confirmRsvpUrl)
-              : buildEmailHtml(eventTitle, attendee.name, inviteUrl, publicEventUrl, eventData?.start_date, confirmRsvpUrl);
-            const subject = isReminder
-              ? `Reminder: Please confirm for ${eventTitle}`
-              : `You're Invited: ${eventTitle}`;
-            const sent = await sendEmail(attendee.email, subject, html);
-            if (sent) {
+            const GMAIL_USER = Deno.env.get("GMAIL_USER");
+            const GMAIL_APP_PASSWORD = Deno.env.get("GMAIL_APP_PASSWORD");
+            if (!GMAIL_USER || !GMAIL_APP_PASSWORD) {
+              console.warn("Gmail not configured");
+              skippedNoEmail++;
+            } else {
+              const confirmRsvpUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/confirm-rsvp?token=${invite.token}`;
+              const html = isReminder
+                ? buildReminderEmailHtml(eventTitle, attendee.name, inviteUrl, publicEventUrl, eventData?.start_date, confirmRsvpUrl)
+                : buildEmailHtml(eventTitle, attendee.name, inviteUrl, publicEventUrl, eventData?.start_date, confirmRsvpUrl);
+              const subject = isReminder
+                ? `Reminder: Please confirm for ${eventTitle}`
+                : `You're Invited: ${eventTitle}`;
+
+              // Send via denomailer - Deno native SMTP
+              const { SmtpClient } = await import(
+                "https://deno.land/x/denomailer@1.6.0/mod.ts"
+              );
+              const client = new SmtpClient();
+              await client.connectTLS({
+                hostname: "smtp.gmail.com",
+                port: 465,
+                username: GMAIL_USER,
+                password: GMAIL_APP_PASSWORD,
+              });
+              await client.send({
+                from: `TitanMeet <${GMAIL_USER}>`,
+                to: attendee.email,
+                subject,
+                html,
+              });
+              await client.close();
+
               await db.from("event_invites").update({
                 sent_via_email: true,
                 email_sent_at: now,
                 last_sent_at: now,
-                status: invite.status === "created" ? "sent" : invite.status,
+                status: invite.status === "created"
+                  ? "sent"
+                  : invite.status,
               }).eq("id", invite.id);
               sentEmail++;
-            } else {
-              failedEmail++;
             }
           } catch (emailErr) {
-            console.error("Email send error:", String(emailErr));
+            console.error(
+              `Email to ${attendee.email} failed:`,
+              String(emailErr)
+            );
             failedEmail++;
           }
         }
