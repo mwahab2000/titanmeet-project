@@ -7,14 +7,15 @@ Deno.serve(async (req) => {
   }
 
   const corsHeaders = getCorsHeaders(req);
+  const appUrl = Deno.env.get("VITE_APP_URL") || "https://titanmeet.com";
 
   const url = new URL(req.url);
   const token = url.searchParams.get("token");
 
   if (!token) {
-    return new Response(html("Missing token."), {
-      status: 400,
-      headers: { ...corsHeaders, "Content-Type": "text/html" },
+    return new Response(null, {
+      status: 302,
+      headers: { ...corsHeaders, Location: `${appUrl}/rsvp/invalid` },
     });
   }
 
@@ -30,25 +31,35 @@ Deno.serve(async (req) => {
     .single();
 
   if (error || !rsvp) {
-    return new Response(html("Invalid or expired token."), {
-      status: 404,
-      headers: { ...corsHeaders, "Content-Type": "text/html" },
+    return new Response(null, {
+      status: 302,
+      headers: { ...corsHeaders, Location: `${appUrl}/rsvp/invalid` },
     });
   }
 
   if (rsvp.used_at) {
-    return new Response(html("You have already confirmed your attendance. Thank you!"), {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "text/html" },
+    return new Response(null, {
+      status: 302,
+      headers: { ...corsHeaders, Location: `${appUrl}/rsvp/already-confirmed` },
     });
   }
 
   if (rsvp.expires_at && new Date(rsvp.expires_at) < new Date()) {
-    return new Response(html("This invitation link has expired."), {
-      status: 410,
-      headers: { ...corsHeaders, "Content-Type": "text/html" },
+    return new Response(null, {
+      status: 302,
+      headers: { ...corsHeaders, Location: `${appUrl}/rsvp/invalid` },
     });
   }
+
+  // Fetch attendee name & event title for the confirmation page
+  const { data: attendeeData } = await supabase
+    .from("attendees")
+    .select("name, events(title)")
+    .eq("id", rsvp.attendee_id)
+    .single();
+
+  const attendeeName = attendeeData?.name || "";
+  const eventTitle = (attendeeData as any)?.events?.title || "";
 
   const now = new Date().toISOString();
 
@@ -62,24 +73,10 @@ Deno.serve(async (req) => {
     .update({ confirmed: true, confirmed_at: now })
     .eq("id", rsvp.attendee_id);
 
-  return new Response(
-    html("Your attendance has been confirmed! Thank you for your response."),
-    {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "text/html" },
-    }
-  );
-});
+  const redirectUrl = `${appUrl}/rsvp/confirmed?name=${encodeURIComponent(attendeeName)}&event=${encodeURIComponent(eventTitle)}`;
 
-function html(message: string) {
-  return `<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>RSVP Confirmation</title>
-<style>body{font-family:system-ui,sans-serif;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0;background:#f8f9fa;}
-.card{background:white;padding:3rem;border-radius:1rem;box-shadow:0 4px 24px rgba(0,0,0,.08);text-align:center;max-width:480px;}
-h1{color:#1a1a2e;margin-bottom:1rem;}</style>
-</head>
-<body><div class="card"><h1>TitanMeet</h1><p>${message}</p></div></body>
-</html>`;
-}
+  return new Response(null, {
+    status: 302,
+    headers: { ...corsHeaders, Location: redirectUrl },
+  });
+});
