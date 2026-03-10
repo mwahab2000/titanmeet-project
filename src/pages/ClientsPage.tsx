@@ -40,10 +40,8 @@ const ClientsPage = () => {
           <h1 className="font-display text-3xl font-bold">Clients</h1>
           <p className="text-muted-foreground">Manage your clients</p>
         </div>
-        <Button className="gradient-titan border-0 text-primary-foreground gap-2" asChild>
-          <Link to="/dashboard/clients/new">
-            <Plus className="h-4 w-4" /> New Client
-          </Link>
+        <Button className="gradient-titan border-0 text-primary-foreground gap-2" onClick={handleNewClient}>
+          <Plus className="h-4 w-4" /> New Client
         </Button>
       </div>
 
