@@ -1,5 +1,4 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import nodemailer from "npm:nodemailer@6";
 import { getCorsHeaders, handleCorsOptions } from "../_shared/cors.ts";
 
 Deno.serve(async (req) => {
@@ -56,14 +55,22 @@ Deno.serve(async (req) => {
     const existingInvites = await db.from("event_invites").select("id, attendee_id, token, status").eq("event_id", event_id);
     const existingMap = new Map((existingInvites.data || []).map((i: any) => [i.attendee_id, i]));
 
-    const toInsert = attendees.filter(a => !existingMap.has(a.id)).map(a => ({
-      event_id,
-      attendee_id: a.id,
-    }));
+    const toInsert = attendees
+      .filter(a => !existingMap.has(a.id))
+      .map(a => ({
+        event_id,
+        attendee_id: a.id,
+      }));
     if (toInsert.length > 0) {
-      await db.from("event_invites").insert(toInsert);
-      const { data: newInvites } = await db.from("event_invites").select("id, attendee_id, token, status").eq("event_id", event_id);
-      (newInvites || []).forEach((i: any) => existingMap.set(i.attendee_id, i));
+      const { data: inserted, error: insertErr } = await db
+        .from("event_invites")
+        .insert(toInsert)
+        .select("id, attendee_id, token, status");
+      if (insertErr) {
+        console.error("event_invites insert error:", JSON.stringify(insertErr));
+        return json({ error: "Failed to create invite tokens", detail: insertErr.message }, 500);
+      }
+      (inserted || []).forEach((i: any) => existingMap.set(i.attendee_id, i));
     }
 
     const rootUrl = base_url || "https://titanmeet.com";
@@ -76,20 +83,42 @@ Deno.serve(async (req) => {
     const eventSlug = eventData?.slug;
     const publicEventUrl = clientSlug && eventSlug ? `${rootUrl}/${clientSlug}/${eventSlug}` : null;
 
-    // Setup email transport
-    let transporter: any = null;
-    if (sendChannels.includes("email")) {
-      const GMAIL_USER = Deno.env.get("GMAIL_USER");
-      const GMAIL_APP_PASSWORD = Deno.env.get("GMAIL_APP_PASSWORD");
-      if (GMAIL_USER && GMAIL_APP_PASSWORD) {
-        transporter = nodemailer.createTransport({
-          host: "smtp.gmail.com",
-          port: 465,
-          secure: true,
-          auth: { user: GMAIL_USER, pass: GMAIL_APP_PASSWORD },
-        });
+    // Email helper — delegates to send-communication edge function
+    const sendEmail = async (
+      to: string,
+      subject: string,
+      html: string,
+    ): Promise<boolean> => {
+      try {
+        const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+        const resp = await fetch(
+          `${supabaseUrl}/functions/v1/send-communication`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: authHeader,
+            },
+            body: JSON.stringify({
+              channel: "email",
+              to,
+              subject,
+              message: html,
+              event_id,
+            }),
+          }
+        );
+        const result = await resp.json();
+        if (!resp.ok) {
+          console.error("send-communication error:", JSON.stringify(result));
+          return false;
+        }
+        return true;
+      } catch (e) {
+        console.error("sendEmail error:", e);
+        return false;
       }
-    }
+    };
 
     // Twilio config
     const TWILIO_SID = Deno.env.get("TWILIO_ACCOUNT_SID");
@@ -105,7 +134,7 @@ Deno.serve(async (req) => {
       if (sendChannels.includes("email")) {
         if (!attendee.email) {
           skippedNoEmail++;
-        } else if (transporter) {
+        } else {
           try {
             const confirmRsvpUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/confirm-rsvp?token=${invite.token}`;
             const html = isReminder
@@ -114,46 +143,21 @@ Deno.serve(async (req) => {
             const subject = isReminder
               ? `Reminder: Please confirm for ${eventTitle}`
               : `You're Invited: ${eventTitle}`;
-            const info = await transporter.sendMail({
-              from: `TitanMeet <${Deno.env.get("GMAIL_USER")}>`,
-              to: attendee.email,
-              subject,
-              html,
-            });
-
-            await db.from("event_invites").update({
-              sent_via_email: true,
-              email_sent_at: now,
-              last_sent_at: now,
-              status: invite.status === "created" ? "sent" : invite.status,
-            }).eq("id", invite.id);
-
-            await db.from("message_logs").insert({
-              event_id,
-              attendee_id: attendee.id,
-              channel: "email",
-              to_address: attendee.email,
-              subject,
-              message_body: html,
-              provider: "gmail",
-              provider_message_id: info?.messageId || null,
-              status: "sent",
-            });
-
-            sentEmail++;
+            const sent = await sendEmail(attendee.email, subject, html);
+            if (sent) {
+              await db.from("event_invites").update({
+                sent_via_email: true,
+                email_sent_at: now,
+                last_sent_at: now,
+                status: invite.status === "created" ? "sent" : invite.status,
+              }).eq("id", invite.id);
+              sentEmail++;
+            } else {
+              failedEmail++;
+            }
           } catch (emailErr) {
-            console.error(`Email to ${attendee.email} failed:`, emailErr);
+            console.error("Email send error:", String(emailErr));
             failedEmail++;
-            await db.from("message_logs").insert({
-              event_id,
-              attendee_id: attendee.id,
-              channel: "email",
-              to_address: attendee.email,
-              message_body: "Failed to send",
-              provider: "gmail",
-              status: "failed",
-              error: String(emailErr),
-            });
           }
         }
       }
