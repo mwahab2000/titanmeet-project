@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Plus, Search, Calendar, MapPin, Users, X, Zap, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,6 +7,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { format } from "date-fns";
+import { usePlanLimits } from "@/hooks/usePlanLimits";
+import { useUpgradeModal } from "@/hooks/useUpgradeModal";
 
 const statusFilters = ["all", "draft", "published", "ongoing", "completed", "archived", "cancelled"] as const;
 type StatusFilter = (typeof statusFilters)[number];
