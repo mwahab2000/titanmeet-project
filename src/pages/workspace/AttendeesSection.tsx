@@ -474,13 +474,16 @@ const AttendeesSection = () => {
         },
       });
       if (error) throw error;
-      const res = data as SendResponse;
+      const res = (data || {}) as SendResponse;
+      console.log("[Bulk Invitation Response]", JSON.stringify(res));
       const totalSent = (res.sent_email || 0) + (res.sent_whatsapp || 0);
       if (totalSent === 0) {
         showConfigToast(res);
-        if (!res.email_not_configured && !res.email_auth_failed) {
-          const reasons = buildFailureReasons(res);
-          toast.error(`No invitations sent: ${reasons.join(", ")}`);
+        const reasons = buildFailureReasons(res);
+        if (reasons.length > 0 && !res.email_not_configured && !res.email_auth_failed) {
+          toast.error(`No invitations sent: ${reasons.join(", ")}`, { duration: 8000 });
+        } else if (reasons.length === 0) {
+          toast.error("No invitations sent — check Edge Function logs for details.");
         }
       } else {
         const { error: updateErr } = await supabase.from("attendees").update({
