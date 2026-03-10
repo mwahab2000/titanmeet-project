@@ -107,7 +107,8 @@ Deno.serve(async (req) => {
           skippedNoEmail++;
         } else if (transporter) {
           try {
-            const html = buildEmailHtml(eventTitle, attendee.name, inviteUrl, publicEventUrl, eventData?.start_date);
+            const confirmRsvpUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/confirm-rsvp?token=${invite.token}`;
+            const html = buildEmailHtml(eventTitle, attendee.name, inviteUrl, publicEventUrl, eventData?.start_date, confirmRsvpUrl);
             const info = await transporter.sendMail({
               from: `TitanMeet <${Deno.env.get("GMAIL_USER")}>`,
               to: attendee.email,
