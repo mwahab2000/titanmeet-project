@@ -457,17 +457,8 @@ const AttendeesSection = () => {
       });
       if (error) throw error;
       const res = (data || {}) as SendResponse;
-      console.log("[Bulk Invitation Response]", JSON.stringify(res));
-      const totalSent = (res.sent_email || 0) + (res.sent_whatsapp || 0);
-      if (totalSent === 0) {
-        showConfigToast(res);
-        const reasons = buildFailureReasons(res);
-        if (reasons.length > 0 && !res.email_not_configured && !res.email_auth_failed) {
-          toast.error(`No invitations sent: ${reasons.join(", ")}`, { duration: 8000 });
-        } else if (reasons.length === 0) {
-          toast.error("No invitations sent — check Edge Function logs for details.");
-        }
-      } else {
+      const sent = handleSendResponse(res, "Invitations sent");
+      if (sent) {
         const { error: updateErr } = await supabase.from("attendees").update({
           invitation_sent: true,
           invitation_sent_at: new Date().toISOString(),
@@ -475,12 +466,6 @@ const AttendeesSection = () => {
         } as any).in("id", targets.map(a => a.id));
         if (updateErr) toast.error(`Sent but failed to update statuses: ${updateErr.message}`);
         setItems(prev => prev.map(a => targets.some(t => t.id === a.id) ? { ...a, invitation_sent: true, invitation_sent_at: new Date().toISOString(), invitation_channel: inviteChannel } : a));
-        const details: string[] = [];
-        if (res.sent_email) details.push(`${res.sent_email} email`);
-        if (res.sent_whatsapp) details.push(`${res.sent_whatsapp} WhatsApp`);
-        if (res.failed_email || res.failed_whatsapp) details.push(`${(res.failed_email || 0) + (res.failed_whatsapp || 0)} failed`);
-        if (res.skipped_no_email || res.skipped_no_phone) details.push(`${(res.skipped_no_email || 0) + (res.skipped_no_phone || 0)} skipped`);
-        toast.success(`Invitations: ${details.join(", ")}`);
       }
     } catch (e: any) { toast.error(e.message || "Failed to send invitations"); }
     setBulkSending(false);
