@@ -83,20 +83,43 @@ Deno.serve(async (req) => {
     const eventSlug = eventData?.slug;
     const publicEventUrl = clientSlug && eventSlug ? `${rootUrl}/${clientSlug}/${eventSlug}` : null;
 
-    // Setup email transport
-    let transporter: any = null;
-    if (sendChannels.includes("email")) {
-      const GMAIL_USER = Deno.env.get("GMAIL_USER");
-      const GMAIL_APP_PASSWORD = Deno.env.get("GMAIL_APP_PASSWORD");
-      if (GMAIL_USER && GMAIL_APP_PASSWORD) {
-        transporter = nodemailer.createTransport({
-          host: "smtp.gmail.com",
-          port: 465,
-          secure: true,
-          auth: { user: GMAIL_USER, pass: GMAIL_APP_PASSWORD },
-        });
+    // Email helper — delegates to send-communication edge function
+    const sendEmail = async (
+      to: string,
+      subject: string,
+      html: string,
+    ): Promise<boolean> => {
+      try {
+        const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+        const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+        const resp = await fetch(
+          `${supabaseUrl}/functions/v1/send-communication`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${serviceKey}`,
+            },
+            body: JSON.stringify({
+              channel: "email",
+              to,
+              subject,
+              message: html,
+              event_id,
+            }),
+          }
+        );
+        const result = await resp.json();
+        if (!resp.ok) {
+          console.error("send-communication error:", JSON.stringify(result));
+          return false;
+        }
+        return true;
+      } catch (e) {
+        console.error("sendEmail error:", e);
+        return false;
       }
-    }
+    };
 
     // Twilio config
     const TWILIO_SID = Deno.env.get("TWILIO_ACCOUNT_SID");
