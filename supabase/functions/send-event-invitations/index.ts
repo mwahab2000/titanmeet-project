@@ -46,6 +46,13 @@ Deno.serve(async (req) => {
     const isReminder = is_reminder === true;
     if (!event_id) return json({ ...summary, error: "Missing event_id" }, 400);
 
+    console.log("[send-event-invitations] request received", {
+      event_id,
+      attendee_ids_len: Array.isArray(attendee_ids) ? attendee_ids.length : 0,
+      channels,
+      is_reminder,
+    });
+
     const sendChannels: string[] = Array.isArray(channels) && channels.length > 0
       ? channels.filter((c: string) => ["email", "whatsapp"].includes(c))
       : ["email"];
