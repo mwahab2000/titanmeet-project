@@ -1,4 +1,5 @@
 export interface PlanConfig {
+  id: string;
   name: string;
   monthlyPrice: number;
   annualPrice: number;
@@ -20,6 +21,7 @@ export interface PlanConfig {
 
 export const PLANS: Record<string, PlanConfig> = {
   starter: {
+    id: 'starter',
     name: 'Starter',
     monthlyPrice: 49,
     annualPrice: 39,
@@ -39,6 +41,7 @@ export const PLANS: Record<string, PlanConfig> = {
     buttonText: 'Start with Starter',
   },
   professional: {
+    id: 'professional',
     name: 'Professional',
     monthlyPrice: 149,
     annualPrice: 119,
@@ -58,6 +61,7 @@ export const PLANS: Record<string, PlanConfig> = {
     buttonText: 'Get Started Now',
   },
   enterprise: {
+    id: 'enterprise',
     name: 'Enterprise',
     monthlyPrice: 399,
     annualPrice: 319,
