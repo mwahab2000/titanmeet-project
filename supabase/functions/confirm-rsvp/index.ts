@@ -24,7 +24,7 @@ Deno.serve(async (req) => {
   // Look up token in event_invites table (unified token system)
   const { data: invite, error } = await supabase
     .from("event_invites")
-    .select("id, attendee_id, status, rsvp_at")
+    .select("id, attendee_id, status, rsvp_at, opened_at")
     .eq("token", token)
     .single();
 
