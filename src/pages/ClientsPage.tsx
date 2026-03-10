@@ -1,13 +1,26 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Plus, Building2, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
+import { usePlanLimits } from "@/hooks/usePlanLimits";
+import { useUpgradeModal } from "@/hooks/useUpgradeModal";
 
 const ClientsPage = () => {
   const [clients, setClients] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const planLimits = usePlanLimits();
+  const { openUpgradeModal } = useUpgradeModal();
+  const navigate = useNavigate();
+
+  const handleNewClient = () => {
+    if (!planLimits.canCreate("clients")) {
+      openUpgradeModal("clients");
+      return;
+    }
+    navigate("/dashboard/clients/new");
+  };
 
   useEffect(() => {
     supabase
