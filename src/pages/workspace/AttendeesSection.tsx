@@ -2,12 +2,14 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useEventWorkspace } from "@/contexts/EventWorkspaceContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Trash2, Upload, Mail, Bell, Users2, Download, FileDown } from "lucide-react";
+import { Trash2, Upload, Mail, Bell, Users2, Download, FileDown, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SectionHint } from "@/components/ui/section-hint";
 import { usePlanLimits } from "@/hooks/usePlanLimits";
@@ -21,6 +23,9 @@ interface Attendee {
   mobile: string | null;
   confirmed: boolean;
   invitation_sent: boolean;
+  invitation_sent_at: string | null;
+  last_reminder_sent_at: string | null;
+  invitation_channel: string | null;
   _isNew?: boolean;
 }
 
@@ -39,58 +44,7 @@ function validateField(field: Field, value: string): string | null {
 }
 
 type StatusFilter = "all" | "confirmed" | "pending" | "invited" | "not_invited";
-
-// ── Email templates ──
-
-const buildInvitationHtml = (eventTitle: string, rsvpUrl: string) => `
-<!DOCTYPE html>
-<html><head><meta charset="UTF-8"></head>
-<body style="margin:0;padding:0;background:#f8f9fa;font-family:'Inter',Arial,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#f8f9fa;padding:40px 0;">
-<tr><td align="center">
-<table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
-<tr><td style="background:linear-gradient(135deg,hsl(145,63%,42%),hsl(210,70%,50%));padding:32px;text-align:center;">
-<h1 style="margin:0;color:#ffffff;font-family:'Space Grotesk',Arial,sans-serif;font-size:28px;">TitanMeet</h1>
-</td></tr>
-<tr><td style="padding:40px 32px;">
-<h2 style="margin:0 0 16px;color:hsl(210,40%,10%);font-family:'Space Grotesk',Arial,sans-serif;font-size:22px;">You're Invited!</h2>
-<p style="margin:0 0 24px;color:hsl(210,10%,45%);font-size:16px;line-height:1.6;">You have been invited to attend <strong style="color:hsl(210,40%,10%);">${eventTitle}</strong>. Please confirm your attendance by clicking the button below.</p>
-<table cellpadding="0" cellspacing="0" style="margin:0 auto;"><tr><td style="background:hsl(145,63%,42%);border-radius:8px;">
-<a href="${rsvpUrl}" style="display:inline-block;padding:14px 32px;color:#ffffff;text-decoration:none;font-weight:600;font-size:16px;">Confirm Attendance</a>
-</td></tr></table>
-<p style="margin:24px 0 0;color:hsl(210,10%,45%);font-size:13px;">If the button doesn't work, copy this link:<br><a href="${rsvpUrl}" style="color:hsl(210,70%,50%);">${rsvpUrl}</a></p>
-</td></tr>
-<tr><td style="padding:24px 32px;background:hsl(210,20%,98%);text-align:center;">
-<p style="margin:0;color:hsl(210,10%,45%);font-size:12px;">Powered by TitanMeet</p>
-</td></tr>
-</table>
-</td></tr></table>
-</body></html>`;
-
-const buildReminderHtml = (eventTitle: string, rsvpUrl: string) => `
-<!DOCTYPE html>
-<html><head><meta charset="UTF-8"></head>
-<body style="margin:0;padding:0;background:#f8f9fa;font-family:'Inter',Arial,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#f8f9fa;padding:40px 0;">
-<tr><td align="center">
-<table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
-<tr><td style="background:linear-gradient(135deg,hsl(145,63%,42%),hsl(210,70%,50%));padding:32px;text-align:center;">
-<h1 style="margin:0;color:#ffffff;font-family:'Space Grotesk',Arial,sans-serif;font-size:28px;">TitanMeet</h1>
-</td></tr>
-<tr><td style="padding:40px 32px;">
-<h2 style="margin:0 0 16px;color:hsl(210,40%,10%);font-family:'Space Grotesk',Arial,sans-serif;font-size:22px;">Reminder: Please Confirm</h2>
-<p style="margin:0 0 24px;color:hsl(210,10%,45%);font-size:16px;line-height:1.6;">This is a friendly reminder to confirm your attendance for <strong style="color:hsl(210,40%,10%);">${eventTitle}</strong>. We'd love to have you there!</p>
-<table cellpadding="0" cellspacing="0" style="margin:0 auto;"><tr><td style="background:hsl(145,63%,42%);border-radius:8px;">
-<a href="${rsvpUrl}" style="display:inline-block;padding:14px 32px;color:#ffffff;text-decoration:none;font-weight:600;font-size:16px;">Confirm Attendance</a>
-</td></tr></table>
-<p style="margin:24px 0 0;color:hsl(210,10%,45%);font-size:13px;">If the button doesn't work, copy this link:<br><a href="${rsvpUrl}" style="color:hsl(210,70%,50%);">${rsvpUrl}</a></p>
-</td></tr>
-<tr><td style="padding:24px 32px;background:hsl(210,20%,98%);text-align:center;">
-<p style="margin:0;color:hsl(210,10%,45%);font-size:12px;">Powered by TitanMeet</p>
-</td></tr>
-</table>
-</td></tr></table>
-</body></html>`;
+type InviteChannel = "email" | "whatsapp" | "both";
 
 // ── CSV Helpers ──
 
@@ -135,7 +89,6 @@ function parseCsvFile(text: string, existingEmails: Set<string>): CsvImportResul
   const result: CsvImportResult = { valid: [], duplicates: [], invalid: [] };
   const seenEmails = new Set<string>();
 
-  // Detect header
   const firstLine = lines[0]?.toLowerCase().trim();
   const startIdx = (firstLine?.includes("name") && firstLine?.includes("email")) ? 1 : 0;
 
@@ -146,23 +99,11 @@ function parseCsvFile(text: string, existingEmails: Set<string>): CsvImportResul
     const [name, email, mobile] = parts;
     const lineNum = i + 1;
 
-    if (!name) {
-      result.invalid.push({ line: lineNum, reason: "Missing name", raw });
-      continue;
-    }
-    if (!email || !EMAIL_RE.test(email)) {
-      result.invalid.push({ line: lineNum, reason: email ? "Invalid email format" : "Missing email", raw });
-      continue;
-    }
+    if (!name) { result.invalid.push({ line: lineNum, reason: "Missing name", raw }); continue; }
+    if (!email || !EMAIL_RE.test(email)) { result.invalid.push({ line: lineNum, reason: email ? "Invalid email format" : "Missing email", raw }); continue; }
     const emailLower = email.toLowerCase();
-    if (existingEmails.has(emailLower)) {
-      result.duplicates.push(email);
-      continue;
-    }
-    if (seenEmails.has(emailLower)) {
-      result.duplicates.push(email);
-      continue;
-    }
+    if (existingEmails.has(emailLower)) { result.duplicates.push(email); continue; }
+    if (seenEmails.has(emailLower)) { result.duplicates.push(email); continue; }
     seenEmails.add(emailLower);
     result.valid.push({ name, email, mobile: mobile || null });
   }
@@ -180,8 +121,10 @@ const AttendeesSection = () => {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [sendingId, setSendingId] = useState<string | null>(null);
   const [bulkSending, setBulkSending] = useState(false);
+  const [bulkReminding, setBulkReminding] = useState(false);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [importSummary, setImportSummary] = useState<CsvImportResult | null>(null);
+  const [inviteChannel, setInviteChannel] = useState<InviteChannel>("email");
   const timersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const cellRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const itemsRef = useRef<Attendee[]>([]);
@@ -189,7 +132,10 @@ const AttendeesSection = () => {
 
   const load = useCallback(async () => {
     if (!event) return;
-    const { data } = await supabase.from("attendees").select("*").eq("event_id", event.id);
+    const { data } = await supabase
+      .from("attendees")
+      .select("id, name, email, mobile, confirmed, invitation_sent, invitation_sent_at, last_reminder_sent_at, invitation_channel")
+      .eq("event_id", event.id);
     const rows = (data as Attendee[]) || [];
     if (!isArchived) rows.push(createEmptyRow());
     setItems(rows);
@@ -203,7 +149,7 @@ const AttendeesSection = () => {
   }, [load]);
 
   function createEmptyRow(): Attendee {
-    return { id: `temp-${Date.now()}-${Math.random()}`, name: "", email: "", mobile: null, confirmed: false, invitation_sent: false, _isNew: true };
+    return { id: `temp-${Date.now()}-${Math.random()}`, name: "", email: "", mobile: null, confirmed: false, invitation_sent: false, invitation_sent_at: null, last_reminder_sent_at: null, invitation_channel: null, _isNew: true };
   }
 
   const isRowEmpty = (a: Attendee) => !a.name && !a.email && !a.mobile;
@@ -213,7 +159,6 @@ const AttendeesSection = () => {
     const emailErr = validateField("email", attendee.email);
     if (emailErr && attendee.email) { toast.error("Fix email format before saving"); return null; }
 
-    // Soft limit check for attendees
     if (!planLimits.canCreate("attendees")) {
       openUpgradeModal("attendees");
       return null;
@@ -237,7 +182,6 @@ const AttendeesSection = () => {
   };
 
   const handleChange = (rowIndex: number, field: Field, value: string) => {
-    // rowIndex is relative to filtered list — map back to real items
     const realItems = getFilteredItems();
     const item = realItems[rowIndex];
     if (!item) return;
@@ -329,7 +273,7 @@ const AttendeesSection = () => {
     });
   };
 
-  // ── CSV Import (hardened) ──
+  // ── CSV Import ──
   const handleCSV = async (file: File) => {
     if (!event) return;
     const text = await file.text();
@@ -339,71 +283,78 @@ const AttendeesSection = () => {
     const result = parseCsvFile(text, existingEmails);
     setImportSummary(result);
 
-    if (result.valid.length === 0) {
-      toast.error("No valid rows to import.");
-      return;
-    }
+    if (result.valid.length === 0) { toast.error("No valid rows to import."); return; }
 
     const rows = result.valid.map(r => ({ event_id: event.id, name: r.name, email: r.email, mobile: r.mobile }));
     const { error } = await supabase.from("attendees").insert(rows as any);
-    if (error) {
-      toast.error(error.message);
-    } else {
+    if (error) { toast.error(error.message); } else {
       toast.success(`${result.valid.length} attendees imported${result.duplicates.length ? `, ${result.duplicates.length} duplicates skipped` : ""}${result.invalid.length ? `, ${result.invalid.length} invalid rows skipped` : ""}`);
       load();
     }
   };
 
-  // ── Email helpers ──
-
-  const sendRealEmail = async (to: string, subject: string, html: string): Promise<boolean> => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) { toast.error("Not authenticated"); return false; }
-    const res = await supabase.functions.invoke("send-email", { body: { to, subject, html } });
-    if (res.error) { console.error("send-email error:", res.error); return false; }
-    return true;
+  // ── Send helpers ──
+  const getChannels = (): string[] => {
+    if (inviteChannel === "both") return ["email", "whatsapp"];
+    return [inviteChannel];
   };
 
   const sendInvitation = async (attendee: Attendee) => {
-    if (!event || !attendee.email) { toast.error("Attendee needs an email"); return; }
+    if (!event) return;
     setSendingId(attendee.id);
     try {
-      const { data: token, error: tokenErr } = await supabase
-        .from("rsvp_tokens").insert({ event_id: event.id, attendee_id: attendee.id } as any).select("token").single();
-      if (tokenErr) throw tokenErr;
-      const rsvpUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/confirm-rsvp?token=${token.token}`;
-      const subject = `Invitation: ${event.title}`;
-      const html = buildInvitationHtml(event.title, rsvpUrl);
-      const sent = await sendRealEmail(attendee.email, subject, html);
-      await supabase.from("communications_log").insert({ event_id: event.id, attendee_id: attendee.id, channel: "email", subject, message: `RSVP link: ${rsvpUrl}`, status: sent ? "sent" : "failed" } as any);
-      if (sent) {
-        await supabase.from("attendees").update({ invitation_sent: true } as any).eq("id", attendee.id);
-        setItems(prev => prev.map(a => a.id === attendee.id ? { ...a, invitation_sent: true } : a));
-        toast.success(`Invitation sent to ${attendee.name || attendee.email}`);
-      } else toast.error("Email delivery failed — logged for retry");
+      const { error } = await supabase.functions.invoke("send-event-invitations", {
+        body: {
+          event_id: event.id,
+          attendee_ids: [attendee.id],
+          channels: getChannels(),
+          base_url: window.location.origin,
+        },
+      });
+      if (error) throw error;
+      await supabase.from("attendees").update({
+        invitation_sent: true,
+        invitation_sent_at: new Date().toISOString(),
+        invitation_channel: inviteChannel,
+      } as any).eq("id", attendee.id);
+      setItems(prev => prev.map(a => a.id === attendee.id ? { ...a, invitation_sent: true, invitation_sent_at: new Date().toISOString(), invitation_channel: inviteChannel } : a));
+      toast.success(`Invitation sent to ${attendee.name || attendee.email}`);
     } catch (e: any) { toast.error(e.message || "Failed to send invitation"); }
     finally { setSendingId(null); }
   };
 
   const sendReminder = async (attendee: Attendee) => {
-    if (!event || !attendee.email) { toast.error("Attendee needs an email"); return; }
+    if (!event) return;
+    // Enforce 24-hour cooldown
+    const now = new Date();
+    const lastSent = attendee.last_reminder_sent_at || attendee.invitation_sent_at;
+    if (lastSent) {
+      const hoursSinceLastSend = (now.getTime() - new Date(lastSent).getTime()) / (1000 * 60 * 60);
+      if (hoursSinceLastSend < 24) {
+        const hoursLeft = Math.ceil(24 - hoursSinceLastSend);
+        toast.error(`Reminder already sent. You can send another in ${hoursLeft} hour(s).`);
+        return;
+      }
+    }
     setSendingId(attendee.id);
     try {
-      const { data: existing } = await supabase.from("rsvp_tokens").select("token").eq("event_id", event.id).eq("attendee_id", attendee.id).order("id", { ascending: false }).limit(1);
-      let tokenVal: string;
-      if (existing && existing.length > 0) { tokenVal = existing[0].token; }
-      else {
-        const { data: newToken, error } = await supabase.from("rsvp_tokens").insert({ event_id: event.id, attendee_id: attendee.id } as any).select("token").single();
-        if (error) throw error;
-        tokenVal = newToken.token;
-      }
-      const rsvpUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/confirm-rsvp?token=${tokenVal}`;
-      const subject = `Reminder: ${event.title}`;
-      const html = buildReminderHtml(event.title, rsvpUrl);
-      const sent = await sendRealEmail(attendee.email, subject, html);
-      await supabase.from("communications_log").insert({ event_id: event.id, attendee_id: attendee.id, channel: "email", subject, message: `RSVP reminder link: ${rsvpUrl}`, status: sent ? "sent" : "failed" } as any);
-      if (sent) toast.success(`Reminder sent to ${attendee.name || attendee.email}`);
-      else toast.error("Email delivery failed — logged for retry");
+      const channels = attendee.invitation_channel === "both"
+        ? ["email", "whatsapp"]
+        : [attendee.invitation_channel || "email"];
+      const { error } = await supabase.functions.invoke("send-event-invitations", {
+        body: {
+          event_id: event.id,
+          attendee_ids: [attendee.id],
+          channels,
+          base_url: window.location.origin,
+        },
+      });
+      if (error) throw error;
+      await supabase.from("attendees").update({
+        last_reminder_sent_at: new Date().toISOString(),
+      } as any).eq("id", attendee.id);
+      setItems(prev => prev.map(a => a.id === attendee.id ? { ...a, last_reminder_sent_at: new Date().toISOString() } : a));
+      toast.success(`Reminder sent to ${attendee.name || attendee.email}`);
     } catch (e: any) { toast.error(e.message || "Failed to send reminder"); }
     finally { setSendingId(null); }
   };
@@ -413,32 +364,90 @@ const AttendeesSection = () => {
     const targets = items.filter(a => !a._isNew && !a.id.startsWith("temp-") && !a.confirmed && !a.invitation_sent && a.email);
     if (targets.length === 0) { toast.info("No unconfirmed attendees to invite"); return; }
     setBulkSending(true);
-    let sentCount = 0;
-    for (const attendee of targets) {
-      try {
-        const { data: token, error: tokenErr } = await supabase
-          .from("rsvp_tokens").insert({ event_id: event.id, attendee_id: attendee.id } as any).select("token").single();
-        if (tokenErr) { console.error(tokenErr); continue; }
-        const rsvpUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/confirm-rsvp?token=${token.token}`;
-        const subject = `Invitation: ${event.title}`;
-        const html = buildInvitationHtml(event.title, rsvpUrl);
-        const sent = await sendRealEmail(attendee.email, subject, html);
-        await supabase.from("communications_log").insert({ event_id: event.id, attendee_id: attendee.id, channel: "email", subject, message: `RSVP link: ${rsvpUrl}`, status: sent ? "sent" : "failed" } as any);
-        if (sent) {
-          await supabase.from("attendees").update({ invitation_sent: true } as any).eq("id", attendee.id);
-          setItems(prev => prev.map(a => a.id === attendee.id ? { ...a, invitation_sent: true } : a));
-          sentCount++;
-        }
-      } catch (e: any) { console.error(`Failed for ${attendee.email}:`, e); }
-    }
-    toast.success(`${sentCount}/${targets.length} invitations sent`);
+    try {
+      const { error } = await supabase.functions.invoke("send-event-invitations", {
+        body: {
+          event_id: event.id,
+          attendee_ids: targets.map(a => a.id),
+          channels: getChannels(),
+          base_url: window.location.origin,
+        },
+      });
+      if (error) throw error;
+      await supabase.from("attendees").update({
+        invitation_sent: true,
+        invitation_sent_at: new Date().toISOString(),
+        invitation_channel: inviteChannel,
+      } as any).in("id", targets.map(a => a.id));
+      setItems(prev => prev.map(a => targets.some(t => t.id === a.id) ? { ...a, invitation_sent: true, invitation_sent_at: new Date().toISOString(), invitation_channel: inviteChannel } : a));
+      toast.success(`${targets.length} invitation(s) sent`);
+    } catch (e: any) { toast.error(e.message || "Failed to send invitations"); }
     setBulkSending(false);
   };
+
+  const sendAllReminders = async () => {
+    if (!event) return;
+    const now = new Date();
+    const eligible = items.filter(a => {
+      if (a._isNew || a.id.startsWith("temp-") || a.confirmed || !a.invitation_sent) return false;
+      const lastSent = a.last_reminder_sent_at || a.invitation_sent_at;
+      if (!lastSent) return true;
+      return (now.getTime() - new Date(lastSent).getTime()) / (1000 * 60 * 60) >= 24;
+    });
+    if (eligible.length === 0) { toast.info("No eligible attendees for reminders (24h cooldown)"); return; }
+    setBulkReminding(true);
+    let sentCount = 0;
+    for (const attendee of eligible) {
+      try {
+        const channels = attendee.invitation_channel === "both"
+          ? ["email", "whatsapp"]
+          : [attendee.invitation_channel || "email"];
+        await supabase.functions.invoke("send-event-invitations", {
+          body: {
+            event_id: event.id,
+            attendee_ids: [attendee.id],
+            channels,
+            base_url: window.location.origin,
+          },
+        });
+        await supabase.from("attendees").update({
+          last_reminder_sent_at: new Date().toISOString(),
+        } as any).eq("id", attendee.id);
+        sentCount++;
+      } catch { /* continue */ }
+    }
+    setItems(prev => prev.map(a => eligible.some(e => e.id === a.id) ? { ...a, last_reminder_sent_at: new Date().toISOString() } : a));
+    toast.success(`${sentCount}/${eligible.length} reminder(s) sent`);
+    setBulkReminding(false);
+  };
+
+  // ── Reminder eligibility ──
+  const getReminderTooltip = (a: Attendee): { title: string; disabled: boolean } => {
+    if (!a.invitation_sent) return { title: "Send invitation first", disabled: true };
+    if (a.confirmed) return { title: "Already confirmed", disabled: true };
+    const lastSent = a.last_reminder_sent_at || a.invitation_sent_at;
+    if (lastSent) {
+      const hours = (Date.now() - new Date(lastSent).getTime()) / (1000 * 60 * 60);
+      if (hours < 24) {
+        const left = Math.ceil(24 - hours);
+        return { title: `Reminder sent — available in ${left}h`, disabled: true };
+      }
+    }
+    return { title: "Send reminder", disabled: false };
+  };
+
+  // ── Eligible reminder count ──
+  const eligibleReminderCount = items.filter(a => {
+    if (a._isNew || a.id.startsWith("temp-") || a.confirmed || !a.invitation_sent) return false;
+    const lastSent = a.last_reminder_sent_at || a.invitation_sent_at;
+    if (!lastSent) return true;
+    return (Date.now() - new Date(lastSent).getTime()) / (1000 * 60 * 60) >= 24;
+  }).length;
 
   // ── Filtering ──
   const getFilteredItems = useCallback(() => {
     return items.filter(a => {
-      if (a._isNew || a.id.startsWith("temp-")) return true; // always show empty row
+      if (a._isNew || a.id.startsWith("temp-")) return true;
       switch (statusFilter) {
         case "confirmed": return a.confirmed;
         case "pending": return !a.confirmed;
@@ -511,8 +520,31 @@ const AttendeesSection = () => {
             </Select>
             {!isArchived && (
               <>
+                {/* Channel selector */}
+                <div className="flex items-center gap-1.5">
+                  <Label className="text-xs text-muted-foreground">Via:</Label>
+                  <ToggleGroup
+                    type="single"
+                    value={inviteChannel}
+                    onValueChange={(v) => v && setInviteChannel(v as InviteChannel)}
+                    className="h-8"
+                  >
+                    <ToggleGroupItem value="email" className="text-xs h-7 px-2 gap-1">
+                      <Mail className="h-3 w-3" /> Email
+                    </ToggleGroupItem>
+                    <ToggleGroupItem value="whatsapp" className="text-xs h-7 px-2 gap-1">
+                      <MessageSquare className="h-3 w-3" /> WhatsApp
+                    </ToggleGroupItem>
+                    <ToggleGroupItem value="both" className="text-xs h-7 px-2 gap-1">
+                      Both
+                    </ToggleGroupItem>
+                  </ToggleGroup>
+                </div>
                 <Button size="sm" variant="default" className="gap-1 text-xs" disabled={bulkSending} onClick={sendAllInvitations}>
                   <Mail className="h-3.5 w-3.5" /> {bulkSending ? "Sending…" : "Send All Invitations"}
+                </Button>
+                <Button size="sm" variant="outline" className="gap-1 text-xs" disabled={bulkReminding || eligibleReminderCount === 0} onClick={sendAllReminders}>
+                  <Bell className="h-3.5 w-3.5" /> {bulkReminding ? "Sending…" : `Remind (${eligibleReminderCount})`}
                 </Button>
                 <Button size="sm" variant="outline" className="gap-1 text-xs" onClick={downloadCsvTemplate}>
                   <FileDown className="h-3.5 w-3.5" /> Template
@@ -565,6 +597,7 @@ const AttendeesSection = () => {
               <TableBody>
                 {filteredItems.map((a, rowIndex) => {
                   const isTemp = a._isNew || a.id.startsWith("temp-");
+                  const reminderInfo = !isTemp ? getReminderTooltip(a) : { title: "", disabled: true };
                   return (
                     <TableRow key={a.id} className={cn("group transition-colors", isTemp && "bg-muted/20")}>
                       <TableCell className="text-center text-xs text-muted-foreground font-mono tabular-nums p-1">
@@ -605,8 +638,8 @@ const AttendeesSection = () => {
                       })}
                       <TableCell className="p-1 text-center">
                         {!isTemp && (
-                          <Badge 
-                            variant={a.confirmed ? "default" : a.invitation_sent ? "outline" : "secondary"} 
+                          <Badge
+                            variant={a.confirmed ? "default" : a.invitation_sent ? "outline" : "secondary"}
                             className={cn("text-[10px]", a.confirmed && "bg-primary hover:bg-primary/90")}
                           >
                             {a.confirmed ? "Confirmed" : a.invitation_sent ? "Invited" : "Pending"}
@@ -621,7 +654,7 @@ const AttendeesSection = () => {
                                 <Mail className="h-3.5 w-3.5" />
                               </Button>
                               {a.invitation_sent && (
-                                <Button variant="ghost" size="icon" className="h-7 w-7" title="Send Reminder" disabled={sendingId === a.id} onClick={() => sendReminder(a)}>
+                                <Button variant="ghost" size="icon" className="h-7 w-7" title={reminderInfo.title} disabled={sendingId === a.id || reminderInfo.disabled} onClick={() => sendReminder(a)}>
                                   <Bell className="h-3.5 w-3.5" />
                                 </Button>
                               )}
