@@ -91,14 +91,13 @@ Deno.serve(async (req) => {
     ): Promise<boolean> => {
       try {
         const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-        const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
         const resp = await fetch(
           `${supabaseUrl}/functions/v1/send-communication`,
           {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              Authorization: `Bearer ${serviceKey}`,
+              Authorization: authHeader,
             },
             body: JSON.stringify({
               channel: "email",
