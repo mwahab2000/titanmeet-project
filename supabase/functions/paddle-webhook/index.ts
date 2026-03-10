@@ -183,34 +183,43 @@ Deno.serve(async (req) => {
       }
 
       case "subscription.activated":
-      case "subscription.renewed": {
+      case "subscription.renewed":
+      case "subscription.updated": {
         const subscriptionId = eventData.id;
         const periodEnd = eventData.current_billing_period?.ends_at;
         const accessUntil = periodEnd || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+        const periodStart = eventData.current_billing_period?.starts_at || new Date().toISOString();
 
-        console.log(`${eventType}: user=${userId} plan=${planId} sub=${subscriptionId} until=${accessUntil}`);
+        // Determine plan from items array (Paddle v2)
+        const paddlePlanId = customData.plan_id || planId;
 
-        if (userId && planId) {
+        console.log(`${eventType}: user=${userId} plan=${paddlePlanId} sub=${subscriptionId} until=${accessUntil}`);
+
+        if (userId && paddlePlanId) {
           const internalOrderId = `TM-SUB-${crypto.randomUUID().slice(0, 8)}`;
           const amountCents = parseInt(eventData.details?.totals?.grand_total || eventData.recurring_transaction_details?.totals?.grand_total || "0", 10);
 
-          // Upsert payment intent
-          const { data: pi } = await serviceClient
-            .from("payment_intents")
-            .insert({
-              user_id: userId,
-              plan_id: planId,
-              provider: "paddle",
-              purchase_type: "monthly",
-              provider_payment_id: subscriptionId,
-              internal_order_id: internalOrderId,
-              amount_usd_cents: amountCents,
-              currency: "USD",
-              status: "active",
-              paid_at: new Date().toISOString(),
-            })
-            .select()
-            .single();
+          // Only insert payment_intent for activated/renewed (not for scheduled updates)
+          let pi: any = null;
+          if (eventType !== "subscription.updated") {
+            const { data } = await serviceClient
+              .from("payment_intents")
+              .insert({
+                user_id: userId,
+                plan_id: paddlePlanId,
+                provider: "paddle",
+                purchase_type: "monthly",
+                provider_payment_id: subscriptionId,
+                internal_order_id: internalOrderId,
+                amount_usd_cents: amountCents,
+                currency: "USD",
+                status: "active",
+                paid_at: new Date().toISOString(),
+              })
+              .select()
+              .single();
+            pi = data;
+          }
 
           // Update entitlement
           const { data: existingEnt } = await serviceClient
@@ -230,17 +239,36 @@ Deno.serve(async (req) => {
             updated_at: new Date().toISOString(),
           }, { onConflict: "user_id" });
 
+          // Check if a scheduled plan change has taken effect
+          const { data: currentSub } = await serviceClient
+            .from("account_subscriptions")
+            .select("scheduled_plan, scheduled_change_date")
+            .eq("user_id", userId)
+            .maybeSingle();
+
+          const effectivePlan = (currentSub?.scheduled_plan && eventType === "subscription.updated")
+            ? currentSub.scheduled_plan
+            : paddlePlanId;
+
           // Update account_subscriptions
-          await serviceClient.from("account_subscriptions").update({
-            plan_id: planId,
+          const updatePayload: Record<string, any> = {
+            plan_id: effectivePlan,
             provider: "paddle",
             provider_subscription_id: subscriptionId,
             status: "active",
-            current_period_start: eventData.current_billing_period?.starts_at || new Date().toISOString(),
+            current_period_start: periodStart,
             current_period_end: accessUntil,
             cancel_at_period_end: false,
             updated_at: new Date().toISOString(),
-          }).eq("user_id", userId);
+          };
+
+          // If the scheduled plan matches the new effective plan, clear the schedule
+          if (currentSub?.scheduled_plan && effectivePlan === currentSub.scheduled_plan) {
+            updatePayload.scheduled_plan = null;
+            updatePayload.scheduled_change_date = null;
+          }
+
+          await serviceClient.from("account_subscriptions").update(updatePayload).eq("user_id", userId);
 
           // Log event
           if (pi) {
@@ -257,11 +285,14 @@ Deno.serve(async (req) => {
 
           // Notification
           try {
+            const notifTitle = eventType === "subscription.renewed" ? "Subscription renewed"
+              : eventType === "subscription.updated" ? "Plan updated"
+              : "Subscription activated";
             await serviceClient.rpc("create_notification", {
               _user_id: userId,
               _type: "subscription_upgraded",
-              _title: eventType === "subscription.renewed" ? "Subscription renewed" : "Subscription activated",
-              _message: `Your ${planId} subscription is now active until ${new Date(accessUntil).toLocaleDateString()}.`,
+              _title: notifTitle,
+              _message: `Your ${effectivePlan} subscription is now active until ${new Date(accessUntil).toLocaleDateString()}.`,
               _link: "/dashboard/billing",
             });
           } catch { /* swallow */ }
@@ -276,6 +307,8 @@ Deno.serve(async (req) => {
         if (userId) {
           await serviceClient.from("account_subscriptions").update({
             cancel_at_period_end: true,
+            cancelled_at: new Date().toISOString(),
+            status: "canceled",
             updated_at: new Date().toISOString(),
           }).eq("user_id", userId);
 
@@ -291,7 +324,7 @@ Deno.serve(async (req) => {
           } catch { /* swallow */ }
         }
 
-        // Log event — find PI by subscription
+        // Log event
         try {
           const { data: pi } = await serviceClient
             .from("payment_intents")

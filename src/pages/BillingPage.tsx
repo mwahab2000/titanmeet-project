@@ -56,7 +56,6 @@ const PADDLE_PRICE_IDS: Record<string, { monthly: string; annual: string }> = {
   enterprise:   { monthly: import.meta.env.VITE_PADDLE_PRICE_ENTERPRISE_MONTHLY   || "", annual: import.meta.env.VITE_PADDLE_PRICE_ENTERPRISE_ANNUAL   || "" },
 };
 
-/* Plan numeric limits for downgrade checks — derived from central config */
 const PLAN_NUMERIC_LIMITS: Record<string, Record<string, number>> = Object.fromEntries(
   PLAN_ORDER.map((id) => [
     id,
@@ -130,6 +129,8 @@ const BillingPage = () => {
   const [loadingPayments, setLoadingPayments] = useState(true);
   const [isAnnual, setIsAnnual] = useState(false);
   const [cancellingSubscription, setCancellingSubscription] = useState(false);
+  const [schedulingDowngrade, setSchedulingDowngrade] = useState(false);
+  const [cancellingDowngrade, setCancellingDowngrade] = useState(false);
   const [downgradeDialog, setDowngradeDialog] = useState<{ planId: string; blocked: boolean; issues: { resource: string; current: number; limit: number }[] } | null>(null);
   const planLimits = usePlanLimits();
 
@@ -195,6 +196,8 @@ const BillingPage = () => {
       toast.success("Subscription cancellation requested. Access continues until end of current period.");
       await loadPaymentIntents();
       await loadEntitlement();
+      // Force reload subscription state
+      window.location.reload();
     } catch (err: any) {
       console.error("Cancel subscription failed:", err);
       toast.error(err.message || "Failed to cancel subscription.");
@@ -203,15 +206,48 @@ const BillingPage = () => {
     }
   }, [loadPaymentIntents, loadEntitlement]);
 
+  const handleScheduleDowngrade = useCallback(async (targetPlanId: string) => {
+    try {
+      setSchedulingDowngrade(true);
+      const { data, error } = await supabase.functions.invoke("schedule-plan-change", {
+        body: { newPlanSlug: targetPlanId },
+      });
+      if (error) throw error;
+      toast.success(`Downgrade to ${PLANS[targetPlanId]?.name || targetPlanId} scheduled for end of billing period.`);
+      setDowngradeDialog(null);
+      window.location.reload();
+    } catch (err: any) {
+      console.error("Schedule downgrade failed:", err);
+      toast.error(err.message || "Failed to schedule downgrade.");
+    } finally {
+      setSchedulingDowngrade(false);
+    }
+  }, []);
+
+  const handleCancelDowngrade = useCallback(async () => {
+    try {
+      setCancellingDowngrade(true);
+      const { data, error } = await supabase.functions.invoke("cancel-downgrade", {});
+      if (error) throw error;
+      toast.success("Scheduled downgrade cancelled. Your current plan continues.");
+      window.location.reload();
+    } catch (err: any) {
+      console.error("Cancel downgrade failed:", err);
+      toast.error(err.message || "Failed to cancel downgrade.");
+    } finally {
+      setCancellingDowngrade(false);
+    }
+  }, []);
+
   const isAccessExpired = entitlement ? new Date(entitlement.access_until) < new Date() : true;
-  const isCanceledButActive = subscription?.cancel_at_period_end && !isAccessExpired;
+  const isSubscriptionEnded = subscription?.status === "canceled" && isAccessExpired;
+  const isCanceledButActive = subscription?.cancel_at_period_end && !isAccessExpired && !subscription?.scheduled_plan;
+  const hasScheduledDowngrade = !!subscription?.scheduled_plan && !subscription?.cancel_at_period_end;
   const canCancelSubscription = subscription?.provider_subscription_id && subscription?.status === "active" && !subscription?.cancel_at_period_end;
 
-  /** Check if switching to targetPlanId is a downgrade that exceeds limits */
   const checkDowngrade = (targetPlanId: string) => {
     const currentIdx = PLAN_ORDER_IDX[subscription?.plan_id || "starter"] ?? 0;
     const targetIdx = PLAN_ORDER_IDX[targetPlanId] ?? 0;
-    // Not a downgrade
     if (targetIdx >= currentIdx) return null;
 
     const targetLimits = PLAN_NUMERIC_LIMITS[targetPlanId] || PLAN_NUMERIC_LIMITS.starter;
@@ -259,6 +295,9 @@ const BillingPage = () => {
 
   const warnings = usageMetrics.filter((m) => usagePercent(m.used, m.limit) >= 80);
 
+  const periodEndDate = new Date(subscription.current_period_end).toLocaleDateString();
+  const periodStartDate = new Date(subscription.current_period_start).toLocaleDateString();
+
   return (
     <div className="max-w-5xl space-y-6">
       <div>
@@ -266,8 +305,19 @@ const BillingPage = () => {
         <p className="text-muted-foreground">Manage your plan, track usage, and pay securely with card.</p>
       </div>
 
-      {/* Access expired banner */}
-      {isAccessExpired && entitlement && (
+      {/* STATE 4: Subscription ended — view-only mode */}
+      {isSubscriptionEnded && (
+        <Alert className="border-destructive/50 bg-destructive/10">
+          <XCircle className="h-4 w-4 text-destructive" />
+          <AlertTitle className="text-destructive">Subscription Ended</AlertTitle>
+          <AlertDescription className="flex items-center justify-between">
+            <span>Your subscription has ended. Resubscribe to continue creating.</span>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Access expired (non-subscription) */}
+      {isAccessExpired && entitlement && !isSubscriptionEnded && (
         <Alert className="border-destructive/50 bg-destructive/10">
           <XCircle className="h-4 w-4 text-destructive" />
           <AlertTitle className="text-destructive">Access Expired</AlertTitle>
@@ -277,13 +327,35 @@ const BillingPage = () => {
         </Alert>
       )}
 
-      {/* Canceled but still active */}
+      {/* STATE 3: Cancellation scheduled */}
       {isCanceledButActive && (
         <Alert className="border-yellow-500/50 bg-yellow-500/10">
           <AlertTriangle className="h-4 w-4 text-yellow-500" />
-          <AlertTitle className="text-yellow-600 dark:text-yellow-400">Subscription Canceling</AlertTitle>
-          <AlertDescription>
-            Your subscription is canceled but access continues until {new Date(subscription.current_period_end).toLocaleDateString()}.
+          <AlertTitle className="text-yellow-600 dark:text-yellow-400">Subscription Cancelled</AlertTitle>
+          <AlertDescription className="flex items-center justify-between">
+            <span>Your subscription is cancelled — access continues until {periodEndDate}. Resubscribe anytime.</span>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* STATE 2: Downgrade scheduled */}
+      {hasScheduledDowngrade && (
+        <Alert className="border-yellow-500/50 bg-yellow-500/10">
+          <AlertTriangle className="h-4 w-4 text-yellow-500" />
+          <AlertTitle className="text-yellow-600 dark:text-yellow-400">Downgrade Scheduled</AlertTitle>
+          <AlertDescription className="flex items-center justify-between">
+            <span>
+              Your plan will downgrade to {PLANS[subscription.scheduled_plan!]?.name || subscription.scheduled_plan} on {periodEndDate}. You'll keep {currentPlan.name} access until then.
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              className="ml-4 shrink-0"
+              onClick={handleCancelDowngrade}
+              disabled={cancellingDowngrade}
+            >
+              {cancellingDowngrade ? "Cancelling..." : "Cancel Downgrade"}
+            </Button>
           </AlertDescription>
         </Alert>
       )}
@@ -314,13 +386,42 @@ const BillingPage = () => {
           <CardContent className="space-y-2">
             <div className="flex items-center gap-3">
               <span className="text-2xl font-bold font-display">{currentPlan.name}</span>
-              <Badge variant="secondary">{currentPlan.support_tier} support</Badge>
+              {isSubscriptionEnded ? (
+                <Badge variant="destructive">Subscription Ended</Badge>
+              ) : isCanceledButActive ? (
+                <Badge variant="destructive">Cancellation Scheduled</Badge>
+              ) : hasScheduledDowngrade ? (
+                <Badge className="bg-yellow-500/15 text-yellow-600 dark:text-yellow-400 border-yellow-500/30">Downgrade Scheduled</Badge>
+              ) : (
+                <Badge variant="secondary">{currentPlan.support_tier} support</Badge>
+              )}
             </div>
+
+            {/* Period info */}
+            {!isSubscriptionEnded && (
+              <div className="text-sm text-muted-foreground space-y-0.5">
+                <p>Current period: {periodStartDate} – {periodEndDate}</p>
+                {hasScheduledDowngrade && (
+                  <p className="text-yellow-600 dark:text-yellow-400 font-medium">
+                    Downgrades to {PLANS[subscription.scheduled_plan!]?.name} on {periodEndDate}
+                  </p>
+                )}
+                {isCanceledButActive && (
+                  <p className="text-destructive font-medium">Cancels {periodEndDate}</p>
+                )}
+                {!isCanceledButActive && !hasScheduledDowngrade && (
+                  <p>Next billing: {periodEndDate}</p>
+                )}
+              </div>
+            )}
+
             <p className="text-3xl font-bold gradient-titan-text">
               {formatCents(currentPlan.monthly_price_cents)}
               <span className="text-sm text-muted-foreground font-normal">/mo</span>
             </p>
-            {canCancelSubscription && (
+
+            {/* Cancel subscription button */}
+            {canCancelSubscription && !hasScheduledDowngrade && (
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button variant="outline" size="sm" className="mt-2 text-destructive border-destructive/30 hover:bg-destructive/10">
@@ -329,9 +430,16 @@ const BillingPage = () => {
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
-                    <AlertDialogTitle>Cancel Subscription?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Your subscription will be canceled at the end of the current billing period. You'll retain access until then. You can re-subscribe anytime.
+                    <AlertDialogTitle>Cancel subscription?</AlertDialogTitle>
+                    <AlertDialogDescription asChild>
+                      <div className="space-y-2">
+                        <ul className="list-disc list-inside space-y-1 text-sm">
+                          <li>Your access continues until: <strong>{periodEndDate}</strong></li>
+                          <li>After that date your account becomes view-only</li>
+                          <li>You can resubscribe anytime</li>
+                          <li>No data will be deleted</li>
+                        </ul>
+                      </div>
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
@@ -347,6 +455,31 @@ const BillingPage = () => {
                 </AlertDialogContent>
               </AlertDialog>
             )}
+
+            {/* Cancel downgrade button (in plan card) */}
+            {hasScheduledDowngrade && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-2"
+                onClick={handleCancelDowngrade}
+                disabled={cancellingDowngrade}
+              >
+                {cancellingDowngrade ? "Cancelling..." : "Cancel Downgrade"}
+              </Button>
+            )}
+
+            {/* Resubscribe button for cancelled/ended */}
+            {(isCanceledButActive || isSubscriptionEnded) && (
+              <div className="mt-2">
+                <PaddleCheckoutButton
+                  priceId={(isAnnual ? PADDLE_PRICE_IDS[subscription.plan_id]?.annual : PADDLE_PRICE_IDS[subscription.plan_id]?.monthly) || ""}
+                  planId={subscription.plan_id}
+                  type="subscription"
+                  onSuccess={handlePaddleSuccess}
+                />
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -357,14 +490,32 @@ const BillingPage = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            {subscription && subscription.status === "active" ? (
+            {isSubscriptionEnded ? (
+              <>
+                <div className="flex items-center gap-2">
+                  <Badge variant="destructive">Ended</Badge>
+                  <span className="text-sm text-muted-foreground">No Active Plan</span>
+                </div>
+                <p className="text-sm text-muted-foreground">Your account is in view-only mode. Resubscribe to continue creating.</p>
+              </>
+            ) : subscription && subscription.status === "active" ? (
               <>
                 <div className="flex items-center gap-2">
                   <Badge variant="default">Active</Badge>
                   <span className="text-sm text-muted-foreground">{currentPlan?.name} Plan</span>
                 </div>
                 <p className="text-sm">
-                  Current period ends: <strong>{new Date(subscription.current_period_end).toLocaleDateString()}</strong>
+                  Current period ends: <strong>{periodEndDate}</strong>
+                </p>
+              </>
+            ) : isCanceledButActive ? (
+              <>
+                <div className="flex items-center gap-2">
+                  <Badge className="bg-yellow-500/15 text-yellow-600 border-yellow-500/30">Cancelling</Badge>
+                  <span className="text-sm text-muted-foreground">{currentPlan?.name} Plan</span>
+                </div>
+                <p className="text-sm">
+                  Access until: <strong>{periodEndDate}</strong>
                 </p>
               </>
             ) : entitlement && !isAccessExpired ? (
@@ -386,7 +537,6 @@ const BillingPage = () => {
 
       {/* Usage meters */}
       <UsageMeters />
-
 
       {/* Sandbox mode banner */}
       {import.meta.env.VITE_PADDLE_ENV === "sandbox" && (
@@ -437,7 +587,6 @@ const BillingPage = () => {
                         : "border-border"
                   }`}
                 >
-                  {/* Most Popular badge */}
                   {plan.popular && (
                     <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                       <Badge className="bg-gradient-to-r from-amber-500 to-yellow-400 text-white border-0 shadow-md gap-1">
@@ -453,7 +602,6 @@ const BillingPage = () => {
                     )}
                   </div>
 
-                  {/* Price display */}
                   <div>
                     <p className="text-2xl font-bold">
                       {isAnnual && (
@@ -482,7 +630,7 @@ const BillingPage = () => {
 
                   {isCurrent ? (
                     <Button variant="outline" className="w-full" disabled>
-                      Manage Plan
+                      Current Plan
                     </Button>
                   ) : !priceId ? (
                     <p className="text-sm text-muted-foreground text-center py-2">Plan not configured</p>
@@ -602,12 +750,12 @@ const BillingPage = () => {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="font-display">
-              {downgradeDialog?.blocked ? "Cannot Downgrade Yet" : "Confirm Downgrade"}
+              {downgradeDialog?.blocked ? "Cannot Downgrade Yet" : `Downgrade to ${PLAN_DISPLAY.find(p => p.id === downgradeDialog?.planId)?.name}?`}
             </DialogTitle>
             <DialogDescription>
               {downgradeDialog?.blocked
                 ? "Your current usage exceeds the limits of this plan. Please reduce usage first."
-                : `Downgrade to ${PLAN_DISPLAY.find(p => p.id === downgradeDialog?.planId)?.name}? Your new limits take effect on ${subscription ? new Date(subscription.current_period_end).toLocaleDateString() : "your next billing date"}. You won't lose any existing data.`}
+                : undefined}
             </DialogDescription>
           </DialogHeader>
 
@@ -629,15 +777,26 @@ const BillingPage = () => {
             </div>
           )}
 
+          {!downgradeDialog?.blocked && downgradeDialog?.planId && (
+            <div className="space-y-2 text-sm">
+              <ul className="list-disc list-inside space-y-1">
+                <li>Takes effect: <strong>{periodEndDate}</strong></li>
+                <li>New monthly price: <strong>${PLANS[downgradeDialog.planId]?.monthlyPrice}/mo</strong></li>
+                <li>You keep {currentPlan.name} access until <strong>{periodEndDate}</strong></li>
+                <li>No data will be deleted</li>
+              </ul>
+            </div>
+          )}
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setDowngradeDialog(null)}>Cancel</Button>
             {!downgradeDialog?.blocked && downgradeDialog?.planId && (
-              <PaddleCheckoutButton
-                priceId={(isAnnual ? PADDLE_PRICE_IDS[downgradeDialog.planId]?.annual : PADDLE_PRICE_IDS[downgradeDialog.planId]?.monthly) || ""}
-                planId={downgradeDialog.planId}
-                type="subscription"
-                onSuccess={(txId) => { setDowngradeDialog(null); handlePaddleSuccess(txId); }}
-              />
+              <Button
+                onClick={() => handleScheduleDowngrade(downgradeDialog.planId)}
+                disabled={schedulingDowngrade}
+              >
+                {schedulingDowngrade ? "Scheduling..." : "Confirm Downgrade"}
+              </Button>
             )}
           </DialogFooter>
         </DialogContent>

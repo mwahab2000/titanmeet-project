@@ -38,6 +38,7 @@ export type Database = {
       account_subscriptions: {
         Row: {
           cancel_at_period_end: boolean
+          cancelled_at: string | null
           created_at: string
           current_period_end: string
           current_period_start: string
@@ -45,6 +46,8 @@ export type Database = {
           plan_id: string
           provider: string
           provider_subscription_id: string | null
+          scheduled_change_date: string | null
+          scheduled_plan: string | null
           started_at: string
           status: string
           updated_at: string
@@ -52,6 +55,7 @@ export type Database = {
         }
         Insert: {
           cancel_at_period_end?: boolean
+          cancelled_at?: string | null
           created_at?: string
           current_period_end?: string
           current_period_start?: string
@@ -59,6 +63,8 @@ export type Database = {
           plan_id?: string
           provider?: string
           provider_subscription_id?: string | null
+          scheduled_change_date?: string | null
+          scheduled_plan?: string | null
           started_at?: string
           status?: string
           updated_at?: string
@@ -66,6 +72,7 @@ export type Database = {
         }
         Update: {
           cancel_at_period_end?: boolean
+          cancelled_at?: string | null
           created_at?: string
           current_period_end?: string
           current_period_start?: string
@@ -73,6 +80,8 @@ export type Database = {
           plan_id?: string
           provider?: string
           provider_subscription_id?: string | null
+          scheduled_change_date?: string | null
+          scheduled_plan?: string | null
           started_at?: string
           status?: string
           updated_at?: string

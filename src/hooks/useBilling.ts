@@ -29,6 +29,9 @@ export interface AccountSubscription {
   current_period_start: string;
   current_period_end: string;
   cancel_at_period_end: boolean;
+  cancelled_at: string | null;
+  scheduled_plan: string | null;
+  scheduled_change_date: string | null;
   provider: string;
   provider_subscription_id: string | null;
 }

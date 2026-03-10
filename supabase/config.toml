@@ -56,3 +56,9 @@ verify_jwt = false
 
 [functions.check-plan-limits]
 verify_jwt = false
+
+[functions.schedule-plan-change]
+verify_jwt = false
+
+[functions.cancel-downgrade]
+verify_jwt = false
