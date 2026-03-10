@@ -127,6 +127,9 @@ const App = () => (
                   <Route path="/dashboard/events/:id/preview" element={<ProtectedRoute><PreviewEventPage /></ProtectedRoute>} />
                   <Route path="/s/:token" element={<PublicSurveyPage />} />
                   <Route path="/i/:token" element={<InviteLandingPage />} />
+                  <Route path="/rsvp/confirmed" element={<RsvpConfirmationPage />} />
+                  <Route path="/rsvp/already-confirmed" element={<RsvpConfirmationPage />} />
+                  <Route path="/rsvp/invalid" element={<RsvpConfirmationPage />} />
                   <Route path="/:clientSlug/:eventSlug" element={<PublicEventPage />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
