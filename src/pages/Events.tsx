@@ -19,6 +19,17 @@ const Events = () => {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [loading, setLoading] = useState(true);
+  const planLimits = usePlanLimits();
+  const { openUpgradeModal } = useUpgradeModal();
+  const navigate = useNavigate();
+
+  const handleCreateEvent = (path: string) => {
+    if (!planLimits.canCreate("activeEvents")) {
+      openUpgradeModal("events");
+      return;
+    }
+    navigate(path);
+  };
 
   useEffect(() => {
     const fetchEvents = async () => {
