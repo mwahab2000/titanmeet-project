@@ -288,8 +288,6 @@ function buildReminderEmailHtml(eventTitle: string, name: string, inviteUrl: str
       </div>
     </div>
   `;
-}
-  return `
     <div style="font-family: 'Inter', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden;">
       <div style="background: linear-gradient(135deg, #6366f1, #8b5cf6); padding: 32px 24px; text-align: center;">
         <h1 style="color: #ffffff; margin: 0; font-size: 24px;">You're Invited!</h1>
