@@ -135,7 +135,7 @@ Deno.serve(async (req) => {
       if (sendChannels.includes("email")) {
         if (!attendee.email) {
           skippedNoEmail++;
-        } else if (transporter) {
+        } else {
           try {
             const confirmRsvpUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/confirm-rsvp?token=${invite.token}`;
             const html = isReminder
@@ -144,46 +144,21 @@ Deno.serve(async (req) => {
             const subject = isReminder
               ? `Reminder: Please confirm for ${eventTitle}`
               : `You're Invited: ${eventTitle}`;
-            const info = await transporter.sendMail({
-              from: `TitanMeet <${Deno.env.get("GMAIL_USER")}>`,
-              to: attendee.email,
-              subject,
-              html,
-            });
-
-            await db.from("event_invites").update({
-              sent_via_email: true,
-              email_sent_at: now,
-              last_sent_at: now,
-              status: invite.status === "created" ? "sent" : invite.status,
-            }).eq("id", invite.id);
-
-            await db.from("message_logs").insert({
-              event_id,
-              attendee_id: attendee.id,
-              channel: "email",
-              to_address: attendee.email,
-              subject,
-              message_body: html,
-              provider: "gmail",
-              provider_message_id: info?.messageId || null,
-              status: "sent",
-            });
-
-            sentEmail++;
+            const sent = await sendEmail(attendee.email, subject, html);
+            if (sent) {
+              await db.from("event_invites").update({
+                sent_via_email: true,
+                email_sent_at: now,
+                last_sent_at: now,
+                status: invite.status === "created" ? "sent" : invite.status,
+              }).eq("id", invite.id);
+              sentEmail++;
+            } else {
+              failedEmail++;
+            }
           } catch (emailErr) {
-            console.error(`Email to ${attendee.email} failed:`, emailErr);
+            console.error("Email send error:", String(emailErr));
             failedEmail++;
-            await db.from("message_logs").insert({
-              event_id,
-              attendee_id: attendee.id,
-              channel: "email",
-              to_address: attendee.email,
-              message_body: "Failed to send",
-              provider: "gmail",
-              status: "failed",
-              error: String(emailErr),
-            });
           }
         }
       }
