@@ -73,19 +73,22 @@ async function sendEmail(to: string, subject: string, html: string) {
   const GMAIL_APP_PASSWORD = Deno.env.get("GMAIL_APP_PASSWORD");
   if (!GMAIL_USER || !GMAIL_APP_PASSWORD) throw new AppError("Email service unavailable", 500);
 
-  const transporter = nodemailer.createTransport({
-    host: "smtp.gmail.com",
+  const client = new SmtpClient();
+  await client.connectTLS({
+    hostname: "smtp.gmail.com",
     port: 465,
-    secure: true,
-    auth: { user: GMAIL_USER, pass: GMAIL_APP_PASSWORD },
+    username: GMAIL_USER,
+    password: GMAIL_APP_PASSWORD,
   });
 
-  await transporter.sendMail({
+  await client.send({
     from: `TitanMeet <${GMAIL_USER}>`,
     to,
     subject,
     html,
   });
+
+  await client.close();
 }
 
 async function updateLogStatus(logId: string, patch: { status: "sent" | "failed"; error_message?: string | null }) {
