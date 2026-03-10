@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { PLANS, PLAN_ORDER, formatLimit } from "@/config/plans";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
@@ -55,14 +56,21 @@ const PADDLE_PRICE_IDS: Record<string, { monthly: string; annual: string }> = {
   enterprise:   { monthly: import.meta.env.VITE_PADDLE_PRICE_ENTERPRISE_MONTHLY   || "", annual: import.meta.env.VITE_PADDLE_PRICE_ENTERPRISE_ANNUAL   || "" },
 };
 
-/* Plan numeric limits for downgrade checks */
-const PLAN_NUMERIC_LIMITS: Record<string, Record<string, number>> = {
-  starter: { clients: 3, events: 5, attendees: 500, emails: 2000, storage: 5 },
-  professional: { clients: 15, events: 25, attendees: 5000, emails: 20000, storage: 25 },
-  enterprise: { clients: Infinity, events: Infinity, attendees: 50000, emails: 200000, storage: 100 },
-};
+/* Plan numeric limits for downgrade checks — derived from central config */
+const PLAN_NUMERIC_LIMITS: Record<string, Record<string, number>> = Object.fromEntries(
+  PLAN_ORDER.map((id) => [
+    id,
+    {
+      clients: PLANS[id].limits.clients,
+      events: PLANS[id].limits.activeEvents,
+      attendees: PLANS[id].limits.attendeesPerMonth,
+      emails: PLANS[id].limits.emailsPerMonth,
+      storage: PLANS[id].limits.storageGB,
+    },
+  ])
+);
 
-const PLAN_ORDER_IDX: Record<string, number> = { starter: 0, professional: 1, enterprise: 2 };
+const PLAN_ORDER_IDX: Record<string, number> = Object.fromEntries(PLAN_ORDER.map((id, i) => [id, i]));
 
 const RESOURCE_LABELS_DG: Record<string, string> = {
   clients: "clients",
@@ -83,9 +91,9 @@ const RESOURCE_LINKS: Record<string, string> = {
 interface PlanDisplay {
   id: string;
   name: string;
-  monthlyPrice: number; // cents
-  annualPrice: number;  // cents per month
-  annualTotal: number;  // cents per year
+  monthlyPrice: number;
+  annualPrice: number;
+  annualTotal: number;
   clients: string;
   events: string;
   attendees: string;
@@ -95,48 +103,23 @@ interface PlanDisplay {
   popular?: boolean;
 }
 
-const PLAN_DISPLAY: PlanDisplay[] = [
-  {
-    id: "starter",
-    name: "Starter",
-    monthlyPrice: 4900,
-    annualPrice: 3900,
-    annualTotal: 46800,
-    clients: "3",
-    events: "5",
-    attendees: "500",
-    emails: "2,000",
-    storage: "5 GB",
-    support: "Standard",
-  },
-  {
-    id: "professional",
-    name: "Professional",
-    monthlyPrice: 14900,
-    annualPrice: 11900,
-    annualTotal: 142800,
-    clients: "15",
-    events: "25",
-    attendees: "5,000",
-    emails: "20,000",
-    storage: "25 GB",
-    support: "Priority",
-    popular: true,
-  },
-  {
-    id: "enterprise",
-    name: "Enterprise",
-    monthlyPrice: 39900,
-    annualPrice: 31900,
-    annualTotal: 382800,
-    clients: "Unlimited",
-    events: "Unlimited",
-    attendees: "50,000",
-    emails: "200,000",
-    storage: "100 GB",
-    support: "Dedicated",
-  },
-];
+const PLAN_DISPLAY: PlanDisplay[] = PLAN_ORDER.map((id) => {
+  const p = PLANS[id];
+  return {
+    id,
+    name: p.name,
+    monthlyPrice: p.monthlyPrice * 100,
+    annualPrice: p.annualPrice * 100,
+    annualTotal: p.annualTotal * 100,
+    clients: formatLimit(p.limits.clients),
+    events: formatLimit(p.limits.activeEvents),
+    attendees: formatLimit(p.limits.attendeesPerMonth),
+    emails: formatLimit(p.limits.emailsPerMonth),
+    storage: `${p.limits.storageGB} GB`,
+    support: p.support.replace(' support', ''),
+    popular: p.highlight,
+  };
+});
 
 const BillingPage = () => {
   const { user } = useAuth();
