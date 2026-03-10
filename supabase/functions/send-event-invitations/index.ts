@@ -83,43 +83,6 @@ Deno.serve(async (req) => {
     const eventSlug = eventData?.slug;
     const publicEventUrl = clientSlug && eventSlug ? `${rootUrl}/${clientSlug}/${eventSlug}` : null;
 
-    // Email helper — delegates to send-communication edge function
-    const sendEmail = async (
-      to: string,
-      subject: string,
-      html: string,
-    ): Promise<boolean> => {
-      try {
-        const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-        const resp = await fetch(
-          `${supabaseUrl}/functions/v1/send-communication`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: authHeader,
-            },
-            body: JSON.stringify({
-              channel: "email",
-              to,
-              subject,
-              message: html,
-              event_id,
-            }),
-          }
-        );
-        const result = await resp.json();
-        if (!resp.ok) {
-          console.error("send-communication error:", JSON.stringify(result));
-          return false;
-        }
-        return true;
-      } catch (e) {
-        console.error("sendEmail error:", e);
-        return false;
-      }
-    };
-
     // Twilio config
     const TWILIO_SID = Deno.env.get("TWILIO_ACCOUNT_SID");
     const TWILIO_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN");
