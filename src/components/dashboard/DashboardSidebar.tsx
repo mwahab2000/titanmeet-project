@@ -65,7 +65,7 @@ const sectionGroups: SectionGroup[] = [
       { icon: Megaphone, label: "Announcements", path: "announcements" },
       { icon: Megaphone, label: "Event Alerts", path: "event-announcements" },
       { icon: ClipboardList, label: "Survey", path: "survey" },
-      { icon: MessageSquare, label: "Communications", path: "communications" },
+      { icon: MessageSquare, label: "Communications Center", path: "communications" },
     ],
   },
   {
@@ -73,7 +73,6 @@ const sectionGroups: SectionGroup[] = [
     icon: Send,
     sections: [
       { icon: Globe, label: "Website", path: "website" },
-      { icon: MailPlus, label: "Invitations", path: "invitations" },
     ],
   },
 ];

@@ -121,7 +121,6 @@ const App = () => (
                       <Route path="survey" element={<SurveySection />} />
                       <Route path="communications" element={<CommunicationsSection />} />
                       <Route path="website" element={<WebsiteSection />} />
-                      <Route path="invitations" element={<InvitationsSection />} />
                     </Route>
                   </Route>
                   <Route path="/dashboard/events/:id/preview" element={<ProtectedRoute><PreviewEventPage /></ProtectedRoute>} />
