@@ -568,8 +568,8 @@ const BillingPage = () => {
           <div className="grid gap-4 md:grid-cols-3">
             {PLAN_DISPLAY.map((plan) => {
               const isCurrent = plan.id === subscription?.plan_id;
-              const paddlePrices = PADDLE_PRICE_IDS[plan.id];
-              const priceId = isAnnual ? paddlePrices?.annual : paddlePrices?.monthly;
+              const planConfig = PLANS[plan.id];
+              const priceId = isAnnual ? planConfig?.paddlePriceIdAnnual : planConfig?.paddlePriceIdMonthly;
               const displayPrice = isAnnual ? plan.annualPrice : plan.monthlyPrice;
 
               return (
