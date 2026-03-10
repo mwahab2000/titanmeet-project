@@ -425,7 +425,11 @@ const AttendeesSection = () => {
         setItems(prev => prev.map(a => a.id === attendee.id ? { ...a, last_reminder_sent_at: new Date().toISOString() } : a));
         toast.success(`Reminder sent to ${attendee.name || attendee.email}`);
       } else {
-        toast.error("Reminder could not be delivered");
+        showConfigToast(res);
+        if (!res.email_not_configured && !res.email_auth_failed) {
+          const reasons = buildFailureReasons(res);
+          toast.error(`Reminder not delivered: ${reasons.join(", ")}`);
+        }
       }
     } catch (e: any) { toast.error(e.message || "Failed to send reminder"); }
     finally { setSendingId(null); }
