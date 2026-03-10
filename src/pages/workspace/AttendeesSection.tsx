@@ -335,6 +335,7 @@ const AttendeesSection = () => {
 
   const buildSummaryMessage = (res: SendResponse): string => {
     const lines: string[] = [];
+    if ((res as any).reason === "no_attendees_found") lines.push(`⚠ No attendees found for event_id ${(res as any).received_event_id || "?"}`);
     if (res.skipped_no_email) lines.push(`Skipped (no email): ${res.skipped_no_email}`);
     if (res.skipped_no_phone) lines.push(`Skipped (no phone): ${res.skipped_no_phone}`);
     if (res.skipped_email_not_configured) lines.push(`Skipped (email not configured): ${res.skipped_email_not_configured}`);
@@ -371,14 +372,14 @@ const AttendeesSection = () => {
     if (!event) return;
     setSendingId(attendee.id);
     try {
-      const { data, error } = await supabase.functions.invoke("send-event-invitations", {
-        body: {
-          event_id: event.id,
-          attendee_ids: [attendee.id],
-          channels: getChannels(),
-          base_url: window.location.origin,
-        },
-      });
+      const payload = {
+        event_id: event.id,
+        attendee_ids: [attendee.id],
+        channels: getChannels(),
+        base_url: window.location.origin,
+      };
+      console.log("[Attendees] sendInvitation", { event_id: payload.event_id, attendee_ids_count: payload.attendee_ids.length, channels: payload.channels });
+      const { data, error } = await supabase.functions.invoke("send-event-invitations", { body: payload });
       if (error) throw error;
       const res = (data || {}) as SendResponse;
       const sent = handleSendResponse(res, `Invitation sent to ${attendee.name || attendee.email}`);
@@ -449,14 +450,14 @@ const AttendeesSection = () => {
     if (targets.length === 0) { toast.info("No eligible attendees to invite via the selected channel(s)"); return; }
     setBulkSending(true);
     try {
-      const { data, error } = await supabase.functions.invoke("send-event-invitations", {
-        body: {
-          event_id: event.id,
-          attendee_ids: targets.map(a => a.id),
-          channels,
-          base_url: window.location.origin,
-        },
-      });
+      const payload = {
+        event_id: event.id,
+        attendee_ids: targets.map(a => a.id),
+        channels,
+        base_url: window.location.origin,
+      };
+      console.log("[Attendees] sendAllInvitations", { event_id: payload.event_id, attendee_ids_count: payload.attendee_ids.length, channels: payload.channels });
+      const { data, error } = await supabase.functions.invoke("send-event-invitations", { body: payload });
       if (error) throw error;
       const res = (data || {}) as SendResponse;
       const sent = handleSendResponse(res, "Invitations sent");

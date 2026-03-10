@@ -46,6 +46,13 @@ Deno.serve(async (req) => {
     const isReminder = is_reminder === true;
     if (!event_id) return json({ ...summary, error: "Missing event_id" }, 400);
 
+    console.log("[send-event-invitations] request received", {
+      event_id,
+      attendee_ids_len: Array.isArray(attendee_ids) ? attendee_ids.length : 0,
+      channels,
+      is_reminder,
+    });
+
     const sendChannels: string[] = Array.isArray(channels) && channels.length > 0
       ? channels.filter((c: string) => ["email", "whatsapp"].includes(c))
       : ["email"];
@@ -89,10 +96,23 @@ Deno.serve(async (req) => {
     if (attendee_ids && attendee_ids.length > 0) {
       attendeeQuery = attendeeQuery.in("id", attendee_ids);
     }
-    const { data: attendees } = await attendeeQuery;
+    const { data: attendees, error: attendeesErr } = await attendeeQuery;
+    console.log("[send-event-invitations] attendee query result", {
+      correlationId: summary.correlationId,
+      event_id,
+      attendee_ids_filter: attendee_ids?.length ?? "none (all)",
+      found: attendees?.length ?? 0,
+      error: attendeesErr?.message ?? null,
+    });
     if (!attendees || attendees.length === 0) {
       summary.total = 0;
-      return json(summary);
+      return json({
+        ...summary,
+        reason: "no_attendees_found",
+        received_event_id: event_id,
+        received_attendee_ids: attendee_ids ?? null,
+        query_error: attendeesErr?.message ?? null,
+      });
     }
     summary.total = attendees.length;
 
