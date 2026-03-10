@@ -1,13 +1,9 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-// Server-to-server webhook: Paddle calls this endpoint directly.
-// No browser CORS needed.
-
 async function verifyPaddleSignature(rawBody: string, signatureHeader: string | null, secret: string): Promise<boolean> {
   if (!signatureHeader || !secret) return false;
 
   try {
-    // Parse "ts=xxx;h1=yyy" format
     const parts: Record<string, string> = {};
     for (const part of signatureHeader.split(";")) {
       const [key, ...vals] = part.split("=");
@@ -42,6 +38,36 @@ async function verifyPaddleSignature(rawBody: string, signatureHeader: string | 
     console.error("Paddle signature verification error:", err);
     return false;
   }
+}
+
+/** Map Paddle price IDs to plan slugs using server-side env vars */
+function buildPriceToPlanMap(): Record<string, string> {
+  const map: Record<string, string> = {};
+  const entries = [
+    { envKey: "PADDLE_PRICE_STARTER_MONTHLY", plan: "starter" },
+    { envKey: "PADDLE_PRICE_STARTER_ANNUAL", plan: "starter" },
+    { envKey: "PADDLE_PRICE_PROFESSIONAL_MONTHLY", plan: "professional" },
+    { envKey: "PADDLE_PRICE_PROFESSIONAL_ANNUAL", plan: "professional" },
+    { envKey: "PADDLE_PRICE_ENTERPRISE_MONTHLY", plan: "enterprise" },
+    { envKey: "PADDLE_PRICE_ENTERPRISE_ANNUAL", plan: "enterprise" },
+  ];
+  for (const { envKey, plan } of entries) {
+    const val = Deno.env.get(envKey);
+    if (val) map[val] = plan;
+  }
+  return map;
+}
+
+/** Resolve plan slug from price ID or custom_data fallback */
+function resolvePlanSlug(
+  priceId: string | undefined,
+  customData: Record<string, any>,
+  priceToPlan: Record<string, string>
+): string | null {
+  if (priceId && priceToPlan[priceId]) return priceToPlan[priceId];
+  // Fallback: custom_data.plan_id (set by PaddleCheckoutButton)
+  if (customData?.plan_id) return customData.plan_id;
+  return null;
 }
 
 Deno.serve(async (req) => {
@@ -95,90 +121,106 @@ Deno.serve(async (req) => {
 
     const customData = eventData.custom_data || {};
     const userId = customData.user_id;
-    const planId = customData.plan_id;
+    const priceToPlan = buildPriceToPlanMap();
 
     switch (eventType) {
       case "transaction.completed": {
-        // One-time payment success
         const transactionId = eventData.id;
         const amountCents = parseInt(eventData.details?.totals?.grand_total || "0", 10);
+        const priceId = eventData.items?.[0]?.price?.id;
+        const planSlug = resolvePlanSlug(priceId, customData, priceToPlan);
 
-        console.log(`transaction.completed: user=${userId} plan=${planId} tx=${transactionId} amount=${amountCents}`);
+        console.log(`transaction.completed: user=${userId} plan=${planSlug} price=${priceId} tx=${transactionId} amount=${amountCents}`);
 
-        if (userId && planId) {
-          const internalOrderId = `TM-PDL-${crypto.randomUUID().slice(0, 8)}`;
+        if (!userId || !planSlug) {
+          console.error("Missing userId or planSlug", { userId, priceId, customData });
+          break;
+        }
 
-          // Upsert payment intent
-          const { data: pi } = await serviceClient
-            .from("payment_intents")
-            .insert({
-              user_id: userId,
-              plan_id: planId,
-              provider: "paddle",
-              purchase_type: "one_time_30d",
-              provider_payment_id: transactionId,
-              internal_order_id: internalOrderId,
-              amount_usd_cents: amountCents,
-              currency: "USD",
-              status: "paid",
-              paid_at: new Date().toISOString(),
-            })
-            .select()
-            .single();
+        const internalOrderId = `TM-PDL-${crypto.randomUUID().slice(0, 8)}`;
 
-          // Update entitlement
-          const now = new Date();
-          const accessUntil = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-
-          const { data: existingEnt } = await serviceClient
-            .from("account_entitlements")
-            .select("access_until")
-            .eq("user_id", userId)
-            .maybeSingle();
-
-          const finalAccess = existingEnt?.access_until
-            ? new Date(Math.max(new Date(existingEnt.access_until).getTime(), accessUntil.getTime()))
-            : accessUntil;
-
-          await serviceClient.from("account_entitlements").upsert({
+        // Upsert payment intent
+        const { data: pi } = await serviceClient
+          .from("payment_intents")
+          .insert({
             user_id: userId,
-            access_until: finalAccess.toISOString(),
-            source: "one_time_payment",
-            updated_at: now.toISOString(),
-          }, { onConflict: "user_id" });
+            plan_id: planSlug,
+            provider: "paddle",
+            purchase_type: eventData.subscription_id ? "monthly" : "one_time_30d",
+            provider_payment_id: transactionId,
+            provider_subscription_id: eventData.subscription_id || null,
+            internal_order_id: internalOrderId,
+            amount_usd_cents: amountCents,
+            currency: "USD",
+            status: "paid",
+            paid_at: new Date().toISOString(),
+          })
+          .select()
+          .single();
 
-          // Update subscription period
-          await serviceClient.from("account_subscriptions").update({
-            plan_id: planId,
-            status: "active",
-            current_period_start: now.toISOString(),
-            current_period_end: finalAccess.toISOString(),
-          }).eq("user_id", userId);
+        // Determine billing period
+        const now = new Date();
+        const billingPeriodStart = eventData.billing_period?.starts_at || now.toISOString();
+        const billingPeriodEnd = eventData.billing_period?.ends_at || new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();
 
-          // Log event
-          if (pi) {
-            try {
-              await serviceClient.from("payment_events").insert({
-                payment_intent_id: pi.id,
-                provider: "paddle",
-                event_type: "transaction.completed",
-                raw_payload: event,
-                provider_event_id: eventId,
-              });
-            } catch { /* swallow */ }
-          }
+        // Update entitlement
+        const { data: existingEnt } = await serviceClient
+          .from("account_entitlements")
+          .select("access_until")
+          .eq("user_id", userId)
+          .maybeSingle();
 
-          // Notification
+        const accessUntil = new Date(billingPeriodEnd);
+        const finalAccess = existingEnt?.access_until
+          ? new Date(Math.max(new Date(existingEnt.access_until).getTime(), accessUntil.getTime()))
+          : accessUntil;
+
+        await serviceClient.from("account_entitlements").upsert({
+          user_id: userId,
+          access_until: finalAccess.toISOString(),
+          source: eventData.subscription_id ? "subscription" : "one_time_payment",
+          updated_at: now.toISOString(),
+        }, { onConflict: "user_id" });
+
+        // Update account_subscriptions
+        await serviceClient.from("account_subscriptions").upsert({
+          user_id: userId,
+          plan_id: planSlug,
+          status: "active",
+          provider: "paddle",
+          provider_subscription_id: eventData.subscription_id || null,
+          current_period_start: billingPeriodStart,
+          current_period_end: billingPeriodEnd,
+          cancel_at_period_end: false,
+          cancelled_at: null,
+          scheduled_plan: null,
+          scheduled_change_date: null,
+          updated_at: now.toISOString(),
+        }, { onConflict: "user_id" });
+
+        // Log event
+        if (pi) {
           try {
-            await serviceClient.rpc("create_notification", {
-              _user_id: userId,
-              _type: "payment_confirmed",
-              _title: "Payment confirmed",
-              _message: `Your payment of $${(amountCents / 100).toFixed(2)} has been confirmed. Access active for 30 days.`,
-              _link: "/dashboard/billing",
+            await serviceClient.from("payment_events").insert({
+              payment_intent_id: pi.id,
+              provider: "paddle",
+              event_type: "transaction.completed",
+              raw_payload: event,
+              provider_event_id: eventId,
             });
           } catch { /* swallow */ }
         }
+
+        // Notification
+        try {
+          await serviceClient.rpc("create_notification", {
+            _user_id: userId,
+            _type: "payment_confirmed",
+            _title: "Payment confirmed",
+            _message: `Your payment of $${(amountCents / 100).toFixed(2)} has been confirmed. Your ${planSlug} plan is now active.`,
+            _link: "/dashboard/billing",
+          });
+        } catch { /* swallow */ }
         break;
       }
 
@@ -189,13 +231,12 @@ Deno.serve(async (req) => {
         const periodEnd = eventData.current_billing_period?.ends_at;
         const accessUntil = periodEnd || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
         const periodStart = eventData.current_billing_period?.starts_at || new Date().toISOString();
+        const priceId = eventData.items?.[0]?.price?.id;
+        const planSlug = resolvePlanSlug(priceId, customData, priceToPlan);
 
-        // Determine plan from items array (Paddle v2)
-        const paddlePlanId = customData.plan_id || planId;
+        console.log(`${eventType}: user=${userId} plan=${planSlug} price=${priceId} sub=${subscriptionId} until=${accessUntil}`);
 
-        console.log(`${eventType}: user=${userId} plan=${paddlePlanId} sub=${subscriptionId} until=${accessUntil}`);
-
-        if (userId && paddlePlanId) {
+        if (userId && planSlug) {
           const internalOrderId = `TM-SUB-${crypto.randomUUID().slice(0, 8)}`;
           const amountCents = parseInt(eventData.details?.totals?.grand_total || eventData.recurring_transaction_details?.totals?.grand_total || "0", 10);
 
@@ -206,7 +247,7 @@ Deno.serve(async (req) => {
               .from("payment_intents")
               .insert({
                 user_id: userId,
-                plan_id: paddlePlanId,
+                plan_id: planSlug,
                 provider: "paddle",
                 purchase_type: "monthly",
                 provider_payment_id: subscriptionId,
@@ -248,7 +289,7 @@ Deno.serve(async (req) => {
 
           const effectivePlan = (currentSub?.scheduled_plan && eventType === "subscription.updated")
             ? currentSub.scheduled_plan
-            : paddlePlanId;
+            : planSlug;
 
           // Update account_subscriptions
           const updatePayload: Record<string, any> = {
@@ -312,7 +353,6 @@ Deno.serve(async (req) => {
             updated_at: new Date().toISOString(),
           }).eq("user_id", userId);
 
-          // Do NOT revoke entitlement — let it expire at current_period_end
           try {
             await serviceClient.rpc("create_notification", {
               _user_id: userId,
@@ -350,8 +390,7 @@ Deno.serve(async (req) => {
         const transactionId = eventData.id;
         console.log(`transaction.payment_failed: user=${userId} tx=${transactionId}`);
 
-        if (userId && planId) {
-          // Try to find and update existing PI
+        if (userId) {
           const { data: existingPi } = await serviceClient
             .from("payment_intents")
             .select("id")

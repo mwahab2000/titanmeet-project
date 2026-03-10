@@ -469,7 +469,7 @@ const BillingPage = () => {
             {(isCanceledButActive || isSubscriptionEnded) && (
               <div className="mt-2">
                 <PaddleCheckoutButton
-                  priceId={(isAnnual ? PADDLE_PRICE_IDS[subscription.plan_id]?.annual : PADDLE_PRICE_IDS[subscription.plan_id]?.monthly) || ""}
+                  priceId={(isAnnual ? PLANS[subscription.plan_id]?.paddlePriceIdAnnual : PLANS[subscription.plan_id]?.paddlePriceIdMonthly) || ""}
                   planId={subscription.plan_id}
                   type="subscription"
                   onSuccess={handlePaddleSuccess}

@@ -3,6 +3,8 @@ export interface PlanConfig {
   monthlyPrice: number;
   annualPrice: number;
   annualTotal: number;
+  paddlePriceIdMonthly: string;
+  paddlePriceIdAnnual: string;
   limits: {
     clients: number;
     activeEvents: number;
@@ -22,6 +24,8 @@ export const PLANS: Record<string, PlanConfig> = {
     monthlyPrice: 49,
     annualPrice: 39,
     annualTotal: 468,
+    paddlePriceIdMonthly: import.meta.env.VITE_PADDLE_PRICE_STARTER_MONTHLY || '',
+    paddlePriceIdAnnual: import.meta.env.VITE_PADDLE_PRICE_STARTER_ANNUAL || '',
     limits: {
       clients: 3,
       activeEvents: 5,
@@ -39,6 +43,8 @@ export const PLANS: Record<string, PlanConfig> = {
     monthlyPrice: 149,
     annualPrice: 119,
     annualTotal: 1428,
+    paddlePriceIdMonthly: import.meta.env.VITE_PADDLE_PRICE_PROFESSIONAL_MONTHLY || '',
+    paddlePriceIdAnnual: import.meta.env.VITE_PADDLE_PRICE_PROFESSIONAL_ANNUAL || '',
     limits: {
       clients: 15,
       activeEvents: 25,
@@ -56,6 +62,8 @@ export const PLANS: Record<string, PlanConfig> = {
     monthlyPrice: 399,
     annualPrice: 319,
     annualTotal: 3828,
+    paddlePriceIdMonthly: import.meta.env.VITE_PADDLE_PRICE_ENTERPRISE_MONTHLY || '',
+    paddlePriceIdAnnual: import.meta.env.VITE_PADDLE_PRICE_ENTERPRISE_ANNUAL || '',
     limits: {
       clients: Infinity,
       activeEvents: Infinity,
