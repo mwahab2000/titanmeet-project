@@ -94,8 +94,9 @@ Deno.serve(async (req) => {
     }
 
     // Verify ownership
-    const { data: owns } = await supabase.rpc("owns_event", { _event_id: event_id });
-    if (!owns) return json({ ...summary, error: "Forbidden" }, 403);
+    const { data: owns, error: ownsErr } = await supabase.rpc("owns_event", { _event_id: event_id });
+    console.log("[send-event-invitations] owns_event result", { owns, error: ownsErr?.message ?? null });
+    if (!owns) return json({ ...summary, error: "Forbidden", owns_event_error: ownsErr?.message ?? null }, 403);
 
     const db = createClient(
       Deno.env.get("SUPABASE_URL")!,
