@@ -461,8 +461,11 @@ const AttendeesSection = () => {
       const res = data as SendResponse;
       const totalSent = (res.sent_email || 0) + (res.sent_whatsapp || 0);
       if (totalSent === 0) {
-        const reasons = buildFailureReasons(res);
-        toast.error(`No invitations sent: ${reasons.join(", ") || "unknown reason"}`);
+        showConfigToast(res);
+        if (!res.email_not_configured && !res.email_auth_failed) {
+          const reasons = buildFailureReasons(res);
+          toast.error(`No invitations sent: ${reasons.join(", ")}`);
+        }
       } else {
         const { error: updateErr } = await supabase.from("attendees").update({
           invitation_sent: true,

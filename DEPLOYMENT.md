@@ -144,7 +144,49 @@ No extra setup needed — uses PayPal Orders API.
 
 ---
 
-## 8. Known Limitations (MVP)
+## 8. Google Workspace Email Setup
+
+To send invitation and reminder emails via Google Workspace SMTP:
+
+### Prerequisites
+- A Google Workspace account (or personal Gmail with App Passwords enabled)
+- 2-Step Verification must be **enabled** on the sending account
+
+### Steps
+
+1. **Enable 2-Step Verification**
+   - Go to [Google Account Security](https://myaccount.google.com/security)
+   - Under "Signing in to Google", enable **2-Step Verification**
+   - If using Google Workspace, the admin must allow 2-Step Verification in Admin Console → Security → Authentication settings
+
+2. **Generate an App Password**
+   - Go to [App Passwords](https://myaccount.google.com/apppasswords)
+   - Select app: "Mail", device: "Other (TitanMeet)"
+   - Copy the generated 16-character password
+
+3. **Set Supabase Edge Function Secrets**
+   - Go to Supabase → Settings → Edge Functions → Secrets
+   - Add:
+     - `GMAIL_USER` = your Google Workspace email (e.g., `events@yourdomain.com`)
+     - `GMAIL_APP_PASSWORD` = the 16-character App Password from step 2
+
+### Common Issues
+
+| Symptom | Fix |
+|---|---|
+| "Email not configured" toast | `GMAIL_USER` or `GMAIL_APP_PASSWORD` secret is missing |
+| "SMTP authentication failed" | Wrong password (use App Password, not account password), or 2FA not enabled |
+| "Username and Password not accepted" | Admin may have disabled "Less secure apps" / App Passwords in Workspace admin |
+| Emails go to spam | Set up SPF/DKIM for your domain in Google Workspace Admin |
+
+### Verification
+
+After setting secrets, send a test invitation from the Attendees screen. Check the Edge Function logs if issues persist:
+`Supabase → Edge Functions → send-event-invitations → Logs`
+
+---
+
+## 9. Known Limitations (MVP)
 
 - Email via Gmail SMTP — subject to Google rate limits (~500/day)
 - No QR check-in or ticketing
