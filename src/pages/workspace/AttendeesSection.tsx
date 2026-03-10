@@ -421,23 +421,13 @@ const AttendeesSection = () => {
       });
       if (error) throw error;
       const res = (data || {}) as SendResponse;
-      console.log("[Reminder Response]", JSON.stringify(res));
-      const totalSent = (res.sent_email || 0) + (res.sent_whatsapp || 0);
-      if (totalSent > 0) {
+      const sent = handleSendResponse(res, `Reminder sent to ${attendee.name || attendee.email}`);
+      if (sent) {
         const { error: updateErr } = await supabase.from("attendees").update({
           last_reminder_sent_at: new Date().toISOString(),
         } as any).eq("id", attendee.id);
         if (updateErr) toast.error(`Reminder sent but status update failed: ${updateErr.message}`);
         setItems(prev => prev.map(a => a.id === attendee.id ? { ...a, last_reminder_sent_at: new Date().toISOString() } : a));
-        toast.success(`Reminder sent to ${attendee.name || attendee.email}`);
-      } else {
-        showConfigToast(res);
-        const reasons = buildFailureReasons(res);
-        if (reasons.length > 0 && !res.email_not_configured && !res.email_auth_failed) {
-          toast.error(`Reminder not delivered: ${reasons.join(", ")}`, { duration: 8000 });
-        } else if (reasons.length === 0) {
-          toast.error("Reminder not delivered — check Edge Function logs for details.");
-        }
       }
     } catch (e: any) { toast.error(e.message || "Failed to send reminder"); }
     finally { setSendingId(null); }
