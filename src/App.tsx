@@ -54,7 +54,6 @@ import PublicEventPage from "./pages/public/PublicEventPage";
 import SubdomainEventPage from "./pages/public/SubdomainEventPage";
 import PublicSurveyPage from "./pages/public/PublicSurveyPage";
 import InviteLandingPage from "./pages/public/InviteLandingPage";
-import InvitationsSection from "./pages/workspace/InvitationsSection";
 
 const queryClient = new QueryClient();
 
