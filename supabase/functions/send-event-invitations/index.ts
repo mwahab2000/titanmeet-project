@@ -55,14 +55,22 @@ Deno.serve(async (req) => {
     const existingInvites = await db.from("event_invites").select("id, attendee_id, token, status").eq("event_id", event_id);
     const existingMap = new Map((existingInvites.data || []).map((i: any) => [i.attendee_id, i]));
 
-    const toInsert = attendees.filter(a => !existingMap.has(a.id)).map(a => ({
-      event_id,
-      attendee_id: a.id,
-    }));
+    const toInsert = attendees
+      .filter(a => !existingMap.has(a.id))
+      .map(a => ({
+        event_id,
+        attendee_id: a.id,
+      }));
     if (toInsert.length > 0) {
-      await db.from("event_invites").insert(toInsert);
-      const { data: newInvites } = await db.from("event_invites").select("id, attendee_id, token, status").eq("event_id", event_id);
-      (newInvites || []).forEach((i: any) => existingMap.set(i.attendee_id, i));
+      const { data: inserted, error: insertErr } = await db
+        .from("event_invites")
+        .insert(toInsert)
+        .select("id, attendee_id, token, status");
+      if (insertErr) {
+        console.error("event_invites insert error:", JSON.stringify(insertErr));
+        return json({ error: "Failed to create invite tokens", detail: insertErr.message }, 500);
+      }
+      (inserted || []).forEach((i: any) => existingMap.set(i.attendee_id, i));
     }
 
     const rootUrl = base_url || "https://titanmeet.com";
