@@ -347,6 +347,7 @@ const AttendeesSection = () => {
           attendee_ids: [attendee.id],
           channels,
           base_url: window.location.origin,
+          is_reminder: true,
         },
       });
       if (error) throw error;
