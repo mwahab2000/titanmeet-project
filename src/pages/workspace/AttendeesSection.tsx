@@ -371,14 +371,14 @@ const AttendeesSection = () => {
     if (!event) return;
     setSendingId(attendee.id);
     try {
-      const { data, error } = await supabase.functions.invoke("send-event-invitations", {
-        body: {
-          event_id: event.id,
-          attendee_ids: [attendee.id],
-          channels: getChannels(),
-          base_url: window.location.origin,
-        },
-      });
+      const payload = {
+        event_id: event.id,
+        attendee_ids: [attendee.id],
+        channels: getChannels(),
+        base_url: window.location.origin,
+      };
+      console.log("[Attendees] sendInvitation", { event_id: payload.event_id, attendee_ids_count: payload.attendee_ids.length, channels: payload.channels });
+      const { data, error } = await supabase.functions.invoke("send-event-invitations", { body: payload });
       if (error) throw error;
       const res = (data || {}) as SendResponse;
       const sent = handleSendResponse(res, `Invitation sent to ${attendee.name || attendee.email}`);
