@@ -113,6 +113,8 @@ function parseCsvFile(text: string, existingEmails: Set<string>): CsvImportResul
 
 // ── Send response type ──
 interface SendResponse {
+  correlationId?: string;
+  channels?: string[];
   sent_email?: number;
   sent_whatsapp?: number;
   failed_email?: number;
@@ -121,10 +123,13 @@ interface SendResponse {
   skipped_no_phone?: number;
   skipped_email_not_configured?: number;
   email_not_configured?: boolean;
+  whatsapp_not_configured?: boolean;
   email_auth_failed?: boolean;
-  email_auth_message?: string;
+  email_error_sample?: string;
+  whatsapp_error_sample?: string;
   email_config_message?: string;
   total?: number;
+  error?: string;
 }
 
 // ── Channel icon helper (forwardRef to avoid Button ref warning) ──
@@ -331,12 +336,14 @@ const AttendeesSection = () => {
   const buildFailureReasons = (res: SendResponse): string[] => {
     const reasons: string[] = [];
     if (res.email_not_configured) reasons.push("Email not configured — set GMAIL_USER & GMAIL_APP_PASSWORD in Supabase secrets");
-    if (res.email_auth_failed) reasons.push(res.email_auth_message || "SMTP authentication failed — use a Google Workspace App Password");
+    if (res.email_auth_failed) reasons.push(res.email_error_sample || "SMTP authentication failed — use a Google Workspace App Password");
+    if (res.whatsapp_not_configured) reasons.push("WhatsApp not configured — set Twilio secrets");
     if (res.skipped_email_not_configured) reasons.push(`${res.skipped_email_not_configured} skipped (email not configured)`);
     if (res.skipped_no_email) reasons.push(`${res.skipped_no_email} missing email`);
     if (res.skipped_no_phone) reasons.push(`${res.skipped_no_phone} missing phone`);
-    if (res.failed_email) reasons.push(`${res.failed_email} email failure(s)`);
-    if (res.failed_whatsapp) reasons.push(`${res.failed_whatsapp} WhatsApp failure(s)`);
+    if (res.failed_email) reasons.push(`${res.failed_email} email failure(s)${res.email_error_sample ? `: ${res.email_error_sample}` : ""}`);
+    if (res.failed_whatsapp) reasons.push(`${res.failed_whatsapp} WhatsApp failure(s)${res.whatsapp_error_sample ? `: ${res.whatsapp_error_sample}` : ""}`);
+    if (res.error) reasons.push(res.error);
     return reasons;
   };
 
@@ -348,10 +355,12 @@ const AttendeesSection = () => {
       );
     } else if (res.email_auth_failed) {
       toast.error(
-        res.email_auth_message || "SMTP authentication failed. Ensure you are using a Google Workspace App Password (not your regular password). Enable 2-Step Verification first.",
+        res.email_error_sample || "SMTP authentication failed. Ensure you are using a Google Workspace App Password (not your regular password). Enable 2-Step Verification first.",
         { duration: 10000 }
       );
     }
+    // Log full response for debugging
+    console.log("[Invitation Response]", JSON.stringify(res));
   };
 
   const sendInvitation = async (attendee: Attendee) => {
@@ -367,13 +376,16 @@ const AttendeesSection = () => {
         },
       });
       if (error) throw error;
-      const res = data as SendResponse;
+      const res = (data || {}) as SendResponse;
+      console.log("[Invitation Response]", JSON.stringify(res));
       const totalSent = (res.sent_email || 0) + (res.sent_whatsapp || 0);
       if (totalSent === 0) {
         showConfigToast(res);
-        if (!res.email_not_configured && !res.email_auth_failed) {
-          const reasons = buildFailureReasons(res);
-          toast.error(`No invitation sent: ${reasons.join(", ")}`);
+        const reasons = buildFailureReasons(res);
+        if (reasons.length > 0 && !res.email_not_configured && !res.email_auth_failed) {
+          toast.error(`No invitation sent: ${reasons.join(", ")}`, { duration: 8000 });
+        } else if (reasons.length === 0) {
+          toast.error("No invitation sent — check Edge Function logs for details.");
         }
       } else {
         const { error: updateErr } = await supabase.from("attendees").update({
@@ -416,7 +428,8 @@ const AttendeesSection = () => {
         },
       });
       if (error) throw error;
-      const res = data as SendResponse;
+      const res = (data || {}) as SendResponse;
+      console.log("[Reminder Response]", JSON.stringify(res));
       const totalSent = (res.sent_email || 0) + (res.sent_whatsapp || 0);
       if (totalSent > 0) {
         const { error: updateErr } = await supabase.from("attendees").update({
@@ -427,9 +440,11 @@ const AttendeesSection = () => {
         toast.success(`Reminder sent to ${attendee.name || attendee.email}`);
       } else {
         showConfigToast(res);
-        if (!res.email_not_configured && !res.email_auth_failed) {
-          const reasons = buildFailureReasons(res);
-          toast.error(`Reminder not delivered: ${reasons.join(", ")}`);
+        const reasons = buildFailureReasons(res);
+        if (reasons.length > 0 && !res.email_not_configured && !res.email_auth_failed) {
+          toast.error(`Reminder not delivered: ${reasons.join(", ")}`, { duration: 8000 });
+        } else if (reasons.length === 0) {
+          toast.error("Reminder not delivered — check Edge Function logs for details.");
         }
       }
     } catch (e: any) { toast.error(e.message || "Failed to send reminder"); }
@@ -459,13 +474,16 @@ const AttendeesSection = () => {
         },
       });
       if (error) throw error;
-      const res = data as SendResponse;
+      const res = (data || {}) as SendResponse;
+      console.log("[Bulk Invitation Response]", JSON.stringify(res));
       const totalSent = (res.sent_email || 0) + (res.sent_whatsapp || 0);
       if (totalSent === 0) {
         showConfigToast(res);
-        if (!res.email_not_configured && !res.email_auth_failed) {
-          const reasons = buildFailureReasons(res);
-          toast.error(`No invitations sent: ${reasons.join(", ")}`);
+        const reasons = buildFailureReasons(res);
+        if (reasons.length > 0 && !res.email_not_configured && !res.email_auth_failed) {
+          toast.error(`No invitations sent: ${reasons.join(", ")}`, { duration: 8000 });
+        } else if (reasons.length === 0) {
+          toast.error("No invitations sent — check Edge Function logs for details.");
         }
       } else {
         const { error: updateErr } = await supabase.from("attendees").update({

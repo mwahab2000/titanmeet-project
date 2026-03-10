@@ -10,9 +10,29 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
+  // Top-level structured response — always returned
+  const summary = {
+    correlationId: crypto.randomUUID(),
+    channels: [] as string[],
+    sent_email: 0,
+    sent_whatsapp: 0,
+    failed_email: 0,
+    failed_whatsapp: 0,
+    skipped_no_email: 0,
+    skipped_no_phone: 0,
+    skipped_email_not_configured: 0,
+    email_not_configured: false,
+    whatsapp_not_configured: false,
+    email_auth_failed: false,
+    email_error_sample: "",
+    whatsapp_error_sample: "",
+    email_config_message: "",
+    total: 0,
+  };
+
   try {
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) return json({ error: "Unauthorized" }, 401);
+    if (!authHeader?.startsWith("Bearer ")) return json({ ...summary, error: "Unauthorized" }, 401);
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -23,29 +43,36 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const { event_id, attendee_ids, channels, base_url, is_reminder } = body;
     const isReminder = is_reminder === true;
-    if (!event_id) return json({ error: "Missing event_id" }, 400);
+    if (!event_id) return json({ ...summary, error: "Missing event_id" }, 400);
 
     const sendChannels: string[] = Array.isArray(channels) && channels.length > 0
       ? channels.filter((c: string) => ["email", "whatsapp"].includes(c))
       : ["email"];
-    if (sendChannels.length === 0) return json({ error: "No valid channels" }, 400);
+    if (sendChannels.length === 0) return json({ ...summary, error: "No valid channels" }, 400);
+    summary.channels = sendChannels;
 
-    // ── Pre-flight: check email config availability ──
-    let emailConfigured = true;
-    let emailConfigError = "";
-    if (sendChannels.includes("email")) {
-      const gmailUser = Deno.env.get("GMAIL_USER");
-      const gmailPass = Deno.env.get("GMAIL_APP_PASSWORD");
-      if (!gmailUser || !gmailPass) {
-        emailConfigured = false;
-        emailConfigError = "GMAIL_USER and/or GMAIL_APP_PASSWORD secrets are not set in Supabase Edge Function settings.";
-        console.warn("Email not configured:", emailConfigError);
-      }
+    // ── Pre-flight: check email config ──
+    const gmailUser = Deno.env.get("GMAIL_USER");
+    const gmailPass = Deno.env.get("GMAIL_APP_PASSWORD");
+    const emailConfigured = !!(gmailUser && gmailPass);
+    if (!emailConfigured && sendChannels.includes("email")) {
+      summary.email_not_configured = true;
+      summary.email_config_message = "GMAIL_USER and/or GMAIL_APP_PASSWORD secrets are not set in Supabase Edge Function settings.";
+      console.warn("Email not configured:", summary.email_config_message);
+    }
+
+    // ── Pre-flight: check WhatsApp config ──
+    const TWILIO_SID = Deno.env.get("TWILIO_ACCOUNT_SID");
+    const TWILIO_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN");
+    const TWILIO_FROM = Deno.env.get("TWILIO_WHATSAPP_FROM");
+    const whatsappConfigured = !!(TWILIO_SID && TWILIO_TOKEN && TWILIO_FROM);
+    if (!whatsappConfigured && sendChannels.includes("whatsapp")) {
+      summary.whatsapp_not_configured = true;
     }
 
     // Verify ownership
     const { data: owns } = await supabase.rpc("owns_event", { _event_id: event_id });
-    if (!owns) return json({ error: "Forbidden" }, 403);
+    if (!owns) return json({ ...summary, error: "Forbidden" }, 403);
 
     const db = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -62,34 +89,29 @@ Deno.serve(async (req) => {
       attendeeQuery = attendeeQuery.in("id", attendee_ids);
     }
     const { data: attendees } = await attendeeQuery;
-    if (!attendees || attendees.length === 0) return json({ sent_email: 0, sent_whatsapp: 0, total: 0, message: "No attendees" });
+    if (!attendees || attendees.length === 0) {
+      summary.total = 0;
+      return json(summary);
+    }
+    summary.total = attendees.length;
 
-    // If email channel requested but not configured, return early with clear flag
+    // If only email channel and not configured, return early
     if (sendChannels.length === 1 && sendChannels[0] === "email" && !emailConfigured) {
-      return json({
-        sent_email: 0,
-        sent_whatsapp: 0,
-        failed_email: 0,
-        failed_whatsapp: 0,
-        skipped_no_email: 0,
-        skipped_no_phone: 0,
-        skipped_email_not_configured: attendees.length,
-        email_not_configured: true,
-        email_config_message: emailConfigError,
-        total: attendees.length,
-      });
+      summary.skipped_email_not_configured = attendees.length;
+      return json(summary);
+    }
+    // If only whatsapp channel and not configured, return early
+    if (sendChannels.length === 1 && sendChannels[0] === "whatsapp" && !whatsappConfigured) {
+      return json(summary);
     }
 
-    // Ensure invites exist for all attendees (upsert)
+    // Ensure invites exist
     const existingInvites = await db.from("event_invites").select("id, attendee_id, token, status").eq("event_id", event_id);
     const existingMap = new Map((existingInvites.data || []).map((i: any) => [i.attendee_id, i]));
 
     const toInsert = attendees
       .filter(a => !existingMap.has(a.id))
-      .map(a => ({
-        event_id,
-        attendee_id: a.id,
-      }));
+      .map(a => ({ event_id, attendee_id: a.id }));
     if (toInsert.length > 0) {
       const { data: inserted, error: insertErr } = await db
         .from("event_invites")
@@ -97,27 +119,19 @@ Deno.serve(async (req) => {
         .select("id, attendee_id, token, status");
       if (insertErr) {
         console.error("event_invites insert error:", JSON.stringify(insertErr));
-        return json({ error: "Failed to create invite tokens", detail: insertErr.message }, 500);
+        return json({ ...summary, error: "Failed to create invite tokens", detail: insertErr.message }, 500);
       }
       (inserted || []).forEach((i: any) => existingMap.set(i.attendee_id, i));
     }
 
     const rootUrl = base_url || "https://titanmeet.com";
     const now = new Date().toISOString();
-    let sentEmail = 0, sentWhatsapp = 0, failedEmail = 0, failedWhatsapp = 0;
-    let skippedNoPhone = 0, skippedNoEmail = 0, skippedEmailNotConfigured = 0;
-    let emailAuthFailed = false;
-    let emailAuthMessage = "";
+    let emailAuthBroken = false;
 
     // Build public event URL
     const clientSlug = (eventData as any)?.clients?.slug;
     const eventSlug = eventData?.slug;
     const publicEventUrl = clientSlug && eventSlug ? `${rootUrl}/${clientSlug}/${eventSlug}` : null;
-
-    // Twilio config
-    const TWILIO_SID = Deno.env.get("TWILIO_ACCOUNT_SID");
-    const TWILIO_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN");
-    const TWILIO_FROM = Deno.env.get("TWILIO_WHATSAPP_FROM");
 
     for (const attendee of attendees) {
       const invite = existingMap.get(attendee.id);
@@ -127,9 +141,11 @@ Deno.serve(async (req) => {
       // ── Email ──
       if (sendChannels.includes("email")) {
         if (!emailConfigured) {
-          skippedEmailNotConfigured++;
+          summary.skipped_email_not_configured++;
+        } else if (emailAuthBroken) {
+          summary.skipped_email_not_configured++;
         } else if (!attendee.email) {
-          skippedNoEmail++;
+          summary.skipped_no_email++;
         } else {
           try {
             const confirmRsvpUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/confirm-rsvp?token=${invite.token}`;
@@ -163,51 +179,67 @@ Deno.serve(async (req) => {
                 sent_via_email: true,
                 email_sent_at: now,
                 last_sent_at: now,
-                status: invite.status === "created" 
-                  ? "sent" 
-                  : invite.status,
+                status: invite.status === "created" ? "sent" : invite.status,
               }).eq("id", invite.id);
-              sentEmail++;
+              summary.sent_email++;
             } else {
               const errBody = await emailRes.text();
               console.error("send-communication failed:", errBody);
 
-              // Detect SMTP auth failures
               const errLower = errBody.toLowerCase();
-              if (
-                errLower.includes("535") ||
+              const isAuthError = errLower.includes("535") ||
                 errLower.includes("username and password not accepted") ||
                 errLower.includes("authentication") ||
                 errLower.includes("invalid login") ||
-                errLower.includes("auth")
-              ) {
-                emailAuthFailed = true;
-                emailAuthMessage = "SMTP authentication failed. Ensure you are using a Google Workspace App Password (not your regular password). Enable 2-Step Verification first, then generate an App Password.";
-                // Stop trying more emails — auth won't fix mid-batch
-                skippedEmailNotConfigured += (attendees.length - sentEmail - failedEmail - skippedNoEmail - 1);
-                failedEmail++;
-                break;
+                (errLower.includes("auth") && errLower.includes("fail"));
+
+              if (isAuthError) {
+                summary.email_auth_failed = true;
+                emailAuthBroken = true;
+                if (!summary.email_error_sample) {
+                  summary.email_error_sample = "SMTP authentication failed. Use a Google Workspace App Password with 2-Step Verification enabled.";
+                }
+                // Count remaining as skipped
+                summary.skipped_email_not_configured += (attendees.length - summary.sent_email - summary.failed_email - summary.skipped_no_email - summary.skipped_email_not_configured - 1);
+                summary.failed_email++;
+                // Don't break — continue to process WhatsApp for remaining attendees
+              } else {
+                if (!summary.email_error_sample) {
+                  // Extract safe snippet
+                  try {
+                    const parsed = JSON.parse(errBody);
+                    summary.email_error_sample = parsed.error || errBody.slice(0, 200);
+                  } catch {
+                    summary.email_error_sample = errBody.slice(0, 200);
+                  }
+                }
+                summary.failed_email++;
               }
-              failedEmail++;
             }
           } catch (emailErr) {
             const errStr = String(emailErr);
             console.error("Email error:", errStr);
-            // Check for auth-related errors in exceptions too
             if (errStr.includes("535") || errStr.includes("Username and Password not accepted") || errStr.includes("Invalid login")) {
-              emailAuthFailed = true;
-              emailAuthMessage = "SMTP authentication failed. Use a Google Workspace App Password with 2-Step Verification enabled.";
+              summary.email_auth_failed = true;
+              emailAuthBroken = true;
+              if (!summary.email_error_sample) {
+                summary.email_error_sample = "SMTP authentication failed. Use a Google Workspace App Password with 2-Step Verification enabled.";
+              }
+            } else {
+              if (!summary.email_error_sample) summary.email_error_sample = errStr.slice(0, 200);
             }
-            failedEmail++;
+            summary.failed_email++;
           }
         }
       }
 
       // ── WhatsApp ──
       if (sendChannels.includes("whatsapp")) {
-        if (!attendee.mobile) {
-          skippedNoPhone++;
-        } else if (TWILIO_SID && TWILIO_TOKEN && TWILIO_FROM) {
+        if (!whatsappConfigured) {
+          // already flagged
+        } else if (!attendee.mobile) {
+          summary.skipped_no_phone++;
+        } else {
           try {
             const waTo = `whatsapp:${attendee.mobile.startsWith("+") ? attendee.mobile : "+" + attendee.mobile}`;
             const messageBody = isReminder
@@ -216,7 +248,7 @@ Deno.serve(async (req) => {
 
             const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_SID}/Messages.json`;
             const formData = new URLSearchParams();
-            formData.append("From", TWILIO_FROM);
+            formData.append("From", TWILIO_FROM!);
             formData.append("To", waTo);
             formData.append("Body", messageBody);
 
@@ -250,10 +282,11 @@ Deno.serve(async (req) => {
               status: "sent",
             });
 
-            sentWhatsapp++;
+            summary.sent_whatsapp++;
           } catch (waErr) {
             console.error(`WhatsApp to ${attendee.mobile} failed:`, waErr);
-            failedWhatsapp++;
+            summary.failed_whatsapp++;
+            if (!summary.whatsapp_error_sample) summary.whatsapp_error_sample = String(waErr).slice(0, 200);
             await db.from("message_logs").insert({
               event_id,
               attendee_id: attendee.id,
@@ -263,31 +296,17 @@ Deno.serve(async (req) => {
               provider: "twilio",
               status: "failed",
               error: String(waErr),
-            });
+            }).catch(() => {});
           }
-        } else {
-          console.warn("Twilio not configured, skipping WhatsApp");
         }
       }
     }
 
-    return json({
-      sent_email: sentEmail,
-      sent_whatsapp: sentWhatsapp,
-      failed_email: failedEmail,
-      failed_whatsapp: failedWhatsapp,
-      skipped_no_phone: skippedNoPhone,
-      skipped_no_email: skippedNoEmail,
-      skipped_email_not_configured: skippedEmailNotConfigured,
-      email_not_configured: !emailConfigured,
-      email_auth_failed: emailAuthFailed,
-      email_auth_message: emailAuthMessage || undefined,
-      email_config_message: !emailConfigured ? emailConfigError : undefined,
-      total: attendees.length,
-    });
+    return json(summary);
   } catch (err) {
-    console.error("send-event-invitations error:", err);
-    return json({ error: "Internal error" }, 500);
+    console.error("send-event-invitations top-level error:", err);
+    summary.email_error_sample = summary.email_error_sample || String(err).slice(0, 200);
+    return json({ ...summary, error: "Internal error" }, 200); // 200 so UI can still read the summary
   }
 });
 
