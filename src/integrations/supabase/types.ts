@@ -335,7 +335,10 @@ export type Database = {
           email: string
           event_id: string
           id: string
+          invitation_channel: string | null
           invitation_sent: boolean
+          invitation_sent_at: string | null
+          last_reminder_sent_at: string | null
           mobile: string | null
           name: string
         }
@@ -345,7 +348,10 @@ export type Database = {
           email: string
           event_id: string
           id?: string
+          invitation_channel?: string | null
           invitation_sent?: boolean
+          invitation_sent_at?: string | null
+          last_reminder_sent_at?: string | null
           mobile?: string | null
           name: string
         }
@@ -355,7 +361,10 @@ export type Database = {
           email?: string
           event_id?: string
           id?: string
+          invitation_channel?: string | null
           invitation_sent?: boolean
+          invitation_sent_at?: string | null
+          last_reminder_sent_at?: string | null
           mobile?: string | null
           name?: string
         }
