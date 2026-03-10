@@ -336,12 +336,14 @@ const AttendeesSection = () => {
   const buildFailureReasons = (res: SendResponse): string[] => {
     const reasons: string[] = [];
     if (res.email_not_configured) reasons.push("Email not configured — set GMAIL_USER & GMAIL_APP_PASSWORD in Supabase secrets");
-    if (res.email_auth_failed) reasons.push(res.email_auth_message || "SMTP authentication failed — use a Google Workspace App Password");
+    if (res.email_auth_failed) reasons.push(res.email_error_sample || "SMTP authentication failed — use a Google Workspace App Password");
+    if (res.whatsapp_not_configured) reasons.push("WhatsApp not configured — set Twilio secrets");
     if (res.skipped_email_not_configured) reasons.push(`${res.skipped_email_not_configured} skipped (email not configured)`);
     if (res.skipped_no_email) reasons.push(`${res.skipped_no_email} missing email`);
     if (res.skipped_no_phone) reasons.push(`${res.skipped_no_phone} missing phone`);
-    if (res.failed_email) reasons.push(`${res.failed_email} email failure(s)`);
-    if (res.failed_whatsapp) reasons.push(`${res.failed_whatsapp} WhatsApp failure(s)`);
+    if (res.failed_email) reasons.push(`${res.failed_email} email failure(s)${res.email_error_sample ? `: ${res.email_error_sample}` : ""}`);
+    if (res.failed_whatsapp) reasons.push(`${res.failed_whatsapp} WhatsApp failure(s)${res.whatsapp_error_sample ? `: ${res.whatsapp_error_sample}` : ""}`);
+    if (res.error) reasons.push(res.error);
     return reasons;
   };
 
@@ -353,10 +355,12 @@ const AttendeesSection = () => {
       );
     } else if (res.email_auth_failed) {
       toast.error(
-        res.email_auth_message || "SMTP authentication failed. Ensure you are using a Google Workspace App Password (not your regular password). Enable 2-Step Verification first.",
+        res.email_error_sample || "SMTP authentication failed. Ensure you are using a Google Workspace App Password (not your regular password). Enable 2-Step Verification first.",
         { duration: 10000 }
       );
     }
+    // Log full response for debugging
+    console.log("[Invitation Response]", JSON.stringify(res));
   };
 
   const sendInvitation = async (attendee: Attendee) => {
