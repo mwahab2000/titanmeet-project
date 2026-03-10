@@ -127,17 +127,19 @@ interface SendResponse {
   total?: number;
 }
 
-// ── Channel icon helper ──
-function ChannelIcon({ channel }: { channel: InviteChannel }) {
-  if (channel === "whatsapp") return <MessageSquare className="h-3.5 w-3.5" />;
+// ── Channel icon helper (forwardRef to avoid Button ref warning) ──
+import React from "react";
+const ChannelIcon = React.forwardRef<HTMLSpanElement, { channel: InviteChannel }>(({ channel, ...props }, ref) => {
+  if (channel === "whatsapp") return <span ref={ref} {...props}><MessageSquare className="h-3.5 w-3.5" /></span>;
   if (channel === "both") return (
-    <span className="flex items-center gap-0.5">
+    <span ref={ref} {...props} className="flex items-center gap-0.5">
       <Mail className="h-3 w-3" />
       <MessageSquare className="h-3 w-3" />
     </span>
   );
-  return <Mail className="h-3.5 w-3.5" />;
-}
+  return <span ref={ref} {...props}><Mail className="h-3.5 w-3.5" /></span>;
+});
+ChannelIcon.displayName = "ChannelIcon";
 
 // ── Component ──
 
