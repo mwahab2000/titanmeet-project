@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, handleCorsOptions } from "../_shared/cors.ts";
+import nodemailer from "npm:nodemailer@6";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return handleCorsOptions(req);
@@ -133,14 +134,34 @@ Deno.serve(async (req) => {
     const eventSlug = eventData?.slug;
     const publicEventUrl = clientSlug && eventSlug ? `${rootUrl}/${clientSlug}/${eventSlug}` : null;
 
+    // ── Create reusable SMTP transporter (direct Google Workspace) ──
+    let transporter: any = null;
+    if (emailConfigured) {
+      try {
+        transporter = nodemailer.createTransport({
+          host: "smtp.gmail.com",
+          port: 587,
+          secure: false,
+          requireTLS: true,
+          auth: { user: gmailUser, pass: gmailPass },
+          tls: { rejectUnauthorized: false },
+        });
+      } catch (transportErr) {
+        console.error("Failed to create SMTP transporter:", transportErr);
+        summary.email_auth_failed = true;
+        summary.email_error_sample = `SMTP transport creation failed: ${String(transportErr).slice(0, 150)}`;
+        emailAuthBroken = true;
+      }
+    }
+
     for (const attendee of attendees) {
       const invite = existingMap.get(attendee.id);
       if (!invite) continue;
       const inviteUrl = `${rootUrl}/i/${invite.token}`;
 
-      // ── Email ──
+      // ── Email (direct SMTP) ──
       if (sendChannels.includes("email")) {
-        if (!emailConfigured) {
+        if (!emailConfigured || !transporter) {
           summary.skipped_email_not_configured++;
         } else if (emailAuthBroken) {
           summary.skipped_email_not_configured++;
@@ -156,79 +177,52 @@ Deno.serve(async (req) => {
               ? `Reminder: Please confirm for ${eventTitle}`
               : `You're Invited: ${eventTitle}`;
 
-            const emailRes = await fetch(
-              `${Deno.env.get("SUPABASE_URL")}/functions/v1/send-communication`,
-              {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  "Authorization": req.headers.get("Authorization") || "",
-                },
-                body: JSON.stringify({
-                  channel: "email",
-                  to: attendee.email,
-                  subject,
-                  message: html,
-                  event_id,
-                }),
-              }
-            );
+            await transporter.sendMail({
+              from: `TitanMeet <${gmailUser}>`,
+              to: attendee.email,
+              subject,
+              html,
+            });
 
-            if (emailRes.ok) {
-              await db.from("event_invites").update({
-                sent_via_email: true,
-                email_sent_at: now,
-                last_sent_at: now,
-                status: invite.status === "created" ? "sent" : invite.status,
-              }).eq("id", invite.id);
-              summary.sent_email++;
-            } else {
-              const errBody = await emailRes.text();
-              console.error("send-communication failed:", errBody);
+            // Update invite record
+            const { error: invUpErr } = await db.from("event_invites").update({
+              sent_via_email: true,
+              email_sent_at: now,
+              last_sent_at: now,
+              status: invite.status === "created" ? "sent" : invite.status,
+            }).eq("id", invite.id);
+            if (invUpErr) console.error("event_invites update failed:", invUpErr.message);
 
-              const errLower = errBody.toLowerCase();
-              const isAuthError = errLower.includes("535") ||
-                errLower.includes("username and password not accepted") ||
-                errLower.includes("authentication") ||
-                errLower.includes("invalid login") ||
-                (errLower.includes("auth") && errLower.includes("fail"));
-
-              if (isAuthError) {
-                summary.email_auth_failed = true;
-                emailAuthBroken = true;
-                if (!summary.email_error_sample) {
-                  summary.email_error_sample = "SMTP authentication failed. Use a Google Workspace App Password with 2-Step Verification enabled.";
-                }
-                // Count remaining as skipped
-                summary.skipped_email_not_configured += (attendees.length - summary.sent_email - summary.failed_email - summary.skipped_no_email - summary.skipped_email_not_configured - 1);
-                summary.failed_email++;
-                // Don't break — continue to process WhatsApp for remaining attendees
-              } else {
-                if (!summary.email_error_sample) {
-                  // Extract safe snippet
-                  try {
-                    const parsed = JSON.parse(errBody);
-                    summary.email_error_sample = parsed.error || errBody.slice(0, 200);
-                  } catch {
-                    summary.email_error_sample = errBody.slice(0, 200);
-                  }
-                }
-                summary.failed_email++;
-              }
-            }
-          } catch (emailErr) {
+            summary.sent_email++;
+          } catch (emailErr: any) {
             const errStr = String(emailErr);
-            console.error("Email error:", errStr);
-            if (errStr.includes("535") || errStr.includes("Username and Password not accepted") || errStr.includes("Invalid login")) {
+            const errCode = emailErr?.responseCode || emailErr?.code || "";
+            console.error(`Email to ${attendee.email} failed [${errCode}]:`, errStr.slice(0, 300));
+
+            const isAuthError =
+              String(errCode) === "535" ||
+              errStr.includes("535") ||
+              errStr.includes("Username and Password not accepted") ||
+              errStr.includes("Invalid login") ||
+              (errStr.toLowerCase().includes("auth") && errStr.toLowerCase().includes("fail"));
+
+            if (isAuthError) {
               summary.email_auth_failed = true;
               emailAuthBroken = true;
               if (!summary.email_error_sample) {
-                summary.email_error_sample = "SMTP authentication failed. Use a Google Workspace App Password with 2-Step Verification enabled.";
+                summary.email_error_sample = "SMTP authentication failed. Use a Google Workspace App Password (not your regular password). Enable 2-Step Verification first, then generate an App Password at myaccount.google.com/apppasswords.";
               }
+              // Count remaining attendees as skipped
+              const alreadyProcessed = summary.sent_email + summary.failed_email + summary.skipped_no_email + summary.skipped_email_not_configured + 1;
+              summary.skipped_email_not_configured += Math.max(0, attendees.length - alreadyProcessed);
+              summary.failed_email++;
             } else {
-              if (!summary.email_error_sample) summary.email_error_sample = errStr.slice(0, 200);
+              if (!summary.email_error_sample) {
+                // Safe snippet — strip anything that could contain secrets
+                summary.email_error_sample = errStr.replace(/pass[^\s]*/gi, "***").slice(0, 200);
+              }
+              summary.failed_email++;
             }
-            summary.failed_email++;
           }
         }
       }
@@ -236,7 +230,7 @@ Deno.serve(async (req) => {
       // ── WhatsApp ──
       if (sendChannels.includes("whatsapp")) {
         if (!whatsappConfigured) {
-          // already flagged
+          // already flagged at pre-flight
         } else if (!attendee.mobile) {
           summary.skipped_no_phone++;
         } else {
@@ -264,14 +258,15 @@ Deno.serve(async (req) => {
             const twilioData = await twilioResp.json();
             if (!twilioResp.ok) throw new Error(twilioData.message || `Twilio error ${twilioResp.status}`);
 
-            await db.from("event_invites").update({
+            const { error: invUpErr } = await db.from("event_invites").update({
               sent_via_whatsapp: true,
               whatsapp_sent_at: now,
               last_sent_at: now,
               status: invite.status === "created" ? "sent" : invite.status,
             }).eq("id", invite.id);
+            if (invUpErr) console.error("event_invites update failed:", invUpErr.message);
 
-            await db.from("message_logs").insert({
+            const { error: logErr } = await db.from("message_logs").insert({
               event_id,
               attendee_id: attendee.id,
               channel: "whatsapp",
@@ -281,13 +276,15 @@ Deno.serve(async (req) => {
               provider_message_id: twilioData.sid || null,
               status: "sent",
             });
+            if (logErr) console.error("message_logs insert failed:", logErr.message);
 
             summary.sent_whatsapp++;
           } catch (waErr) {
             console.error(`WhatsApp to ${attendee.mobile} failed:`, waErr);
             summary.failed_whatsapp++;
             if (!summary.whatsapp_error_sample) summary.whatsapp_error_sample = String(waErr).slice(0, 200);
-            await db.from("message_logs").insert({
+
+            const { error: logErr } = await db.from("message_logs").insert({
               event_id,
               attendee_id: attendee.id,
               channel: "whatsapp",
@@ -296,7 +293,8 @@ Deno.serve(async (req) => {
               provider: "twilio",
               status: "failed",
               error: String(waErr),
-            }).catch(() => {});
+            });
+            if (logErr) console.error("message_logs insert (failure record) failed:", logErr.message);
           }
         }
       }
@@ -306,7 +304,7 @@ Deno.serve(async (req) => {
   } catch (err) {
     console.error("send-event-invitations top-level error:", err);
     summary.email_error_sample = summary.email_error_sample || String(err).slice(0, 200);
-    return json({ ...summary, error: "Internal error" }, 200); // 200 so UI can still read the summary
+    return json({ ...summary, error: "Internal error" }, 200);
   }
 });
 
