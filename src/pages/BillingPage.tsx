@@ -50,11 +50,7 @@ const STATUS_LABELS: Record<string, { label: string; icon: React.ReactNode; vari
   canceled: { label: "Canceled", icon: <XCircle className="h-3 w-3" />, variant: "destructive" },
 };
 
-const PADDLE_PRICE_IDS: Record<string, { monthly: string; annual: string }> = {
-  starter:      { monthly: import.meta.env.VITE_PADDLE_PRICE_STARTER_MONTHLY      || "", annual: import.meta.env.VITE_PADDLE_PRICE_STARTER_ANNUAL      || "" },
-  professional: { monthly: import.meta.env.VITE_PADDLE_PRICE_PROFESSIONAL_MONTHLY || "", annual: import.meta.env.VITE_PADDLE_PRICE_PROFESSIONAL_ANNUAL || "" },
-  enterprise:   { monthly: import.meta.env.VITE_PADDLE_PRICE_ENTERPRISE_MONTHLY   || "", annual: import.meta.env.VITE_PADDLE_PRICE_ENTERPRISE_ANNUAL   || "" },
-};
+// Paddle price IDs now come from PLANS config (single source of truth)
 
 const PLAN_NUMERIC_LIMITS: Record<string, Record<string, number>> = Object.fromEntries(
   PLAN_ORDER.map((id) => [
