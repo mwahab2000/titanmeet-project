@@ -107,7 +107,8 @@ Deno.serve(async (req) => {
           skippedNoEmail++;
         } else if (transporter) {
           try {
-            const html = buildEmailHtml(eventTitle, attendee.name, inviteUrl, publicEventUrl, eventData?.start_date);
+            const confirmRsvpUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/confirm-rsvp?token=${invite.token}`;
+            const html = buildEmailHtml(eventTitle, attendee.name, inviteUrl, publicEventUrl, eventData?.start_date, confirmRsvpUrl);
             const info = await transporter.sendMail({
               from: `TitanMeet <${Deno.env.get("GMAIL_USER")}>`,
               to: attendee.email,
@@ -233,7 +234,7 @@ Deno.serve(async (req) => {
   }
 });
 
-function buildEmailHtml(eventTitle: string, name: string, inviteUrl: string, publicEventUrl: string | null, startDate: string | null): string {
+function buildEmailHtml(eventTitle: string, name: string, inviteUrl: string, publicEventUrl: string | null, startDate: string | null, confirmUrl?: string): string {
   const dateStr = startDate ? new Date(startDate).toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" }) : "";
   return `
     <div style="font-family: 'Inter', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden;">
@@ -245,7 +246,8 @@ function buildEmailHtml(eventTitle: string, name: string, inviteUrl: string, pub
         <p style="color: #334155; font-size: 16px; margin-bottom: 8px;">Hi ${name},</p>
         <p style="color: #64748b; font-size: 14px; line-height: 1.6;">We're excited to invite you to <strong>${eventTitle}</strong>${dateStr ? ` on <strong>${dateStr}</strong>` : ""}.</p>
         <div style="text-align: center; margin: 24px 0;">
-          <a href="${inviteUrl}" style="display: inline-block; background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #ffffff; text-decoration: none; padding: 12px 32px; border-radius: 8px; font-weight: 600; font-size: 14px;">View Invitation</a>
+          ${confirmUrl ? `<a href="${confirmUrl}" style="display: inline-block; background: linear-gradient(135deg, #16a34a, #22c55e); color: #ffffff; text-decoration: none; padding: 14px 36px; border-radius: 8px; font-weight: 700; font-size: 16px; margin-bottom: 12px;">Confirm My Attendance ✓</a><br><br>` : ""}
+          <a href="${inviteUrl}" style="display: inline-block; background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #ffffff; text-decoration: none; padding: 12px 32px; border-radius: 8px; font-weight: 600; font-size: 14px;">View Event Details</a>
         </div>
         ${publicEventUrl ? `<p style="color: #94a3b8; font-size: 12px; text-align: center;">Or view the event page: <a href="${publicEventUrl}" style="color: #6366f1;">${publicEventUrl}</a></p>` : ""}
         <p style="color: #94a3b8; font-size: 12px; text-align: center; margin-top: 16px;">This invitation is personal to you.</p>

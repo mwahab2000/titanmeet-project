@@ -24,54 +24,71 @@ Deno.serve(async (req) => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
   );
 
-  const { data: rsvp, error } = await supabase
-    .from("rsvp_tokens")
-    .select("*")
+  // Look up token in event_invites table (unified token system)
+  const { data: invite, error } = await supabase
+    .from("event_invites")
+    .select("id, attendee_id, status, opened_at, rsvp_at")
     .eq("token", token)
     .single();
 
-  if (error || !rsvp) {
+  if (error || !invite) {
     return new Response(null, {
       status: 302,
       headers: { ...corsHeaders, Location: `${appUrl}/rsvp/invalid` },
     });
   }
 
-  if (rsvp.used_at) {
-    return new Response(null, {
-      status: 302,
-      headers: { ...corsHeaders, Location: `${appUrl}/rsvp/already-confirmed` },
-    });
-  }
-
-  if (rsvp.expires_at && new Date(rsvp.expires_at) < new Date()) {
-    return new Response(null, {
-      status: 302,
-      headers: { ...corsHeaders, Location: `${appUrl}/rsvp/invalid` },
-    });
-  }
-
-  // Fetch attendee name & event title for the confirmation page
-  const { data: attendeeData } = await supabase
+  // Check if attendee is already confirmed
+  const { data: attendee } = await supabase
     .from("attendees")
-    .select("name, events(title)")
-    .eq("id", rsvp.attendee_id)
+    .select("confirmed, name, event_id")
+    .eq("id", invite.attendee_id)
     .single();
 
-  const attendeeName = attendeeData?.name || "";
-  const eventTitle = (attendeeData as any)?.events?.title || "";
+  if (!attendee) {
+    return new Response(null, {
+      status: 302,
+      headers: { ...corsHeaders, Location: `${appUrl}/rsvp/invalid` },
+    });
+  }
+
+  // Fetch event title
+  const { data: eventData } = await supabase
+    .from("events")
+    .select("title")
+    .eq("id", attendee.event_id)
+    .single();
+
+  const attendeeName = attendee.name || "";
+  const eventTitle = eventData?.title || "";
+
+  if (attendee.confirmed) {
+    return new Response(null, {
+      status: 302,
+      headers: {
+        ...corsHeaders,
+        Location: `${appUrl}/rsvp/already-confirmed?name=${encodeURIComponent(attendeeName)}&event=${encodeURIComponent(eventTitle)}`,
+      },
+    });
+  }
 
   const now = new Date().toISOString();
 
-  await supabase
-    .from("rsvp_tokens")
-    .update({ used_at: now })
-    .eq("id", rsvp.id);
-
+  // Mark attendee as confirmed
   await supabase
     .from("attendees")
     .update({ confirmed: true, confirmed_at: now })
-    .eq("id", rsvp.attendee_id);
+    .eq("id", invite.attendee_id);
+
+  // Update event_invites status
+  await supabase
+    .from("event_invites")
+    .update({
+      status: "rsvp_yes",
+      rsvp_at: now,
+      opened_at: invite.opened_at || now,
+    })
+    .eq("id", invite.id);
 
   const redirectUrl = `${appUrl}/rsvp/confirmed?name=${encodeURIComponent(attendeeName)}&event=${encodeURIComponent(eventTitle)}`;
 
