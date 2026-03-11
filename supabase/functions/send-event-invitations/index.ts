@@ -429,16 +429,36 @@ Deno.serve(async (req) => {
           }
 
           try {
-            const messageBody = isReminder
-              ? `Hi ${attendee.name}! ⏰\n\nFriendly reminder: You're invited to *${eventTitle}*. We haven't received your confirmation yet.\n\n👉 ${inviteUrl}\n\nPlease confirm your attendance!`
-              : `Hi ${attendee.name}! 🎉\n\nYou're invited to *${eventTitle}*!\n\n👉 ${inviteUrl}\n\nThis link is personal to you. We look forward to seeing you!`;
+            // Select the correct template SID
+            const templateSid = isReminder
+              ? (WA_TEMPLATE_REMINDER || WA_TEMPLATE_INVITE)
+              : WA_TEMPLATE_INVITE;
+
+            if (!templateSid) {
+              result.whatsapp_status = "skipped_no_template";
+              result.whatsapp_error = "No WhatsApp template configured. Set TWILIO_WA_TEMPLATE_INVITE secret.";
+              summary.failed_whatsapp++;
+              logErr(`whatsapp skipped for ${attendee.name}: no template SID configured`);
+              summary.results.push(result);
+              continue;
+            }
+
+            // Template variables: {{1}}=name, {{2}}=eventTitle, {{3}}=inviteUrl
+            const contentVariables = JSON.stringify({
+              "1": attendee.name,
+              "2": eventTitle,
+              "3": inviteUrl || "",
+            });
+
+            const messageBody = `[Template] Invitation for ${eventTitle} to ${attendee.name}`;
 
             const statusCallbackUrl = `${supabaseUrl}/functions/v1/twilio-status-callback`;
 
             const formData = new URLSearchParams();
             formData.append("From", TWILIO_FROM!);
             formData.append("To", waTo);
-            formData.append("Body", messageBody);
+            formData.append("ContentSid", templateSid);
+            formData.append("ContentVariables", contentVariables);
             formData.append("StatusCallback", statusCallbackUrl);
 
             const twilioResp = await fetch(
