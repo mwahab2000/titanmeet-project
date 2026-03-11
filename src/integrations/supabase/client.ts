@@ -5,6 +5,17 @@ import type { Database } from './types';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
+// ── Startup guard ──────────────────────────────────────────────
+const EXPECTED_PROJECT_HOST = "qclaciklevavttipztrv.supabase.co";
+if (!SUPABASE_URL || !new URL(SUPABASE_URL).host.includes(EXPECTED_PROJECT_HOST)) {
+  console.error(
+    `[TitanMeet] ⚠️  SUPABASE PROJECT MISMATCH!\n` +
+    `  Expected: https://${EXPECTED_PROJECT_HOST}\n` +
+    `  Got:      ${SUPABASE_URL || "(empty)"}\n` +
+    `  Set VITE_SUPABASE_URL correctly in .env`
+  );
+}
+
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
@@ -15,3 +26,33 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     autoRefreshToken: true,
   }
 });
+
+// ── Edge Function helpers ──────────────────────────────────────
+
+/**
+ * Invoke an Edge Function through the Supabase client SDK.
+ * Automatically sends the current user's JWT.
+ *
+ * Use this for **authenticated** calls (most dashboard actions).
+ */
+export async function invokeEdgeFunction<T = unknown>(
+  name: string,
+  payload?: Record<string, unknown>,
+): Promise<{ data: T | null; error: Error | null }> {
+  const { data, error } = await supabase.functions.invoke(name, {
+    body: payload ?? {},
+  });
+  return { data: data as T | null, error };
+}
+
+/**
+ * Build a full Edge Function URL and fetch it directly.
+ * Use this for **unauthenticated / public** calls where
+ * query-string params or non-JSON methods are needed.
+ */
+export function edgeFunctionUrl(name: string, query?: Record<string, string>): string {
+  const base = `${SUPABASE_URL}/functions/v1/${name}`;
+  if (!query) return base;
+  const qs = new URLSearchParams(query).toString();
+  return `${base}?${qs}`;
+}
