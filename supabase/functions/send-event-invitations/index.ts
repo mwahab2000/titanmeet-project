@@ -167,8 +167,8 @@ Deno.serve(async (req) => {
     const { data: attendees, error: attErr } = await q;
 
     if (attErr) {
-      logErr("attendee query failed", { message: attErr.message, code: attErr.code, details: attErr.details });
-      return json({ ...summary, error: "Failed to load attendees" }, 500);
+      logErr("attendee query failed", { message: attErr.message, code: attErr.code, details: attErr.details, hint: attErr.hint });
+      return json({ ...summary, error: `Failed to load attendees: ${attErr.message}` }, 500);
     }
     if (!attendees || attendees.length === 0) {
       log("no attendees found");
