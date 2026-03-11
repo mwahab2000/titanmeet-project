@@ -1,3 +1,19 @@
+/**
+ * send-event-invitations
+ *
+ * Sends invitation or reminder emails (and/or WhatsApp messages) to event attendees.
+ *
+ * Required Supabase secrets:
+ *   GMAIL_USER            – Google Workspace email address used as the SMTP sender
+ *   GMAIL_APP_PASSWORD    – App Password generated from Google Account → Security → 2-Step Verification → App Passwords
+ *                           (NOT the regular Gmail password; 2-Step Verification must be enabled)
+ *   TWILIO_ACCOUNT_SID    – (optional, for WhatsApp) Twilio Account SID
+ *   TWILIO_AUTH_TOKEN      – (optional, for WhatsApp) Twilio Auth Token
+ *   TWILIO_WHATSAPP_FROM   – (optional, for WhatsApp) Twilio WhatsApp sender number (e.g. whatsapp:+14155238886)
+ *
+ * Auto-provided by Supabase runtime:
+ *   SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY
+ */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, handleCorsOptions } from "../_shared/cors.ts";
 import nodemailer from "npm:nodemailer@6";
@@ -44,6 +60,7 @@ Deno.serve(async (req) => {
     email_not_configured: false,
     whatsapp_not_configured: false,
     email_auth_failed: false,
+    smtp_connection_failed: false,
     total: 0,
     results: [] as AttendeeResult[],
   };
@@ -83,12 +100,20 @@ Deno.serve(async (req) => {
     if (sendChannels.length === 0) return json({ error: "No valid channels", correlationId }, 400);
     summary.channels = sendChannels;
 
-    // ── Config checks ──
+    // ── Validate email config (secrets check) ──
     const gmailUser = Deno.env.get("GMAIL_USER");
     const gmailPass = Deno.env.get("GMAIL_APP_PASSWORD");
     const emailConfigured = !!(gmailUser && gmailPass);
-    if (!emailConfigured && sendChannels.includes("email")) summary.email_not_configured = true;
 
+    if (!emailConfigured && sendChannels.includes("email")) {
+      summary.email_not_configured = true;
+      const missing: string[] = [];
+      if (!gmailUser) missing.push("GMAIL_USER");
+      if (!gmailPass) missing.push("GMAIL_APP_PASSWORD");
+      log("email secrets missing", missing);
+    }
+
+    // ── Validate WhatsApp config ──
     const TWILIO_SID = Deno.env.get("TWILIO_ACCOUNT_SID");
     const TWILIO_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN");
     const TWILIO_FROM = Deno.env.get("TWILIO_WHATSAPP_FROM");
@@ -154,10 +179,12 @@ Deno.serve(async (req) => {
       (inserted || []).forEach((i: any) => existingMap.set(i.attendee_id, i));
     }
 
-    // ── SMTP transporter ──
+    // ── SMTP transporter: create once and verify before the loop ──
     let transporter: any = null;
-    let emailAuthBroken = false;
-    if (emailConfigured) {
+    let emailUsable = false; // true only after transporter.verify() succeeds
+
+    if (emailConfigured && sendChannels.includes("email")) {
+      // Step 1: Create transporter
       try {
         transporter = nodemailer.createTransport({
           host: "smtp.gmail.com",
@@ -166,14 +193,58 @@ Deno.serve(async (req) => {
           requireTLS: true,
           auth: { user: gmailUser, pass: gmailPass },
           tls: { rejectUnauthorized: false },
+          connectionTimeout: 10_000, // 10s connect timeout
+          greetingTimeout: 10_000,   // 10s greeting timeout
         });
+        log("SMTP transporter created");
       } catch (e) {
-        logErr("SMTP transport creation failed", String(e).slice(0, 200));
-        summary.email_auth_failed = true;
-        emailAuthBroken = true;
+        logErr("SMTP transport creation failed", sanitizeError(String(e)));
+        summary.smtp_connection_failed = true;
+      }
+
+      // Step 2: Verify SMTP connection & auth before sending anything
+      if (transporter) {
+        try {
+          await transporter.verify();
+          emailUsable = true;
+          log("SMTP verify succeeded — ready to send");
+        } catch (verifyErr: any) {
+          const errStr = String(verifyErr);
+          const errCode = verifyErr?.responseCode || verifyErr?.code || "";
+
+          // Classify the failure
+          const isAuthError =
+            String(errCode) === "535" ||
+            errStr.includes("535") ||
+            errStr.includes("Username and Password not accepted") ||
+            errStr.includes("Invalid login");
+
+          if (isAuthError) {
+            summary.email_auth_failed = true;
+            logErr("SMTP auth failed — check GMAIL_USER and GMAIL_APP_PASSWORD secrets");
+          } else {
+            summary.smtp_connection_failed = true;
+            logErr("SMTP connection failed", sanitizeError(errStr));
+          }
+        }
+      }
+
+      // If email is the only channel and SMTP is broken, return early with clear status
+      if (!emailUsable && sendChannels.length === 1) {
+        const failReason = summary.email_auth_failed
+          ? "SMTP authentication failed. Ensure GMAIL_APP_PASSWORD is a valid Google App Password (not your regular password). 2-Step Verification must be enabled on the Google account."
+          : "SMTP connection to smtp.gmail.com:587 failed. Check network and secret values.";
+
+        summary.skipped_email_not_configured = attendees.length;
+        summary.results = attendees.map(a => {
+          const r = makeResult(a, "skipped_not_configured", "not_requested", existingMap.get(a.id)?.id ?? null);
+          r.email_error = failReason;
+          return r;
+        });
+        log("early exit — email channel unusable", { email_auth_failed: summary.email_auth_failed, smtp_connection_failed: summary.smtp_connection_failed });
+        return json(summary);
       }
     }
-
     const now = new Date().toISOString();
 
     // ── Send loop ──
