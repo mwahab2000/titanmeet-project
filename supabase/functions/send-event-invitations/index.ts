@@ -13,6 +13,8 @@
  *   TWILIO_ACCOUNT_SID    – Twilio Account SID
  *   TWILIO_AUTH_TOKEN      – Twilio Auth Token
  *   TWILIO_WHATSAPP_FROM   – Twilio WhatsApp sender number (e.g. whatsapp:+14155238886)
+ *   TWILIO_WA_TEMPLATE_INVITE  – Twilio Content SID for invitation template (e.g. HXabc123...)
+ *   TWILIO_WA_TEMPLATE_REMINDER – Twilio Content SID for reminder template (e.g. HXdef456...)
  *
  * Auto-provided by Supabase runtime:
  *   SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY
@@ -168,9 +170,20 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ── WhatsApp template SIDs ──
+    const WA_TEMPLATE_INVITE = (Deno.env.get("TWILIO_WA_TEMPLATE_INVITE") || "").trim();
+    const WA_TEMPLATE_REMINDER = (Deno.env.get("TWILIO_WA_TEMPLATE_REMINDER") || "").trim();
+
+    if (whatsappConfigured && !WA_TEMPLATE_INVITE) {
+      log("WARNING: TWILIO_WA_TEMPLATE_INVITE not set — WhatsApp sends will fail for invitations");
+    }
+    if (whatsappConfigured && !WA_TEMPLATE_REMINDER) {
+      log("WARNING: TWILIO_WA_TEMPLATE_REMINDER not set — will fall back to invitation template for reminders");
+    }
+
     if (whatsappConfigured) {
       log("WhatsApp sender ready", TWILIO_FROM);
-      log("NOTE: Ensure this number is WhatsApp-enabled in Twilio Console or connected to the Twilio WhatsApp Sandbox. An active SMS/voice number alone is not sufficient for WhatsApp.");
+      log("NOTE: WhatsApp business-initiated messages require approved templates. Free-form messages are only allowed within a 24h conversation window.");
     }
 
     // ── Service-role client (bypasses RLS) ──
@@ -416,16 +429,36 @@ Deno.serve(async (req) => {
           }
 
           try {
-            const messageBody = isReminder
-              ? `Hi ${attendee.name}! ⏰\n\nFriendly reminder: You're invited to *${eventTitle}*. We haven't received your confirmation yet.\n\n👉 ${inviteUrl}\n\nPlease confirm your attendance!`
-              : `Hi ${attendee.name}! 🎉\n\nYou're invited to *${eventTitle}*!\n\n👉 ${inviteUrl}\n\nThis link is personal to you. We look forward to seeing you!`;
+            // Select the correct template SID
+            const templateSid = isReminder
+              ? (WA_TEMPLATE_REMINDER || WA_TEMPLATE_INVITE)
+              : WA_TEMPLATE_INVITE;
+
+            if (!templateSid) {
+              result.whatsapp_status = "skipped_no_template";
+              result.whatsapp_error = "No WhatsApp template configured. Set TWILIO_WA_TEMPLATE_INVITE secret.";
+              summary.failed_whatsapp++;
+              logErr(`whatsapp skipped for ${attendee.name}: no template SID configured`);
+              summary.results.push(result);
+              continue;
+            }
+
+            // Template variables: {{1}}=name, {{2}}=eventTitle, {{3}}=inviteUrl
+            const contentVariables = JSON.stringify({
+              "1": attendee.name,
+              "2": eventTitle,
+              "3": inviteUrl || "",
+            });
+
+            const messageBody = `[Template] Invitation for ${eventTitle} to ${attendee.name}`;
 
             const statusCallbackUrl = `${supabaseUrl}/functions/v1/twilio-status-callback`;
 
             const formData = new URLSearchParams();
             formData.append("From", TWILIO_FROM!);
             formData.append("To", waTo);
-            formData.append("Body", messageBody);
+            formData.append("ContentSid", templateSid);
+            formData.append("ContentVariables", contentVariables);
             formData.append("StatusCallback", statusCallbackUrl);
 
             const twilioResp = await fetch(
