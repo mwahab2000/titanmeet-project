@@ -7,6 +7,7 @@ import {
   type EventInvite,
   type SendChannel,
 } from "@/lib/event-invite-api";
+import { useAdminRole } from "@/hooks/useAdminRole";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -18,14 +19,16 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Send, Link2, Users, Mail, CheckCircle2, Eye, Loader2,
-  MessageSquare, Phone, UserPlus,
+  MessageSquare, Phone, UserPlus, FlaskConical,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { SectionHint } from "@/components/ui/section-hint";
+import AdminDryRunPanel from "@/components/invitations/AdminDryRunPanel";
 
 const InvitationsSection = () => {
   const { event, isArchived } = useEventWorkspace();
+  const { isAdmin } = useAdminRole();
   const [invites, setInvites] = useState<EventInvite[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
@@ -183,6 +186,12 @@ const InvitationsSection = () => {
         <TabsList>
           <TabsTrigger value="send">Send</TabsTrigger>
           <TabsTrigger value="tracking">Tracking</TabsTrigger>
+          {isAdmin && (
+            <TabsTrigger value="debug" className="gap-1">
+              <FlaskConical className="h-3.5 w-3.5" />
+              Debug
+            </TabsTrigger>
+          )}
         </TabsList>
 
         {/* ── Send Tab ── */}
@@ -346,6 +355,13 @@ const InvitationsSection = () => {
             </div>
           )}
         </TabsContent>
+
+        {/* ── Debug Tab (admin only) ── */}
+        {isAdmin && (
+          <TabsContent value="debug">
+            <AdminDryRunPanel eventId={event.id} invites={invites} isArchived={!!isArchived} />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );
