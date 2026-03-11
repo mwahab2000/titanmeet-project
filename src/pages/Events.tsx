@@ -1,14 +1,31 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Plus, Search, Calendar, MapPin, Users, X, Zap, Copy, CheckCircle2, AlertCircle } from "lucide-react";
+import { Plus, Search, Calendar, MapPin, Users, X, Zap, Copy, CheckCircle2, AlertCircle, Trash2, MoreVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { format } from "date-fns";
+import { toast } from "sonner";
 import { usePlanLimits } from "@/hooks/usePlanLimits";
 import { useUpgradeModal } from "@/hooks/useUpgradeModal";
 import { getWeightedCompletion, type EventRelatedCounts, type WeightedResult } from "@/lib/publishChecks";
@@ -23,6 +40,8 @@ const Events = () => {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [loading, setLoading] = useState(true);
   const [completionMap, setCompletionMap] = useState<Record<string, WeightedResult>>({});
+  const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const planLimits = usePlanLimits();
   const { openUpgradeModal } = useUpgradeModal();
   const navigate = useNavigate();
@@ -35,42 +54,59 @@ const Events = () => {
     navigate(path);
   };
 
-  useEffect(() => {
-    const fetchEvents = async () => {
-      const { data } = await supabase
-        .from("events")
-        .select("*")
-        .order("created_at", { ascending: false });
-      const evts = data || [];
-      setEvents(evts);
+  const fetchEvents = useCallback(async () => {
+    const { data } = await supabase
+      .from("events")
+      .select("*")
+      .order("created_at", { ascending: false });
+    const evts = data || [];
+    setEvents(evts);
 
-      if (evts.length > 0) {
-        const ids = evts.map((e: any) => e.id);
-        const [attRes, agendaRes, invRes] = await Promise.all([
-          supabase.from("attendees").select("event_id").in("event_id", ids),
-          supabase.from("agenda_items").select("event_id").in("event_id", ids),
-          supabase.from("event_invites").select("event_id").in("event_id", ids),
-        ]);
+    if (evts.length > 0) {
+      const ids = evts.map((e: any) => e.id);
+      const [attRes, agendaRes, invRes] = await Promise.all([
+        supabase.from("attendees").select("event_id").in("event_id", ids),
+        supabase.from("agenda_items").select("event_id").in("event_id", ids),
+        supabase.from("event_invites").select("event_id").in("event_id", ids),
+      ]);
 
-        const count = (rows: any[] | null, eid: string) =>
-          (rows || []).filter((r: any) => r.event_id === eid).length;
+      const count = (rows: any[] | null, eid: string) =>
+        (rows || []).filter((r: any) => r.event_id === eid).length;
 
-        const map: Record<string, WeightedResult> = {};
-        for (const evt of evts) {
-          const counts: EventRelatedCounts = {
-            attendees: count(attRes.data, evt.id),
-            agenda: count(agendaRes.data, evt.id),
-            invites: count(invRes.data, evt.id),
-          };
-          map[evt.id] = getWeightedCompletion(evt, counts);
-        }
-        setCompletionMap(map);
+      const map: Record<string, WeightedResult> = {};
+      for (const evt of evts) {
+        const counts: EventRelatedCounts = {
+          attendees: count(attRes.data, evt.id),
+          agenda: count(agendaRes.data, evt.id),
+          invites: count(invRes.data, evt.id),
+        };
+        map[evt.id] = getWeightedCompletion(evt, counts);
       }
+      setCompletionMap(map);
+    }
 
-      setLoading(false);
-    };
-    fetchEvents();
+    setLoading(false);
   }, []);
+
+  useEffect(() => {
+    fetchEvents();
+  }, [fetchEvents]);
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    const { error } = await supabase.rpc("delete_draft_event", { _event_id: deleteTarget.id });
+    setDeleting(false);
+    setDeleteTarget(null);
+
+    if (error) {
+      toast.error(error.message || "Failed to delete event");
+      return;
+    }
+
+    toast.success(`"${deleteTarget.title}" has been deleted`);
+    setEvents(prev => prev.filter(e => e.id !== deleteTarget.id));
+  };
 
   const filtered = events.filter(e => {
     const matchesSearch = e.title.toLowerCase().includes(search.toLowerCase()) ||
@@ -181,10 +217,11 @@ const Events = () => {
               const pct = completion?.pct ?? 0;
               const ready = completion?.ready ?? false;
               const missingItems = completion?.missing ?? [];
+              const isDraft = event.status === "draft";
 
               return (
-                <Link key={event.id} to={`/dashboard/events/${event.id}/hero`}>
-                  <Card className="cursor-pointer transition-all hover:shadow-lg hover:border-primary/30">
+                <Card key={event.id} className="cursor-pointer transition-all hover:shadow-lg hover:border-primary/30 relative group">
+                  <Link to={`/dashboard/events/${event.id}/hero`} className="block">
                     <CardContent className="p-6">
                       {/* Status row + completion % */}
                       <div className="mb-3 flex items-center justify-between">
@@ -199,7 +236,7 @@ const Events = () => {
                         <span className="text-xs font-semibold text-muted-foreground">{pct}%</span>
                       </div>
 
-                      <h3 className="mb-2 font-display text-lg font-semibold">{event.title}</h3>
+                      <h3 className="mb-2 font-display text-lg font-semibold pr-6">{event.title}</h3>
                       <p className="mb-3 line-clamp-2 text-sm text-muted-foreground">{event.description || "No description"}</p>
 
                       {/* Progress bar */}
@@ -248,13 +285,67 @@ const Events = () => {
                         </p>
                       )}
                     </CardContent>
-                  </Card>
-                </Link>
+                  </Link>
+
+                  {/* Kebab menu */}
+                  <div className="absolute top-4 right-4 z-10">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          onClick={(e) => e.preventDefault()}
+                          className="rounded-md p-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-muted"
+                        >
+                          <MoreVertical className="h-4 w-4 text-muted-foreground" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                        {isDraft ? (
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setDeleteTarget(event);
+                            }}
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete
+                          </DropdownMenuItem>
+                        ) : (
+                          <DropdownMenuItem disabled className="text-muted-foreground text-xs">
+                            Published events cannot be deleted
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </Card>
               );
             })}
           </div>
         </>
       )}
+
+      {/* Delete confirmation dialog */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Event?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This draft event <strong>"{deleteTarget?.title}"</strong> will be permanently deleted along with all its attendees, agenda, invites, and related data. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? "Deleting…" : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
