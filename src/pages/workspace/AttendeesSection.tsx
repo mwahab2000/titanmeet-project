@@ -398,19 +398,20 @@ const AttendeesSection = () => {
         channels: getChannels(),
         base_url: window.location.origin,
       };
-      console.log("[Attendees] sendInvitation", { event_id: payload.event_id, attendee_ids_count: payload.attendee_ids.length, channels: payload.channels });
+      console.log("[Attendees] sendInvitation", payload);
       const { data, error } = await supabase.functions.invoke("send-event-invitations", { body: payload });
       if (error) throw error;
       const res = (data || {}) as SendResponse;
-      const sent = handleSendResponse(res, `Invitation sent to ${attendee.name || attendee.email}`);
-      if (sent) {
-        const { error: updateErr } = await supabase.from("attendees").update({
+      const sentIds = getSuccessfullySentIds(res);
+      handleSendResponse(res, `Invitation to ${attendee.name || attendee.email}`);
+      if (sentIds.has(attendee.id)) {
+        const nowIso = new Date().toISOString();
+        await supabase.from("attendees").update({
           invitation_sent: true,
-          invitation_sent_at: new Date().toISOString(),
+          invitation_sent_at: nowIso,
           invitation_channel: inviteChannel,
         } as any).eq("id", attendee.id);
-        if (updateErr) toast.error(`Sent but failed to update status: ${updateErr.message}`);
-        setItems(prev => prev.map(a => a.id === attendee.id ? { ...a, invitation_sent: true, invitation_sent_at: new Date().toISOString(), invitation_channel: inviteChannel } : a));
+        setItems(prev => prev.map(a => a.id === attendee.id ? { ...a, invitation_sent: true, invitation_sent_at: nowIso, invitation_channel: inviteChannel } : a));
       }
     } catch (e: any) { toast.error(e.message || "Failed to send invitation"); }
     finally { setSendingId(null); }
@@ -444,13 +445,14 @@ const AttendeesSection = () => {
       });
       if (error) throw error;
       const res = (data || {}) as SendResponse;
-      const sent = handleSendResponse(res, `Reminder sent to ${attendee.name || attendee.email}`);
-      if (sent) {
-        const { error: updateErr } = await supabase.from("attendees").update({
-          last_reminder_sent_at: new Date().toISOString(),
+      const sentIds = getSuccessfullySentIds(res);
+      handleSendResponse(res, `Reminder to ${attendee.name || attendee.email}`);
+      if (sentIds.has(attendee.id)) {
+        const nowIso = new Date().toISOString();
+        await supabase.from("attendees").update({
+          last_reminder_sent_at: nowIso,
         } as any).eq("id", attendee.id);
-        if (updateErr) toast.error(`Reminder sent but status update failed: ${updateErr.message}`);
-        setItems(prev => prev.map(a => a.id === attendee.id ? { ...a, last_reminder_sent_at: new Date().toISOString() } : a));
+        setItems(prev => prev.map(a => a.id === attendee.id ? { ...a, last_reminder_sent_at: nowIso } : a));
       }
     } catch (e: any) { toast.error(e.message || "Failed to send reminder"); }
     finally { setSendingId(null); }
@@ -476,19 +478,25 @@ const AttendeesSection = () => {
         channels,
         base_url: window.location.origin,
       };
-      console.log("[Attendees] sendAllInvitations", { event_id: payload.event_id, attendee_ids_count: payload.attendee_ids.length, channels: payload.channels });
+      console.log("[Attendees] sendAllInvitations", payload);
       const { data, error } = await supabase.functions.invoke("send-event-invitations", { body: payload });
       if (error) throw error;
       const res = (data || {}) as SendResponse;
-      const sent = handleSendResponse(res, "Invitations sent");
-      if (sent) {
+      const sentIds = getSuccessfullySentIds(res);
+      handleSendResponse(res, "Invitations");
+
+      if (sentIds.size > 0) {
+        const nowIso = new Date().toISOString();
+        const sentArray = Array.from(sentIds);
+        // Update only successfully-sent attendees in DB
         const { error: updateErr } = await supabase.from("attendees").update({
           invitation_sent: true,
-          invitation_sent_at: new Date().toISOString(),
+          invitation_sent_at: nowIso,
           invitation_channel: inviteChannel,
-        } as any).in("id", targets.map(a => a.id));
+        } as any).in("id", sentArray);
         if (updateErr) toast.error(`Sent but failed to update statuses: ${updateErr.message}`);
-        setItems(prev => prev.map(a => targets.some(t => t.id === a.id) ? { ...a, invitation_sent: true, invitation_sent_at: new Date().toISOString(), invitation_channel: inviteChannel } : a));
+        // Update only successfully-sent attendees in UI state
+        setItems(prev => prev.map(a => sentIds.has(a.id) ? { ...a, invitation_sent: true, invitation_sent_at: nowIso, invitation_channel: inviteChannel } : a));
       }
     } catch (e: any) { toast.error(e.message || "Failed to send invitations"); }
     setBulkSending(false);
@@ -505,7 +513,7 @@ const AttendeesSection = () => {
     });
     if (eligible.length === 0) { toast.info("No eligible attendees for reminders (24h cooldown)"); return; }
     setBulkReminding(true);
-    let sentCount = 0;
+    const successIds = new Set<string>();
     for (const attendee of eligible) {
       try {
         const channels = attendee.invitation_channel === "both"
@@ -521,20 +529,21 @@ const AttendeesSection = () => {
           },
         });
         const res = data as SendResponse;
-        const totalSent = (res?.sent_email || 0) + (res?.sent_whatsapp || 0);
-        if (totalSent > 0) {
-          const { error: updateErr } = await supabase.from("attendees").update({
-            last_reminder_sent_at: new Date().toISOString(),
+        const sentIds = getSuccessfullySentIds(res);
+        if (sentIds.has(attendee.id)) {
+          const nowIso = new Date().toISOString();
+          await supabase.from("attendees").update({
+            last_reminder_sent_at: nowIso,
           } as any).eq("id", attendee.id);
-          if (updateErr) console.error("Reminder status update failed:", updateErr.message);
-          sentCount++;
+          successIds.add(attendee.id);
         }
       } catch { /* continue */ }
     }
-    if (sentCount > 0) {
-      setItems(prev => prev.map(a => eligible.some(e => e.id === a.id) ? { ...a, last_reminder_sent_at: new Date().toISOString() } : a));
+    if (successIds.size > 0) {
+      const nowIso = new Date().toISOString();
+      setItems(prev => prev.map(a => successIds.has(a.id) ? { ...a, last_reminder_sent_at: nowIso } : a));
     }
-    toast.success(`${sentCount}/${eligible.length} reminder(s) sent`);
+    toast.success(`${successIds.size}/${eligible.length} reminder(s) sent`);
     setBulkReminding(false);
   };
 
