@@ -25,9 +25,9 @@
 | `GMAIL_USER` | ✅ | Supabase → Settings → Edge Functions → Secrets |
 | `GMAIL_APP_PASSWORD` | ✅ | Supabase → Settings → Edge Functions → Secrets |
 | `SEND_EMAIL_HOOK_SECRET` | ✅ | Supabase → Settings → Edge Functions → Secrets |
-| `TWILIO_ACCOUNT_SID` | ❌ MVP | Only for SMS/WhatsApp |
-| `TWILIO_AUTH_TOKEN` | ❌ MVP | Only for SMS/WhatsApp |
-| `TWILIO_PHONE_NUMBER` | ❌ MVP | Only for SMS/WhatsApp |
+| `TWILIO_ACCOUNT_SID` | ❌ MVP | Twilio Account SID (starts with `AC…`) |
+| `TWILIO_AUTH_TOKEN` | ❌ MVP | Twilio Auth Token |
+| `TWILIO_WHATSAPP_FROM` | ❌ MVP | WhatsApp sender, e.g. `whatsapp:+14155238886` |
 | `PAYPAL_CLIENT_ID` | ✅ | PayPal Developer → API credentials |
 | `PAYPAL_CLIENT_SECRET` | ✅ | PayPal Developer → API credentials |
 | `PAYPAL_WEBHOOK_ID` | ✅ | PayPal Developer → Webhooks |
@@ -186,12 +186,49 @@ After setting secrets, send a test invitation from the Attendees screen. Check t
 
 ---
 
-## 9. Known Limitations (MVP)
+## 9. Twilio WhatsApp Setup
+
+### Secrets Required
+
+| Secret | Format | Example |
+|---|---|---|
+| `TWILIO_ACCOUNT_SID` | Starts with `AC` | `AC1234567890abcdef1234567890abcdef` |
+| `TWILIO_AUTH_TOKEN` | 32-char hex | `abcdef1234567890abcdef1234567890` |
+| `TWILIO_WHATSAPP_FROM` | `whatsapp:+E.164` | `whatsapp:+14155238886` |
+
+Set all three in **Supabase → Settings → Edge Functions → Secrets**.
+
+### Sandbox Mode (Testing)
+
+1. In Twilio Console → Messaging → Try it out → Send a WhatsApp message
+2. Recipients must **opt in** by sending "join <sandbox-keyword>" to the Twilio sandbox number
+3. Sandbox sender is typically `whatsapp:+14155238886`
+4. Only opted-in numbers can receive messages — others get a silent failure
+
+### Production Sender
+
+1. Register a WhatsApp Business Profile in Twilio Console → Senders → WhatsApp Senders
+2. Submit message templates for approval (Twilio requires pre-approved templates for business-initiated messages)
+3. Update `TWILIO_WHATSAPP_FROM` to your approved sender number (e.g. `whatsapp:+1XXXXXXXXXX`)
+4. No recipient opt-in needed for template messages; freeform messages require a 24h conversation window
+
+### Troubleshooting
+
+| Symptom | Cause / Fix |
+|---|---|
+| "Messaging service unavailable" | One or more Twilio secrets missing — check all three are set |
+| `21608` error (sandbox) | Recipient hasn't opted in — send "join <keyword>" first |
+| `63016` error | Template not approved or wrong format for production |
+| Messages sent but not received | Check Twilio Console → Monitor → Logs for delivery status |
+| `21211` invalid To number | Mobile must be E.164 format with country code (e.g. `+971501234567`) |
+
+---
+
+## 10. Known Limitations (MVP)
 
 - Email via Gmail SMTP — subject to Google rate limits (~500/day)
 - No QR check-in or ticketing
 - PayPal payments only (no card processing directly, no auto-renewal for one-time)
 - No public self-registration
-- SMS/WhatsApp requires Twilio setup (not configured for MVP)
 - OG images in `index.html` still reference Lovable defaults
 - No automated test suite beyond basic example test

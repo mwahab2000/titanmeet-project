@@ -24,12 +24,16 @@ function isE164(value: string) {
 }
 
 async function sendTwilio(toRaw: string, body: string, isWhatsApp: boolean) {
+  // Required secrets (set in Supabase → Settings → Edge Functions → Secrets):
+  //   TWILIO_ACCOUNT_SID      – Twilio Account SID (starts with "AC…")
+  //   TWILIO_AUTH_TOKEN        – Twilio Auth Token
+  //   TWILIO_WHATSAPP_FROM    – WhatsApp sender, e.g. whatsapp:+14155238886
   const sid = Deno.env.get("TWILIO_ACCOUNT_SID")!;
   const token = Deno.env.get("TWILIO_AUTH_TOKEN")!;
-  const fromRaw = Deno.env.get("TWILIO_PHONE_NUMBER")!;
+  const fromRaw = Deno.env.get("TWILIO_WHATSAPP_FROM")!;
 
   if (!sid || !token || !fromRaw) {
-    throw new AppError("Messaging service unavailable", 500);
+    throw new AppError("Messaging service unavailable — set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_WHATSAPP_FROM in Supabase secrets", 500);
   }
 
   const to = normalizePhone(toRaw);
