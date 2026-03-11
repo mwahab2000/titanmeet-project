@@ -171,8 +171,14 @@ Deno.serve(async (req) => {
     }
 
     // ── WhatsApp template SIDs ──
-    const WA_TEMPLATE_INVITE = (Deno.env.get("TWILIO_WA_TEMPLATE_INVITE") || "").trim();
-    const WA_TEMPLATE_REMINDER = (Deno.env.get("TWILIO_WA_TEMPLATE_REMINDER") || "").trim();
+    const WA_TEMPLATE_INVITE = (
+      Deno.env.get("TWILIO_WHATSAPP_INVITE_TEMPLATE_SID") ||
+      Deno.env.get("TWILIO_WA_TEMPLATE_INVITE") || ""
+    ).trim();
+    const WA_TEMPLATE_REMINDER = (
+      Deno.env.get("TWILIO_WHATSAPP_REMINDER_TEMPLATE_SID") ||
+      Deno.env.get("TWILIO_WA_TEMPLATE_REMINDER") || ""
+    ).trim();
 
     if (whatsappConfigured && !WA_TEMPLATE_INVITE) {
       log("WARNING: TWILIO_WA_TEMPLATE_INVITE not set — WhatsApp sends will fail for invitations");
