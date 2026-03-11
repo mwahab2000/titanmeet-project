@@ -92,6 +92,7 @@ Deno.serve(async (req) => {
       attendee_count: Array.isArray(attendee_ids) ? attendee_ids.length : 0,
       channels,
       is_reminder,
+      dry_run: isDryRun,
     });
 
     // ── Ownership ──
