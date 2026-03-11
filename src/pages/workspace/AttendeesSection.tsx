@@ -174,15 +174,12 @@ interface SendResponse {
   total?: number;
   error?: string;
   results?: AttendeeResultFromApi[];
-  attendee_results?: AttendeeResultFromApi[];
-  reason?: string;
 }
 
 /** Return IDs of attendees who had at least one channel successfully sent */
 function getSuccessfullySentIds(res: SendResponse): Set<string> {
   const ids = new Set<string>();
-  const results = res.results || res.attendee_results || [];
-  for (const r of results) {
+  for (const r of res.results || []) {
     if (r.email_status === "sent" || r.whatsapp_status === "sent") {
       ids.add(r.attendee_id);
     }
@@ -193,8 +190,7 @@ function getSuccessfullySentIds(res: SendResponse): Set<string> {
 /** Return IDs of attendees with at least one failed channel */
 function getFailedIds(res: SendResponse): Set<string> {
   const ids = new Set<string>();
-  const results = res.results || res.attendee_results || [];
-  for (const r of results) {
+  for (const r of res.results || []) {
     if (r.email_status === "failed" || r.whatsapp_status === "failed" ||
         r.email_status === "invalid_phone" || r.whatsapp_status === "invalid_phone") {
       ids.add(r.attendee_id);
@@ -205,8 +201,7 @@ function getFailedIds(res: SendResponse): Set<string> {
 
 /** Build a result map from the API response */
 function buildResultMap(res: SendResponse): Map<string, AttendeeResultFromApi> {
-  const results = res.results || res.attendee_results || [];
-  return new Map(results.map(r => [r.attendee_id, r]));
+  return new Map((res.results || []).map(r => [r.attendee_id, r]));
 }
 
 // ── Send summary panel ──

@@ -71,7 +71,7 @@ Deno.serve(async (req) => {
     let sentEmail = 0, sentWhatsapp = 0, failedEmail = 0, failedWhatsapp = 0;
     let skippedNoPhone = 0, skippedNoEmail = 0;
 
-    // Setup email transport if needed
+    // Setup email transport if needed (port 587 + STARTTLS for consistency)
     let transporter: any = null;
     if (sendChannels.includes("email")) {
       const GMAIL_USER = Deno.env.get("GMAIL_USER");
@@ -79,9 +79,13 @@ Deno.serve(async (req) => {
       if (GMAIL_USER && GMAIL_APP_PASSWORD) {
         transporter = nodemailer.createTransport({
           host: "smtp.gmail.com",
-          port: 465,
-          secure: true,
+          port: 587,
+          secure: false,
+          requireTLS: true,
           auth: { user: GMAIL_USER, pass: GMAIL_APP_PASSWORD },
+          tls: { rejectUnauthorized: false },
+          connectionTimeout: 10000,
+          greetingTimeout: 10000,
         });
       }
     }
