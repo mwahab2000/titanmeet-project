@@ -13,6 +13,8 @@
  *   TWILIO_ACCOUNT_SID    – Twilio Account SID
  *   TWILIO_AUTH_TOKEN      – Twilio Auth Token
  *   TWILIO_WHATSAPP_FROM   – Twilio WhatsApp sender number (e.g. whatsapp:+14155238886)
+ *   TWILIO_WA_TEMPLATE_INVITE  – Twilio Content SID for invitation template (e.g. HXabc123...)
+ *   TWILIO_WA_TEMPLATE_REMINDER – Twilio Content SID for reminder template (e.g. HXdef456...)
  *
  * Auto-provided by Supabase runtime:
  *   SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY
