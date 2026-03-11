@@ -1,14 +1,17 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Plus, Search, Calendar, MapPin, Users, X, Zap, Copy } from "lucide-react";
+import { Plus, Search, Calendar, MapPin, Users, X, Zap, Copy, CheckCircle2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { format } from "date-fns";
 import { usePlanLimits } from "@/hooks/usePlanLimits";
 import { useUpgradeModal } from "@/hooks/useUpgradeModal";
+import { getWeightedCompletion, type EventRelatedCounts, type WeightedResult } from "@/lib/publishChecks";
 
 const statusFilters = ["all", "draft", "published", "ongoing", "completed", "archived", "cancelled"] as const;
 type StatusFilter = (typeof statusFilters)[number];
@@ -19,6 +22,7 @@ const Events = () => {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [loading, setLoading] = useState(true);
+  const [completionMap, setCompletionMap] = useState<Record<string, WeightedResult>>({});
   const planLimits = usePlanLimits();
   const { openUpgradeModal } = useUpgradeModal();
   const navigate = useNavigate();
@@ -37,7 +41,32 @@ const Events = () => {
         .from("events")
         .select("*")
         .order("created_at", { ascending: false });
-      setEvents(data || []);
+      const evts = data || [];
+      setEvents(evts);
+
+      if (evts.length > 0) {
+        const ids = evts.map((e: any) => e.id);
+        const [attRes, agendaRes, invRes] = await Promise.all([
+          supabase.from("attendees").select("event_id").in("event_id", ids),
+          supabase.from("agenda_items").select("event_id").in("event_id", ids),
+          supabase.from("event_invites").select("event_id").in("event_id", ids),
+        ]);
+
+        const count = (rows: any[] | null, eid: string) =>
+          (rows || []).filter((r: any) => r.event_id === eid).length;
+
+        const map: Record<string, WeightedResult> = {};
+        for (const evt of evts) {
+          const counts: EventRelatedCounts = {
+            attendees: count(attRes.data, evt.id),
+            agenda: count(agendaRes.data, evt.id),
+            invites: count(invRes.data, evt.id),
+          };
+          map[evt.id] = getWeightedCompletion(evt, counts);
+        }
+        setCompletionMap(map);
+      }
+
       setLoading(false);
     };
     fetchEvents();
@@ -147,44 +176,82 @@ const Events = () => {
         <>
           <p className="mb-3 text-xs text-muted-foreground">{filtered.length} event{filtered.length !== 1 ? "s" : ""}</p>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {filtered.map((event) => (
-              <Link key={event.id} to={`/dashboard/events/${event.id}/hero`}>
-                <Card className="cursor-pointer transition-all hover:shadow-lg hover:border-primary/30">
-                  <CardContent className="p-6">
-                    <div className="mb-3 flex items-center justify-between">
-                      <span className={`rounded-full px-3 py-1 text-xs font-medium ${
-                        event.status === 'published' ? 'bg-accent text-accent-foreground' :
-                        event.status === 'draft' ? 'bg-muted text-muted-foreground' :
-                        event.status === 'completed' ? 'bg-secondary/10 text-secondary' :
-                        'bg-destructive/10 text-destructive'
-                      }`}>
-                        {event.status}
-                      </span>
-                    </div>
-                    <h3 className="mb-2 font-display text-lg font-semibold">{event.title}</h3>
-                    <p className="mb-4 line-clamp-2 text-sm text-muted-foreground">{event.description || "No description"}</p>
-                    <div className="space-y-2 text-xs text-muted-foreground">
-                      <div className="flex items-center gap-2">
-                        <Calendar className="h-3.5 w-3.5" />
-                        {format(new Date(event.start_date), "MMM d, yyyy")}
+            {filtered.map((event) => {
+              const completion = completionMap[event.id];
+              const pct = completion?.pct ?? 0;
+              const ready = completion?.ready ?? false;
+              const missingItems = completion?.missing ?? [];
+
+              return (
+                <Link key={event.id} to={`/dashboard/events/${event.id}/hero`}>
+                  <Card className="cursor-pointer transition-all hover:shadow-lg hover:border-primary/30">
+                    <CardContent className="p-6">
+                      {/* Status row + completion % */}
+                      <div className="mb-3 flex items-center justify-between">
+                        <span className={`rounded-full px-3 py-1 text-xs font-medium ${
+                          event.status === 'published' ? 'bg-accent text-accent-foreground' :
+                          event.status === 'draft' ? 'bg-muted text-muted-foreground' :
+                          event.status === 'completed' ? 'bg-secondary/10 text-secondary' :
+                          'bg-destructive/10 text-destructive'
+                        }`}>
+                          {event.status}
+                        </span>
+                        <span className="text-xs font-semibold text-muted-foreground">{pct}%</span>
                       </div>
-                      {event.location && (
+
+                      <h3 className="mb-2 font-display text-lg font-semibold">{event.title}</h3>
+                      <p className="mb-3 line-clamp-2 text-sm text-muted-foreground">{event.description || "No description"}</p>
+
+                      {/* Progress bar */}
+                      <Progress value={pct} className="mb-3 h-1.5" />
+
+                      {/* Ready to publish badge */}
+                      <div className="mb-3">
+                        {ready ? (
+                          <Badge className="gap-1 bg-emerald-500/15 text-emerald-600 border-emerald-500/30 hover:bg-emerald-500/20 dark:text-emerald-400">
+                            <CheckCircle2 className="h-3 w-3" />
+                            Ready to Publish
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="gap-1 border-destructive/30 text-destructive hover:bg-destructive/5">
+                            <AlertCircle className="h-3 w-3" />
+                            Not Ready
+                          </Badge>
+                        )}
+                      </div>
+
+                      {/* Event details */}
+                      <div className="space-y-2 text-xs text-muted-foreground">
                         <div className="flex items-center gap-2">
-                          <MapPin className="h-3.5 w-3.5" />
-                          {event.location}
+                          <Calendar className="h-3.5 w-3.5" />
+                          {format(new Date(event.start_date), "MMM d, yyyy")}
                         </div>
+                        {event.location && (
+                          <div className="flex items-center gap-2">
+                            <MapPin className="h-3.5 w-3.5" />
+                            {event.location}
+                          </div>
+                        )}
+                        {event.max_attendees && (
+                          <div className="flex items-center gap-2">
+                            <Users className="h-3.5 w-3.5" />
+                            {event.max_attendees} max attendees
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Missing items hint */}
+                      {!ready && missingItems.length > 0 && (
+                        <p className="mt-3 text-[11px] text-muted-foreground/70 line-clamp-1">
+                          Missing: {missingItems.slice(0, 3).join(", ")}
+                          {missingItems.length > 3 && ` +${missingItems.length - 3} more`}
+                        </p>
                       )}
-                      {event.max_attendees && (
-                        <div className="flex items-center gap-2">
-                          <Users className="h-3.5 w-3.5" />
-                          {event.max_attendees} max attendees
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
-            ))}
+                    </CardContent>
+                  </Card>
+                </Link>
+              );
+            })}
           </div>
         </>
       )}
