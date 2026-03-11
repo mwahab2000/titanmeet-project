@@ -126,8 +126,22 @@ Deno.serve(async (req) => {
     // ── Validate WhatsApp secrets ──
     const TWILIO_SID = Deno.env.get("TWILIO_ACCOUNT_SID");
     const TWILIO_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN");
-    const TWILIO_FROM = Deno.env.get("TWILIO_WHATSAPP_FROM");
+    let TWILIO_FROM = Deno.env.get("TWILIO_WHATSAPP_FROM") || "";
+
+    // Normalize: ensure From always has whatsapp: prefix
+    TWILIO_FROM = TWILIO_FROM.trim();
+    if (TWILIO_FROM && !TWILIO_FROM.toLowerCase().startsWith("whatsapp:")) {
+      // Secret stored as plain number like +12243134841 — auto-prefix
+      TWILIO_FROM = `whatsapp:${TWILIO_FROM.startsWith("+") ? TWILIO_FROM : "+" + TWILIO_FROM}`;
+      log("auto-prefixed TWILIO_WHATSAPP_FROM with whatsapp:");
+    }
     const whatsappConfigured = !!(TWILIO_SID && TWILIO_TOKEN && TWILIO_FROM);
+
+    if (whatsappConfigured && !TWILIO_FROM.startsWith("whatsapp:+")) {
+      logErr("Invalid TWILIO_WHATSAPP_FROM format; expected whatsapp:+<number>");
+      summary.whatsapp_not_configured = true;
+    }
+
     if (!whatsappConfigured && sendChannels.includes("whatsapp")) {
       summary.whatsapp_not_configured = true;
     }
