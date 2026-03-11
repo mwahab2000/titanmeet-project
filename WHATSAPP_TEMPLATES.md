@@ -67,5 +67,5 @@ The Twilio WhatsApp Sandbox comes with a pre-approved template:
 |---------|-------|-----|
 | Error 63016 | Free-form message outside 24h window | Use template (this is now the default) |
 | Error 63032 | Template not found or not approved | Verify Content SID is correct and approved |
-| "No WhatsApp template configured" | `TWILIO_WA_TEMPLATE_INVITE` secret missing | Add the secret in Supabase |
-| Template variables wrong | Mismatch between template and code | Ensure template has `{{1}}`, `{{2}}`, `{{3}}` |
+| "No WhatsApp template configured" | `TWILIO_WHATSAPP_INVITE_TEMPLATE_SID` secret missing | Add the secret in Supabase |
+| Template variables wrong | Mismatch between template and code | Ensure template uses `name` and `event` variables |
