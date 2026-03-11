@@ -52,6 +52,7 @@ Deno.serve(async (req) => {
 
   const summary = {
     correlationId,
+    dry_run: false,
     channels: [] as string[],
     sent_email: 0,
     sent_whatsapp: 0,
