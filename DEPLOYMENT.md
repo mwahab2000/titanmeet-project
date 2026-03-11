@@ -92,7 +92,7 @@ No extra setup needed — uses PayPal Orders API.
 
 ### Webhooks
 1. In PayPal Developer → Webhooks, create a webhook pointing to:
-   `https://<your-supabase-project>.supabase.co/functions/v1/paypal-webhook`
+   `https://qclaciklevavttipztrv.supabase.co/functions/v1/paypal-webhook`
 2. Subscribe to events:
    - `PAYMENT.CAPTURE.COMPLETED`
    - `BILLING.SUBSCRIPTION.ACTIVATED`

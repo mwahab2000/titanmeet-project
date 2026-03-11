@@ -1,1 +1,0 @@
-ALTER TABLE public.events ADD COLUMN IF NOT EXISTS theme_id text NOT NULL DEFAULT 'corporate';

@@ -1,1 +1,0 @@
-ALTER TABLE public.transport_routes ADD COLUMN day_number integer;

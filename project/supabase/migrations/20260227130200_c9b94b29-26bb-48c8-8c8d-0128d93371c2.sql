@@ -1,1 +1,0 @@
-ALTER TABLE public.communications_log ADD COLUMN IF NOT EXISTS recipient_info text;
