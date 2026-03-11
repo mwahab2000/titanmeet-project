@@ -29,6 +29,12 @@ Deno.serve(async (req) => {
     whatsapp_error_sample: "",
     email_config_message: "",
     total: 0,
+    // Per-attendee results for accurate frontend state updates
+    attendee_results: [] as Array<{
+      attendee_id: string;
+      email_status: "sent" | "failed" | "skipped_no_email" | "skipped_not_configured" | "not_requested";
+      whatsapp_status: "sent" | "failed" | "skipped_no_phone" | "skipped_not_configured" | "not_requested";
+    }>,
   };
 
   try {
