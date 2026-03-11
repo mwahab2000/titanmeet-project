@@ -67,15 +67,24 @@ export async function generateEventInvites(eventId: string): Promise<number> {
 export async function sendEventInvitations(
   eventId: string,
   channels: SendChannel[] = ["email"],
-  attendeeIds?: string[]
+  attendeeIds?: string[],
+  options?: { dry_run?: boolean; is_reminder?: boolean },
 ): Promise<{
+  correlationId?: string;
+  dry_run?: boolean;
   sent_email: number;
   sent_whatsapp: number;
   failed_email: number;
   failed_whatsapp: number;
   skipped_no_phone: number;
   skipped_no_email: number;
+  skipped_email_not_configured: number;
+  email_not_configured: boolean;
+  whatsapp_not_configured: boolean;
+  email_auth_failed: boolean;
+  smtp_connection_failed: boolean;
   total: number;
+  results?: any[];
 }> {
   const baseUrl = window.location.origin;
   const { data, error } = await supabase.functions.invoke("send-event-invitations", {
@@ -84,6 +93,8 @@ export async function sendEventInvitations(
       attendee_ids: attendeeIds,
       base_url: baseUrl,
       channels,
+      dry_run: options?.dry_run ?? false,
+      is_reminder: options?.is_reminder ?? false,
     },
   });
   if (error) throw error;
