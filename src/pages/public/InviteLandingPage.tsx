@@ -57,7 +57,7 @@ const InviteLandingPage = () => {
     if (!token) return;
     setConfirming(true);
     try {
-      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/confirm-rsvp?token=${token}`;
+      const url = edgeFunctionUrl("confirm-rsvp", { token });
       const res = await fetch(url, {
         method: "GET",
         headers: { "Content-Type": "application/json" },

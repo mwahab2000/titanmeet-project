@@ -80,9 +80,8 @@ const PublicSurveyPage = () => {
     setError(null);
     setSubmitting(true);
     try {
-      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
       const res = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/survey-api?action=submit`,
+        edgeFunctionUrl("survey-api", { action: "submit" }),
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
