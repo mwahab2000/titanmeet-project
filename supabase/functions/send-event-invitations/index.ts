@@ -29,21 +29,18 @@ Deno.serve(async (req) => {
     whatsapp_error_sample: "",
     email_config_message: "",
     total: 0,
+    attendee_results: [] as Array<{
+      attendee_id: string;
+      email_status: string;
+      whatsapp_status: string;
+    }>,
   };
 
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) return json({ ...summary, error: "Unauthorized" }, 401);
 
-    // ── DEBUG: env diagnostics (temporary) ──
     const envUrl = Deno.env.get("SUPABASE_URL") || "";
-    const srkExists = !!Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    const anonExists = !!Deno.env.get("SUPABASE_ANON_KEY");
-    console.log("[send-event-invitations] ENV CHECK", {
-      SUPABASE_URL: envUrl,
-      SERVICE_ROLE_KEY_exists: srkExists,
-      ANON_KEY_exists: anonExists,
-    });
 
     const supabase = createClient(
       envUrl,
@@ -65,7 +62,6 @@ Deno.serve(async (req) => {
 
     // ── Ownership check ──
     const { data: owns, error: ownsErr } = await supabase.rpc("owns_event", { _event_id: event_id });
-    console.log("[send-event-invitations] owns_event result", { owns, error: ownsErr?.message ?? null });
     if (!owns) return json({ ...summary, error: "Forbidden", owns_event_error: ownsErr?.message ?? null }, 403);
 
     const sendChannels: string[] = Array.isArray(channels) && channels.length > 0
@@ -80,8 +76,7 @@ Deno.serve(async (req) => {
     const emailConfigured = !!(gmailUser && gmailPass);
     if (!emailConfigured && sendChannels.includes("email")) {
       summary.email_not_configured = true;
-      summary.email_config_message = "GMAIL_USER and/or GMAIL_APP_PASSWORD secrets are not set in Supabase Edge Function settings.";
-      console.warn("Email not configured:", summary.email_config_message);
+      summary.email_config_message = "GMAIL_USER and/or GMAIL_APP_PASSWORD secrets are not set.";
     }
 
     // ── Pre-flight: check WhatsApp config ──
@@ -93,27 +88,13 @@ Deno.serve(async (req) => {
       summary.whatsapp_not_configured = true;
     }
 
-    // (ownership already checked above)
-
     const db = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // ── DEBUG: probe DB connection ──
-    const { count: probeCount, error: probeErr } = await db
-      .from("attendees")
-      .select("id", { count: "exact", head: true })
-      .eq("event_id", event_id);
-    console.log("[send-event-invitations] DB PROBE", {
-      event_id,
-      attendees_count_in_db: probeCount,
-      probe_error: probeErr?.message ?? null,
-    });
-
     // Load event info
     const { data: eventData, error: eventErr } = await db.from("events").select("title, slug, start_date, client_id, clients(slug)").eq("id", event_id).single();
-    console.log("[send-event-invitations] event lookup", { found: !!eventData, title: eventData?.title, error: eventErr?.message ?? null });
     const eventTitle = eventData?.title || "Event";
 
     // Get attendees
@@ -122,10 +103,9 @@ Deno.serve(async (req) => {
       attendeeQuery = attendeeQuery.in("id", attendee_ids);
     }
     const { data: attendees, error: attendeesErr } = await attendeeQuery;
-    console.log("[send-event-invitations] attendee query result", {
-      correlationId: summary.correlationId,
+    console.log("[send-event-invitations] attendee query", {
       event_id,
-      attendee_ids_filter: attendee_ids?.length ?? "none (all)",
+      filter: attendee_ids?.length ?? "all",
       found: attendees?.length ?? 0,
       error: attendeesErr?.message ?? null,
     });
@@ -144,10 +124,11 @@ Deno.serve(async (req) => {
     // If only email channel and not configured, return early
     if (sendChannels.length === 1 && sendChannels[0] === "email" && !emailConfigured) {
       summary.skipped_email_not_configured = attendees.length;
+      summary.attendee_results = attendees.map(a => ({ attendee_id: a.id, email_status: "skipped_not_configured", whatsapp_status: "not_requested" }));
       return json(summary);
     }
-    // If only whatsapp channel and not configured, return early
     if (sendChannels.length === 1 && sendChannels[0] === "whatsapp" && !whatsappConfigured) {
+      summary.attendee_results = attendees.map(a => ({ attendee_id: a.id, email_status: "not_requested", whatsapp_status: "skipped_not_configured" }));
       return json(summary);
     }
 
@@ -174,12 +155,11 @@ Deno.serve(async (req) => {
     const now = new Date().toISOString();
     let emailAuthBroken = false;
 
-    // Build public event URL
     const clientSlug = (eventData as any)?.clients?.slug;
     const eventSlug = eventData?.slug;
     const publicEventUrl = clientSlug && eventSlug ? `${rootUrl}/${clientSlug}/${eventSlug}` : null;
 
-    // ── Create reusable SMTP transporter (direct Google Workspace) ──
+    // ── Create reusable SMTP transporter ──
     let transporter: any = null;
     if (emailConfigured) {
       try {
@@ -204,14 +184,20 @@ Deno.serve(async (req) => {
       if (!invite) continue;
       const inviteUrl = `${rootUrl}/i/${invite.token}`;
 
-      // ── Email (direct SMTP) ──
+      const result = {
+        attendee_id: attendee.id,
+        email_status: "not_requested" as string,
+        whatsapp_status: "not_requested" as string,
+      };
+
+      // ── Email ──
       if (sendChannels.includes("email")) {
-        if (!emailConfigured || !transporter) {
+        if (!emailConfigured || !transporter || emailAuthBroken) {
           summary.skipped_email_not_configured++;
-        } else if (emailAuthBroken) {
-          summary.skipped_email_not_configured++;
+          result.email_status = "skipped_not_configured";
         } else if (!attendee.email) {
           summary.skipped_no_email++;
+          result.email_status = "skipped_no_email";
         } else {
           try {
             const confirmRsvpUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/confirm-rsvp?token=${invite.token}`;
@@ -229,7 +215,6 @@ Deno.serve(async (req) => {
               html,
             });
 
-            // Update invite record
             const { error: invUpErr } = await db.from("event_invites").update({
               sent_via_email: true,
               email_sent_at: now,
@@ -239,6 +224,7 @@ Deno.serve(async (req) => {
             if (invUpErr) console.error("event_invites update failed:", invUpErr.message);
 
             summary.sent_email++;
+            result.email_status = "sent";
           } catch (emailErr: any) {
             const errStr = String(emailErr);
             const errCode = emailErr?.responseCode || emailErr?.code || "";
@@ -255,19 +241,17 @@ Deno.serve(async (req) => {
               summary.email_auth_failed = true;
               emailAuthBroken = true;
               if (!summary.email_error_sample) {
-                summary.email_error_sample = "SMTP authentication failed. Use a Google Workspace App Password (not your regular password). Enable 2-Step Verification first, then generate an App Password at myaccount.google.com/apppasswords.";
+                summary.email_error_sample = "SMTP authentication failed. Use a Google Workspace App Password.";
               }
-              // Count remaining attendees as skipped
               const alreadyProcessed = summary.sent_email + summary.failed_email + summary.skipped_no_email + summary.skipped_email_not_configured + 1;
               summary.skipped_email_not_configured += Math.max(0, attendees.length - alreadyProcessed);
-              summary.failed_email++;
             } else {
               if (!summary.email_error_sample) {
-                // Safe snippet — strip anything that could contain secrets
                 summary.email_error_sample = errStr.replace(/pass[^\s]*/gi, "***").slice(0, 200);
               }
-              summary.failed_email++;
             }
+            summary.failed_email++;
+            result.email_status = "failed";
           }
         }
       }
@@ -275,9 +259,10 @@ Deno.serve(async (req) => {
       // ── WhatsApp ──
       if (sendChannels.includes("whatsapp")) {
         if (!whatsappConfigured) {
-          // already flagged at pre-flight
+          result.whatsapp_status = "skipped_not_configured";
         } else if (!attendee.mobile) {
           summary.skipped_no_phone++;
+          result.whatsapp_status = "skipped_no_phone";
         } else {
           try {
             const waTo = `whatsapp:${attendee.mobile.startsWith("+") ? attendee.mobile : "+" + attendee.mobile}`;
@@ -324,10 +309,12 @@ Deno.serve(async (req) => {
             if (logErr) console.error("message_logs insert failed:", logErr.message);
 
             summary.sent_whatsapp++;
+            result.whatsapp_status = "sent";
           } catch (waErr) {
             console.error(`WhatsApp to ${attendee.mobile} failed:`, waErr);
             summary.failed_whatsapp++;
             if (!summary.whatsapp_error_sample) summary.whatsapp_error_sample = String(waErr).slice(0, 200);
+            result.whatsapp_status = "failed";
 
             const { error: logErr } = await db.from("message_logs").insert({
               event_id,
@@ -343,6 +330,8 @@ Deno.serve(async (req) => {
           }
         }
       }
+
+      summary.attendee_results.push(result);
     }
 
     return json(summary);
