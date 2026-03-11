@@ -271,9 +271,7 @@ const InvitationsSection = () => {
                       </TableCell>
                       <TableCell className="text-center">
                         {inv.sent_via_whatsapp ? (
-                          <span className="text-xs text-green-600" title={inv.whatsapp_sent_at ? format(new Date(inv.whatsapp_sent_at), "MMM d HH:mm") : ""}>
-                            ✓ {inv.whatsapp_sent_at ? format(new Date(inv.whatsapp_sent_at), "MMM d") : ""}
-                          </span>
+                          <WhatsAppStatusIndicator invite={inv} />
                         ) : <span className="text-xs text-muted-foreground">—</span>}
                       </TableCell>
                       <TableCell>
