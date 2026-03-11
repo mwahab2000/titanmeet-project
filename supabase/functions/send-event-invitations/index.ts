@@ -442,7 +442,7 @@ Deno.serve(async (req) => {
 
             if (!templateSid) {
               result.whatsapp_status = "skipped_no_template";
-              result.whatsapp_error = "No WhatsApp template configured. Set TWILIO_WA_TEMPLATE_INVITE secret.";
+              result.whatsapp_error = "No WhatsApp template configured. Set TWILIO_WHATSAPP_INVITE_TEMPLATE_SID secret.";
               summary.failed_whatsapp++;
               logErr(`whatsapp skipped for ${attendee.name}: no template SID configured`);
               summary.results.push(result);
