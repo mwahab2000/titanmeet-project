@@ -27,14 +27,17 @@ async function sendTwilio(toRaw: string, body: string, isWhatsApp: boolean) {
   }
 
   const to = normalizePhone(toRaw);
-  const from = normalizePhone(fromRaw);
+  if (!to) {
+    throw new AppError(`Invalid recipient phone number: ${maskedPhone(toRaw)}`, 400);
+  }
 
-  if (!isE164(from)) {
-    throw new AppError("Messaging service misconfigured", 500);
+  const from = normalizePhone(fromRaw);
+  if (!from || !isE164(from)) {
+    throw new AppError("Messaging service misconfigured — TWILIO_WHATSAPP_FROM is not valid E.164", 500);
   }
 
   if (!isE164(to)) {
-    throw new AppError("Invalid recipient phone number", 400);
+    throw new AppError(`Invalid recipient phone number: ${maskedPhone(toRaw)}`, 400);
   }
 
   const url = `https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`;
