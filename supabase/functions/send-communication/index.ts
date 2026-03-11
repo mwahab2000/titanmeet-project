@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, handleCorsOptions } from "../_shared/cors.ts";
+import { normalizePhone, isE164, maskedPhone } from "../_shared/phone.ts";
 
 const RATE_LIMIT_WINDOW_MS = 3600000; // 1 hour
 const RATE_LIMIT_MAX_PER_EVENT = 200;
@@ -10,17 +11,6 @@ class AppError extends Error {
     super(message);
     this.status = status;
   }
-}
-
-function normalizePhone(value: string) {
-  const trimmed = (value || "").trim();
-  const cleaned = trimmed.replace(/[\s\-()]/g, "");
-  if (cleaned.startsWith("00")) return `+${cleaned.slice(2)}`;
-  return cleaned;
-}
-
-function isE164(value: string) {
-  return /^\+[1-9]\d{7,14}$/.test(value);
 }
 
 async function sendTwilio(toRaw: string, body: string, isWhatsApp: boolean) {
@@ -37,14 +27,17 @@ async function sendTwilio(toRaw: string, body: string, isWhatsApp: boolean) {
   }
 
   const to = normalizePhone(toRaw);
-  const from = normalizePhone(fromRaw);
+  if (!to) {
+    throw new AppError(`Invalid recipient phone number: ${maskedPhone(toRaw)}`, 400);
+  }
 
-  if (!isE164(from)) {
-    throw new AppError("Messaging service misconfigured", 500);
+  const from = normalizePhone(fromRaw);
+  if (!from || !isE164(from)) {
+    throw new AppError("Messaging service misconfigured — TWILIO_WHATSAPP_FROM is not valid E.164", 500);
   }
 
   if (!isE164(to)) {
-    throw new AppError("Invalid recipient phone number", 400);
+    throw new AppError(`Invalid recipient phone number: ${maskedPhone(toRaw)}`, 400);
   }
 
   const url = `https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`;
