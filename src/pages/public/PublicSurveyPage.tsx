@@ -45,10 +45,9 @@ const PublicSurveyPage = () => {
         headers: {},
       });
       // supabase.functions.invoke doesn't support GET with query params well,
-      // so use fetch directly
-      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      // so use fetch directly via centralized helper
       const res = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/survey-api?action=get&token=${token}`
+        edgeFunctionUrl("survey-api", { action: "get", token })
       );
       const json = await res.json();
       if (!res.ok) {
