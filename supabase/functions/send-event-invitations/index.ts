@@ -82,8 +82,9 @@ Deno.serve(async (req) => {
     );
 
     const body = await req.json();
-    const { event_id, attendee_ids, channels, base_url, is_reminder } = body;
+    const { event_id, attendee_ids, channels, base_url, is_reminder, dry_run } = body;
     const isReminder = is_reminder === true;
+    const isDryRun = dry_run === true;
     if (!event_id) return json({ error: "Missing event_id", correlationId }, 400);
 
     log("request", {
