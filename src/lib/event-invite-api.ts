@@ -18,6 +18,8 @@ export interface EventInvite {
   attendee_email?: string;
   attendee_mobile?: string;
   attendee_confirmed?: boolean;
+  whatsapp_delivery_status?: string | null;
+  whatsapp_error?: string | null;
 }
 
 export type SendChannel = "email" | "whatsapp";
