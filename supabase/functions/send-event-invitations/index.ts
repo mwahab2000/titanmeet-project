@@ -354,8 +354,18 @@ Deno.serve(async (req) => {
           summary.skipped_no_phone++;
           result.whatsapp_status = "skipped_no_phone";
         } else {
+          // Normalise phone number before sending
+          const waTo = toWhatsAppAddress(attendee.mobile);
+          if (!waTo) {
+            summary.skipped_no_phone++;
+            result.whatsapp_status = "invalid_phone";
+            result.whatsapp_error = `Cannot normalise "${maskedPhone(attendee.mobile)}" to E.164 format. Ensure it includes country code (e.g. +971501234567).`;
+            logErr(`invalid phone for ${attendee.name}`, maskedPhone(attendee.mobile));
+            summary.results.push(result);
+            continue;
+          }
+
           try {
-            const waTo = `whatsapp:${attendee.mobile.startsWith("+") ? attendee.mobile : "+" + attendee.mobile}`;
             const messageBody = isReminder
               ? `Hi ${attendee.name}! ⏰\n\nFriendly reminder: You're invited to *${eventTitle}*. We haven't received your confirmation yet.\n\n👉 ${inviteUrl}\n\nPlease confirm your attendance!`
               : `Hi ${attendee.name}! 🎉\n\nYou're invited to *${eventTitle}*!\n\n👉 ${inviteUrl}\n\nThis link is personal to you. We look forward to seeing you!`;
@@ -402,12 +412,12 @@ Deno.serve(async (req) => {
 
             summary.sent_whatsapp++;
             result.whatsapp_status = "sent";
-            log(`whatsapp sent to ${attendee.mobile}`);
+            log(`whatsapp sent to ${maskedPhone(attendee.mobile)}`);
           } catch (waErr) {
             summary.failed_whatsapp++;
             result.whatsapp_status = "failed";
             result.whatsapp_error = sanitizeError(String(waErr));
-            logErr(`whatsapp failed for ${attendee.mobile}`, result.whatsapp_error);
+            logErr(`whatsapp failed for ${maskedPhone(attendee.mobile)}`, result.whatsapp_error);
 
             await db
               .from("message_logs")
@@ -415,7 +425,7 @@ Deno.serve(async (req) => {
                 event_id,
                 attendee_id: attendee.id,
                 channel: "whatsapp",
-                to_address: `whatsapp:${attendee.mobile}`,
+                to_address: waTo,
                 message_body: "Failed to send",
                 provider: "twilio",
                 status: "failed",
