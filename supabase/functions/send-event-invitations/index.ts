@@ -134,8 +134,15 @@ Deno.serve(async (req) => {
       summary.whatsapp_not_configured = true;
     }
 
-    // ── Service-role client ──
-    const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    // ── Service-role client (bypasses RLS) ──
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!serviceRoleKey) {
+      logErr("SUPABASE_SERVICE_ROLE_KEY is missing");
+      return json({ ...summary, error: "Server configuration error: missing service role key" }, 500);
+    }
+    const db = createClient(Deno.env.get("SUPABASE_URL")!, serviceRoleKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
 
     // ── Load event ──
     const { data: eventData } = await db
