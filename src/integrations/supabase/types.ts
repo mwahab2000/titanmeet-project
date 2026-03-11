@@ -2084,6 +2084,7 @@ export type Database = {
         }
         Returns: string
       }
+      delete_draft_event: { Args: { _event_id: string }; Returns: undefined }
       get_user_usage: { Args: { p_user_id: string }; Returns: Json }
       has_role: {
         Args: {
