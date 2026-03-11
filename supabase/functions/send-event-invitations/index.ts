@@ -52,7 +52,6 @@ Deno.serve(async (req) => {
 
   const summary = {
     correlationId,
-    dry_run: false,
     channels: [] as string[],
     sent_email: 0,
     sent_whatsapp: 0,
@@ -76,16 +75,16 @@ Deno.serve(async (req) => {
       return json({ error: "Unauthorized", correlationId }, 401);
     }
 
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
+      supabaseUrl,
       Deno.env.get("SUPABASE_ANON_KEY")!,
       { global: { headers: { Authorization: authHeader } } },
     );
 
     const body = await req.json();
-    const { event_id, attendee_ids, channels, base_url, is_reminder, dry_run } = body;
+    const { event_id, attendee_ids, channels, base_url, is_reminder } = body;
     const isReminder = is_reminder === true;
-    const isDryRun = dry_run === true;
     if (!event_id) return json({ error: "Missing event_id", correlationId }, 400);
 
     log("request", {
@@ -93,7 +92,6 @@ Deno.serve(async (req) => {
       attendee_count: Array.isArray(attendee_ids) ? attendee_ids.length : 0,
       channels,
       is_reminder,
-      dry_run: isDryRun,
     });
 
     // ── Ownership ──
@@ -102,6 +100,7 @@ Deno.serve(async (req) => {
       log("ownership denied", ownsErr?.message);
       return json({ error: "Forbidden", correlationId }, 403);
     }
+    log("ownership verified");
 
     // ── Channels ──
     const sendChannels: string[] =
@@ -110,7 +109,6 @@ Deno.serve(async (req) => {
         : ["email"];
     if (sendChannels.length === 0) return json({ error: "No valid channels", correlationId }, 400);
     summary.channels = sendChannels;
-    summary.dry_run = isDryRun;
 
     // ── Validate email secrets ──
     const gmailUser = Deno.env.get("GMAIL_USER");
@@ -140,29 +138,36 @@ Deno.serve(async (req) => {
       logErr("SUPABASE_SERVICE_ROLE_KEY is missing");
       return json({ ...summary, error: "Server configuration error: missing service role key" }, 500);
     }
-    const db = createClient(Deno.env.get("SUPABASE_URL")!, serviceRoleKey, {
+    log("service role key present: true");
+    const db = createClient(supabaseUrl, serviceRoleKey, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
     // ── Load event ──
-    const { data: eventData } = await db
+    const { data: eventData, error: eventErr } = await db
       .from("events")
       .select("title, slug, start_date, client_id, clients(slug)")
       .eq("id", event_id)
       .single();
+    if (eventErr) {
+      logErr("event lookup failed", eventErr.message);
+      return json({ ...summary, error: "Event not found" }, 404);
+    }
     const eventTitle = eventData?.title || "Event";
     const clientSlug = (eventData as any)?.clients?.slug;
     const eventSlug = eventData?.slug;
     const rootUrl = base_url || "https://titanmeet.com";
     const publicEventUrl = clientSlug && eventSlug ? `${rootUrl}/${clientSlug}/${eventSlug}` : null;
+    log("event loaded", { title: eventTitle, slug: eventSlug });
 
     // ── Load attendees ──
+    log("querying attendees", { event_id, filter_ids: Array.isArray(attendee_ids) ? attendee_ids.length : "all" });
     let q = db.from("attendees").select("id, name, email, mobile").eq("event_id", event_id);
     if (Array.isArray(attendee_ids) && attendee_ids.length > 0) q = q.in("id", attendee_ids);
     const { data: attendees, error: attErr } = await q;
 
     if (attErr) {
-      logErr("attendee query failed", attErr.message);
+      logErr("attendee query failed", { message: attErr.message, code: attErr.code, details: attErr.details });
       return json({ ...summary, error: "Failed to load attendees" }, 500);
     }
     if (!attendees || attendees.length === 0) {
@@ -209,70 +214,11 @@ Deno.serve(async (req) => {
       (inserted || []).forEach((i: any) => existingMap.set(i.attendee_id, i));
     }
 
-    // ── Dry-run mode: validate everything, skip actual sending ──
-    if (isDryRun) {
-      log("DRY RUN — validating without sending");
-      for (const attendee of attendees) {
-        const invite = existingMap.get(attendee.id);
-        const result: AttendeeResult = {
-          attendee_id: attendee.id,
-          name: attendee.name,
-          email: attendee.email || null,
-          mobile: attendee.mobile || null,
-          email_status: "not_requested",
-          whatsapp_status: "not_requested",
-          email_error: null,
-          whatsapp_error: null,
-          invite_id: invite?.id ?? null,
-        };
-
-        if (!invite) {
-          result.email_status = "failed";
-          result.email_error = "No invite token could be created";
-          result.whatsapp_status = "failed";
-          result.whatsapp_error = "No invite token could be created";
-        } else {
-          if (sendChannels.includes("email")) {
-            if (!emailConfigured) {
-              result.email_status = "would_skip";
-              result.email_error = "Email secrets not configured (GMAIL_USER / GMAIL_APP_PASSWORD)";
-            } else if (!attendee.email) {
-              result.email_status = "would_skip";
-              result.email_error = "No email address";
-            } else {
-              result.email_status = "would_send";
-            }
-          }
-          if (sendChannels.includes("whatsapp")) {
-            if (!whatsappConfigured) {
-              result.whatsapp_status = "would_skip";
-              result.whatsapp_error = "WhatsApp secrets not configured (TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN / TWILIO_WHATSAPP_FROM)";
-            } else if (!attendee.mobile) {
-              result.whatsapp_status = "would_skip";
-              result.whatsapp_error = "No phone number";
-            } else {
-              const waTo = toWhatsAppAddress(attendee.mobile);
-              if (!waTo) {
-                result.whatsapp_status = "would_fail";
-                result.whatsapp_error = `Cannot normalise "${maskedPhone(attendee.mobile)}" to E.164`;
-              } else {
-                result.whatsapp_status = "would_send";
-              }
-            }
-          }
-        }
-        summary.results.push(result);
-      }
-      log("DRY RUN complete");
-      return json(summary);
-    }
-
     // ── SMTP transporter: create once, verify once before the send loop ──
     let transporter: any = null;
     let emailUsable = false;
 
     if (emailConfigured && sendChannels.includes("email")) {
-      // Step 1 — create transporter
       try {
         transporter = nodemailer.createTransport({
           host: "smtp.gmail.com",
@@ -290,7 +236,6 @@ Deno.serve(async (req) => {
         summary.smtp_connection_failed = true;
       }
 
-      // Step 2 — verify SMTP connection & credentials
       if (transporter) {
         try {
           await transporter.verify();
@@ -315,11 +260,10 @@ Deno.serve(async (req) => {
         }
       }
 
-      // If email is the sole channel and SMTP is broken, return early
       if (!emailUsable && sendChannels.length === 1) {
         const reason = summary.email_auth_failed
-          ? "SMTP authentication failed. Ensure GMAIL_APP_PASSWORD is a valid Google App Password (not your regular password). 2-Step Verification must be enabled."
-          : "SMTP connection to smtp.gmail.com:587 failed. Check network and secret values.";
+          ? "SMTP authentication failed. Ensure GMAIL_APP_PASSWORD is a valid Google App Password."
+          : "SMTP connection to smtp.gmail.com:587 failed.";
 
         summary.skipped_email_not_configured = attendees.length;
         summary.results = attendees.map((a) => {
@@ -327,10 +271,7 @@ Deno.serve(async (req) => {
           r.email_error = reason;
           return r;
         });
-        log("early exit — email unusable", {
-          email_auth_failed: summary.email_auth_failed,
-          smtp_connection_failed: summary.smtp_connection_failed,
-        });
+        log("early exit — email unusable");
         return json(summary);
       }
     }
@@ -342,7 +283,7 @@ Deno.serve(async (req) => {
       const invite = existingMap.get(attendee.id);
       const inviteUrl = invite ? `${rootUrl}/i/${invite.token}` : null;
       const confirmRsvpUrl = invite
-        ? `${Deno.env.get("SUPABASE_URL")}/functions/v1/confirm-rsvp?token=${invite.token}`
+        ? `${supabaseUrl}/functions/v1/confirm-rsvp?token=${invite.token}`
         : undefined;
 
       const result: AttendeeResult = {
@@ -423,12 +364,11 @@ Deno.serve(async (req) => {
           summary.skipped_no_phone++;
           result.whatsapp_status = "skipped_no_phone";
         } else {
-          // Normalise phone number before sending
           const waTo = toWhatsAppAddress(attendee.mobile);
           if (!waTo) {
             summary.skipped_no_phone++;
             result.whatsapp_status = "invalid_phone";
-            result.whatsapp_error = `Cannot normalise "${maskedPhone(attendee.mobile)}" to E.164 format. Ensure it includes country code (e.g. +971501234567).`;
+            result.whatsapp_error = `Cannot normalise "${maskedPhone(attendee.mobile)}" to E.164 format.`;
             logErr(`invalid phone for ${attendee.name}`, maskedPhone(attendee.mobile));
             summary.results.push(result);
             continue;
