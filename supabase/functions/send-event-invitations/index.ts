@@ -420,10 +420,13 @@ Deno.serve(async (req) => {
               ? `Hi ${attendee.name}! ⏰\n\nFriendly reminder: You're invited to *${eventTitle}*. We haven't received your confirmation yet.\n\n👉 ${inviteUrl}\n\nPlease confirm your attendance!`
               : `Hi ${attendee.name}! 🎉\n\nYou're invited to *${eventTitle}*!\n\n👉 ${inviteUrl}\n\nThis link is personal to you. We look forward to seeing you!`;
 
+            const statusCallbackUrl = `${supabaseUrl}/functions/v1/twilio-status-callback`;
+
             const formData = new URLSearchParams();
             formData.append("From", TWILIO_FROM!);
             formData.append("To", waTo);
             formData.append("Body", messageBody);
+            formData.append("StatusCallback", statusCallbackUrl);
 
             const twilioResp = await fetch(
               `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_SID}/Messages.json`,
@@ -439,6 +442,10 @@ Deno.serve(async (req) => {
             const twilioData = await twilioResp.json();
             if (!twilioResp.ok) throw new Error(twilioData.message || `Twilio ${twilioResp.status}`);
 
+            // Twilio accepted the message — NOT yet delivered. Store as "accepted".
+            const twilioSid = twilioData.sid || null;
+            const initialStatus = twilioData.status || "accepted"; // typically "queued" or "accepted"
+
             await db
               .from("event_invites")
               .update({
@@ -449,20 +456,25 @@ Deno.serve(async (req) => {
               })
               .eq("id", invite.id);
 
-            await db.from("message_logs").insert({
-              event_id,
-              attendee_id: attendee.id,
-              channel: "whatsapp",
-              to_address: waTo,
-              message_body: messageBody,
-              provider: "twilio",
-              provider_message_id: twilioData.sid || null,
-              status: "sent",
-            });
+            try {
+              const { error: mlErr } = await db.from("message_logs").insert({
+                event_id,
+                attendee_id: attendee.id,
+                channel: "whatsapp",
+                to_address: waTo,
+                message_body: messageBody,
+                provider: "twilio",
+                provider_message_id: twilioSid,
+                status: initialStatus,
+              });
+              if (mlErr) logErr("message_logs insert failed", mlErr.message);
+            } catch (logInsertErr) {
+              logErr("message_logs insert threw", String(logInsertErr).slice(0, 200));
+            }
 
             summary.sent_whatsapp++;
-            result.whatsapp_status = "sent";
-            log(`whatsapp sent to ${maskedPhone(attendee.mobile)}`);
+            result.whatsapp_status = initialStatus;
+            log(`whatsapp accepted by Twilio for ${maskedPhone(attendee.mobile)}`, { sid: twilioSid, status: initialStatus });
           } catch (waErr) {
             summary.failed_whatsapp++;
             result.whatsapp_status = "failed";

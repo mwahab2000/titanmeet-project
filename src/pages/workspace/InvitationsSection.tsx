@@ -271,9 +271,7 @@ const InvitationsSection = () => {
                       </TableCell>
                       <TableCell className="text-center">
                         {inv.sent_via_whatsapp ? (
-                          <span className="text-xs text-green-600" title={inv.whatsapp_sent_at ? format(new Date(inv.whatsapp_sent_at), "MMM d HH:mm") : ""}>
-                            ✓ {inv.whatsapp_sent_at ? format(new Date(inv.whatsapp_sent_at), "MMM d") : ""}
-                          </span>
+                          <WhatsAppStatusIndicator invite={inv} />
                         ) : <span className="text-xs text-muted-foreground">—</span>}
                       </TableCell>
                       <TableCell>
@@ -365,6 +363,55 @@ function InviteStatusBadge({ status }: { status: string }) {
   };
   const cfg = map[status] || { variant: "outline" as const, label: status };
   return <Badge variant={cfg.variant}>{cfg.label}</Badge>;
+}
+
+function WhatsAppStatusIndicator({ invite }: { invite: EventInvite }) {
+  const status = invite.whatsapp_delivery_status;
+  const sentAt = invite.whatsapp_sent_at;
+  const dateStr = sentAt ? format(new Date(sentAt), "MMM d") : "";
+  const titleStr = sentAt ? format(new Date(sentAt), "MMM d HH:mm") : "";
+
+  if (!status || status === "queued" || status === "accepted") {
+    return (
+      <span className="text-xs text-yellow-600" title={`Submitted to Twilio${titleStr ? ` at ${titleStr}` : ""}`}>
+        ⏳ {dateStr || "Pending"}
+      </span>
+    );
+  }
+  if (status === "sending" || status === "sent") {
+    return (
+      <span className="text-xs text-blue-600" title={`Sent via Twilio${titleStr ? ` at ${titleStr}` : ""}`}>
+        ↗ {dateStr || "Sent"}
+      </span>
+    );
+  }
+  if (status === "delivered") {
+    return (
+      <span className="text-xs text-green-600" title={`Delivered${titleStr ? ` at ${titleStr}` : ""}`}>
+        ✓ {dateStr || "Delivered"}
+      </span>
+    );
+  }
+  if (status === "read") {
+    return (
+      <span className="text-xs text-green-700 font-medium" title={`Read${titleStr ? ` at ${titleStr}` : ""}`}>
+        ✓✓ {dateStr || "Read"}
+      </span>
+    );
+  }
+  if (status === "failed" || status === "undelivered") {
+    return (
+      <span className="text-xs text-destructive" title={invite.whatsapp_error || `${status}${titleStr ? ` at ${titleStr}` : ""}`}>
+        ✗ {status === "undelivered" ? "Undelivered" : "Failed"}
+      </span>
+    );
+  }
+  // Fallback
+  return (
+    <span className="text-xs text-muted-foreground" title={titleStr}>
+      {status} {dateStr}
+    </span>
+  );
 }
 
 export default InvitationsSection;

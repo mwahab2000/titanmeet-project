@@ -62,3 +62,6 @@ verify_jwt = false
 
 [functions.cancel-downgrade]
 verify_jwt = false
+
+[functions.twilio-status-callback]
+verify_jwt = false
