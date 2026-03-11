@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import nodemailer from "npm:nodemailer@6";
 import { getCorsHeaders, handleCorsOptions } from "../_shared/cors.ts";
+import { toWhatsAppAddress, maskedPhone } from "../_shared/phone.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return handleCorsOptions(req);
