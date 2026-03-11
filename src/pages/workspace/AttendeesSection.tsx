@@ -112,6 +112,12 @@ function parseCsvFile(text: string, existingEmails: Set<string>): CsvImportResul
 }
 
 // ── Send response type ──
+interface AttendeeResult {
+  attendee_id: string;
+  email_status: "sent" | "failed" | "skipped_no_email" | "skipped_not_configured" | "not_requested";
+  whatsapp_status: "sent" | "failed" | "skipped_no_phone" | "skipped_not_configured" | "not_requested";
+}
+
 interface SendResponse {
   correlationId?: string;
   channels?: string[];
@@ -130,6 +136,20 @@ interface SendResponse {
   email_config_message?: string;
   total?: number;
   error?: string;
+  attendee_results?: AttendeeResult[];
+  reason?: string;
+  received_event_id?: string;
+}
+
+/** Return IDs of attendees who had at least one channel successfully sent */
+function getSuccessfullySentIds(res: SendResponse): Set<string> {
+  const ids = new Set<string>();
+  for (const r of res.attendee_results || []) {
+    if (r.email_status === "sent" || r.whatsapp_status === "sent") {
+      ids.add(r.attendee_id);
+    }
+  }
+  return ids;
 }
 
 // ── Channel icon helper (forwardRef to avoid Button ref warning) ──
