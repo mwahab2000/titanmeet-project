@@ -25,19 +25,42 @@ export interface EventInvite {
 export type SendChannel = "email" | "whatsapp";
 
 export async function listEventInvites(eventId: string): Promise<EventInvite[]> {
+  // Get invites with attendee info
   const { data, error } = await supabase
     .from("event_invites" as any)
     .select("*, attendees(name, email, mobile, confirmed)")
     .eq("event_id", eventId)
     .order("created_at", { ascending: false });
   if (error) throw error;
-  return ((data as any[]) || []).map((d: any) => ({
-    ...d,
-    attendee_name: d.attendees?.name,
-    attendee_email: d.attendees?.email,
-    attendee_mobile: d.attendees?.mobile,
-    attendee_confirmed: d.attendees?.confirmed,
-  }));
+
+  // Get latest WhatsApp message_log per attendee for this event
+  const { data: waLogs } = await supabase
+    .from("message_logs")
+    .select("attendee_id, status, error")
+    .eq("event_id", eventId)
+    .eq("channel", "whatsapp")
+    .order("created_at", { ascending: false });
+
+  // Build a map of attendee_id → latest whatsapp status
+  const waStatusMap = new Map<string, { status: string; error: string | null }>();
+  for (const log of (waLogs || [])) {
+    if (!waStatusMap.has(log.attendee_id)) {
+      waStatusMap.set(log.attendee_id, { status: log.status, error: log.error });
+    }
+  }
+
+  return ((data as any[]) || []).map((d: any) => {
+    const waInfo = waStatusMap.get(d.attendee_id);
+    return {
+      ...d,
+      attendee_name: d.attendees?.name,
+      attendee_email: d.attendees?.email,
+      attendee_mobile: d.attendees?.mobile,
+      attendee_confirmed: d.attendees?.confirmed,
+      whatsapp_delivery_status: waInfo?.status ?? null,
+      whatsapp_error: waInfo?.error ?? null,
+    };
+  });
 }
 
 export async function generateEventInvites(eventId: string): Promise<number> {
