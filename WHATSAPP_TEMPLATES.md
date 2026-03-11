@@ -11,8 +11,8 @@ If you send a free-form message, Twilio returns error **63016**:
 
 | Secret | Description | Example |
 |--------|-------------|---------|
-| `TWILIO_WA_TEMPLATE_INVITE` | Content SID for the invitation template | `HXabc123def456...` |
-| `TWILIO_WA_TEMPLATE_REMINDER` | Content SID for the reminder template (optional — falls back to invite template) | `HXdef789abc012...` |
+| `TWILIO_WHATSAPP_INVITE_TEMPLATE_SID` | Content SID for the invitation template | `HXabc123def456...` |
+| `TWILIO_WHATSAPP_REMINDER_TEMPLATE_SID` | Content SID for the reminder template (optional — falls back to invite template) | `HXdef789abc012...` |
 
 Set these in **Supabase → Settings → Edge Functions → Secrets**.
 
