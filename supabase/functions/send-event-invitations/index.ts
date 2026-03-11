@@ -1,3 +1,22 @@
+/**
+ * send-event-invitations
+ *
+ * Sends invitation or reminder emails (and/or WhatsApp messages) to event attendees.
+ *
+ * Required Supabase secrets for EMAIL:
+ *   GMAIL_USER            – Google Workspace email address used as the SMTP sender
+ *   GMAIL_APP_PASSWORD    – App Password generated from Google Account → Security →
+ *                           2-Step Verification → App Passwords.
+ *                           (NOT the regular Gmail password; 2-Step Verification must be enabled)
+ *
+ * Required Supabase secrets for WHATSAPP (optional):
+ *   TWILIO_ACCOUNT_SID    – Twilio Account SID
+ *   TWILIO_AUTH_TOKEN      – Twilio Auth Token
+ *   TWILIO_WHATSAPP_FROM   – Twilio WhatsApp sender number (e.g. whatsapp:+14155238886)
+ *
+ * Auto-provided by Supabase runtime:
+ *   SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY
+ */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, handleCorsOptions } from "../_shared/cors.ts";
 import nodemailer from "npm:nodemailer@6";
@@ -27,7 +46,6 @@ Deno.serve(async (req) => {
 
   const log = (msg: string, data?: unknown) =>
     console.log(`[send-event-invitations][${correlationId}] ${msg}`, data ?? "");
-
   const logErr = (msg: string, data?: unknown) =>
     console.error(`[send-event-invitations][${correlationId}] ${msg}`, data ?? "");
 
@@ -44,6 +62,7 @@ Deno.serve(async (req) => {
     email_not_configured: false,
     whatsapp_not_configured: false,
     email_auth_failed: false,
+    smtp_connection_failed: false,
     total: 0,
     results: [] as AttendeeResult[],
   };
@@ -64,10 +83,14 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const { event_id, attendee_ids, channels, base_url, is_reminder } = body;
     const isReminder = is_reminder === true;
-
     if (!event_id) return json({ error: "Missing event_id", correlationId }, 400);
 
-    log("request", { event_id, attendee_count: Array.isArray(attendee_ids) ? attendee_ids.length : 0, channels, is_reminder });
+    log("request", {
+      event_id,
+      attendee_count: Array.isArray(attendee_ids) ? attendee_ids.length : 0,
+      channels,
+      is_reminder,
+    });
 
     // ── Ownership ──
     const { data: owns, error: ownsErr } = await supabase.rpc("owns_event", { _event_id: event_id });
@@ -77,25 +100,36 @@ Deno.serve(async (req) => {
     }
 
     // ── Channels ──
-    const sendChannels: string[] = Array.isArray(channels) && channels.length > 0
-      ? channels.filter((c: string) => ["email", "whatsapp"].includes(c))
-      : ["email"];
+    const sendChannels: string[] =
+      Array.isArray(channels) && channels.length > 0
+        ? channels.filter((c: string) => ["email", "whatsapp"].includes(c))
+        : ["email"];
     if (sendChannels.length === 0) return json({ error: "No valid channels", correlationId }, 400);
     summary.channels = sendChannels;
 
-    // ── Config checks ──
+    // ── Validate email secrets ──
     const gmailUser = Deno.env.get("GMAIL_USER");
     const gmailPass = Deno.env.get("GMAIL_APP_PASSWORD");
     const emailConfigured = !!(gmailUser && gmailPass);
-    if (!emailConfigured && sendChannels.includes("email")) summary.email_not_configured = true;
 
+    if (!emailConfigured && sendChannels.includes("email")) {
+      summary.email_not_configured = true;
+      const missing: string[] = [];
+      if (!gmailUser) missing.push("GMAIL_USER");
+      if (!gmailPass) missing.push("GMAIL_APP_PASSWORD");
+      log("email secrets missing", missing);
+    }
+
+    // ── Validate WhatsApp secrets ──
     const TWILIO_SID = Deno.env.get("TWILIO_ACCOUNT_SID");
     const TWILIO_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN");
     const TWILIO_FROM = Deno.env.get("TWILIO_WHATSAPP_FROM");
     const whatsappConfigured = !!(TWILIO_SID && TWILIO_TOKEN && TWILIO_FROM);
-    if (!whatsappConfigured && sendChannels.includes("whatsapp")) summary.whatsapp_not_configured = true;
+    if (!whatsappConfigured && sendChannels.includes("whatsapp")) {
+      summary.whatsapp_not_configured = true;
+    }
 
-    // ── Service-role client for DB writes ──
+    // ── Service-role client ──
     const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
     // ── Load event ──
@@ -126,22 +160,31 @@ Deno.serve(async (req) => {
     summary.total = attendees.length;
     log(`found ${attendees.length} attendees`);
 
-    // ── Early exit: only channel not configured ──
+    // ── Early exit: sole channel not configured ──
     if (sendChannels.length === 1 && sendChannels[0] === "email" && !emailConfigured) {
       summary.skipped_email_not_configured = attendees.length;
-      summary.results = attendees.map(a => makeResult(a, "skipped_not_configured", "not_requested", null));
+      summary.results = attendees.map((a) =>
+        makeResult(a, "skipped_not_configured", "not_requested", null),
+      );
       return json(summary);
     }
     if (sendChannels.length === 1 && sendChannels[0] === "whatsapp" && !whatsappConfigured) {
-      summary.results = attendees.map(a => makeResult(a, "not_requested", "skipped_not_configured", null));
+      summary.results = attendees.map((a) =>
+        makeResult(a, "not_requested", "skipped_not_configured", null),
+      );
       return json(summary);
     }
 
-    // ── Ensure invites exist ──
-    const { data: existingInvites } = await db.from("event_invites").select("id, attendee_id, token, status").eq("event_id", event_id);
+    // ── Ensure invite tokens exist ──
+    const { data: existingInvites } = await db
+      .from("event_invites")
+      .select("id, attendee_id, token, status")
+      .eq("event_id", event_id);
     const existingMap = new Map((existingInvites || []).map((i: any) => [i.attendee_id, i]));
 
-    const toInsert = attendees.filter(a => !existingMap.has(a.id)).map(a => ({ event_id, attendee_id: a.id }));
+    const toInsert = attendees
+      .filter((a) => !existingMap.has(a.id))
+      .map((a) => ({ event_id, attendee_id: a.id }));
     if (toInsert.length > 0) {
       const { data: inserted, error: insertErr } = await db
         .from("event_invites")
@@ -154,10 +197,12 @@ Deno.serve(async (req) => {
       (inserted || []).forEach((i: any) => existingMap.set(i.attendee_id, i));
     }
 
-    // ── SMTP transporter ──
+    // ── SMTP transporter: create once, verify once before the send loop ──
     let transporter: any = null;
-    let emailAuthBroken = false;
-    if (emailConfigured) {
+    let emailUsable = false;
+
+    if (emailConfigured && sendChannels.includes("email")) {
+      // Step 1 — create transporter
       try {
         transporter = nodemailer.createTransport({
           host: "smtp.gmail.com",
@@ -166,17 +211,63 @@ Deno.serve(async (req) => {
           requireTLS: true,
           auth: { user: gmailUser, pass: gmailPass },
           tls: { rejectUnauthorized: false },
+          connectionTimeout: 10000,
+          greetingTimeout: 10000,
         });
+        log("SMTP transporter created");
       } catch (e) {
-        logErr("SMTP transport creation failed", String(e).slice(0, 200));
-        summary.email_auth_failed = true;
-        emailAuthBroken = true;
+        logErr("SMTP transport creation failed", sanitizeError(String(e)));
+        summary.smtp_connection_failed = true;
+      }
+
+      // Step 2 — verify SMTP connection & credentials
+      if (transporter) {
+        try {
+          await transporter.verify();
+          emailUsable = true;
+          log("SMTP verify succeeded — ready to send");
+        } catch (verifyErr: any) {
+          const errStr = String(verifyErr);
+          const errCode = verifyErr?.responseCode || verifyErr?.code || "";
+          const isAuth =
+            String(errCode) === "535" ||
+            errStr.includes("535") ||
+            errStr.includes("Username and Password not accepted") ||
+            errStr.includes("Invalid login");
+
+          if (isAuth) {
+            summary.email_auth_failed = true;
+            logErr("SMTP auth failed — check GMAIL_USER and GMAIL_APP_PASSWORD secrets");
+          } else {
+            summary.smtp_connection_failed = true;
+            logErr("SMTP connection/verify failed", sanitizeError(errStr));
+          }
+        }
+      }
+
+      // If email is the sole channel and SMTP is broken, return early
+      if (!emailUsable && sendChannels.length === 1) {
+        const reason = summary.email_auth_failed
+          ? "SMTP authentication failed. Ensure GMAIL_APP_PASSWORD is a valid Google App Password (not your regular password). 2-Step Verification must be enabled."
+          : "SMTP connection to smtp.gmail.com:587 failed. Check network and secret values.";
+
+        summary.skipped_email_not_configured = attendees.length;
+        summary.results = attendees.map((a) => {
+          const r = makeResult(a, "skipped_not_configured", "not_requested", existingMap.get(a.id)?.id ?? null);
+          r.email_error = reason;
+          return r;
+        });
+        log("early exit — email unusable", {
+          email_auth_failed: summary.email_auth_failed,
+          smtp_connection_failed: summary.smtp_connection_failed,
+        });
+        return json(summary);
       }
     }
 
+    // ── Send loop ──
     const now = new Date().toISOString();
 
-    // ── Send loop ──
     for (const attendee of attendees) {
       const invite = existingMap.get(attendee.id);
       const inviteUrl = invite ? `${rootUrl}/i/${invite.token}` : null;
@@ -207,9 +298,12 @@ Deno.serve(async (req) => {
 
       // ── Email ──
       if (sendChannels.includes("email")) {
-        if (!emailConfigured || !transporter || emailAuthBroken) {
+        if (!emailUsable) {
           summary.skipped_email_not_configured++;
           result.email_status = "skipped_not_configured";
+          if (summary.email_auth_failed) result.email_error = "SMTP auth failed";
+          else if (summary.smtp_connection_failed) result.email_error = "SMTP connection failed";
+          else if (summary.email_not_configured) result.email_error = "Email secrets not configured";
         } else if (!attendee.email) {
           summary.skipped_no_email++;
           result.email_status = "skipped_no_email";
@@ -229,34 +323,23 @@ Deno.serve(async (req) => {
               html,
             });
 
-            await db.from("event_invites").update({
-              sent_via_email: true,
-              email_sent_at: now,
-              last_sent_at: now,
-              status: invite.status === "created" ? "sent" : invite.status,
-            }).eq("id", invite.id);
+            await db
+              .from("event_invites")
+              .update({
+                sent_via_email: true,
+                email_sent_at: now,
+                last_sent_at: now,
+                status: invite.status === "created" ? "sent" : invite.status,
+              })
+              .eq("id", invite.id);
 
             summary.sent_email++;
             result.email_status = "sent";
             log(`email sent to ${attendee.email}`);
           } catch (emailErr: any) {
-            const errStr = String(emailErr);
-            const errCode = emailErr?.responseCode || emailErr?.code || "";
-
-            const isAuthError =
-              String(errCode) === "535" ||
-              errStr.includes("535") ||
-              errStr.includes("Username and Password not accepted") ||
-              errStr.includes("Invalid login");
-
-            if (isAuthError) {
-              summary.email_auth_failed = true;
-              emailAuthBroken = true;
-            }
-
             summary.failed_email++;
             result.email_status = "failed";
-            result.email_error = sanitizeError(errStr);
+            result.email_error = sanitizeError(String(emailErr));
             logErr(`email failed for ${attendee.email}`, result.email_error);
           }
         }
@@ -295,12 +378,15 @@ Deno.serve(async (req) => {
             const twilioData = await twilioResp.json();
             if (!twilioResp.ok) throw new Error(twilioData.message || `Twilio ${twilioResp.status}`);
 
-            await db.from("event_invites").update({
-              sent_via_whatsapp: true,
-              whatsapp_sent_at: now,
-              last_sent_at: now,
-              status: invite.status === "created" ? "sent" : invite.status,
-            }).eq("id", invite.id);
+            await db
+              .from("event_invites")
+              .update({
+                sent_via_whatsapp: true,
+                whatsapp_sent_at: now,
+                last_sent_at: now,
+                status: invite.status === "created" ? "sent" : invite.status,
+              })
+              .eq("id", invite.id);
 
             await db.from("message_logs").insert({
               event_id,
@@ -322,16 +408,19 @@ Deno.serve(async (req) => {
             result.whatsapp_error = sanitizeError(String(waErr));
             logErr(`whatsapp failed for ${attendee.mobile}`, result.whatsapp_error);
 
-            await db.from("message_logs").insert({
-              event_id,
-              attendee_id: attendee.id,
-              channel: "whatsapp",
-              to_address: `whatsapp:${attendee.mobile}`,
-              message_body: "Failed to send",
-              provider: "twilio",
-              status: "failed",
-              error: sanitizeError(String(waErr)),
-            }).catch(() => {});
+            await db
+              .from("message_logs")
+              .insert({
+                event_id,
+                attendee_id: attendee.id,
+                channel: "whatsapp",
+                to_address: `whatsapp:${attendee.mobile}`,
+                message_body: "Failed to send",
+                provider: "twilio",
+                status: "failed",
+                error: sanitizeError(String(waErr)),
+              })
+              .catch(() => {});
           }
         }
       }
@@ -378,8 +467,17 @@ function sanitizeError(err: string): string {
   return err.replace(/pass[^\s]*/gi, "***").slice(0, 200);
 }
 
-function buildEmailHtml(eventTitle: string, name: string, inviteUrl: string, publicEventUrl: string | null, startDate: string | null, confirmUrl?: string): string {
-  const dateStr = startDate ? new Date(startDate).toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" }) : "";
+function buildEmailHtml(
+  eventTitle: string,
+  name: string,
+  inviteUrl: string,
+  publicEventUrl: string | null,
+  startDate: string | null,
+  confirmUrl?: string,
+): string {
+  const dateStr = startDate
+    ? new Date(startDate).toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })
+    : "";
   return `
     <div style="font-family: 'Inter', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden;">
       <div style="background: linear-gradient(135deg, #6366f1, #8b5cf6); padding: 32px 24px; text-align: center;">
@@ -402,8 +500,17 @@ function buildEmailHtml(eventTitle: string, name: string, inviteUrl: string, pub
     </div>`;
 }
 
-function buildReminderEmailHtml(eventTitle: string, name: string, inviteUrl: string, publicEventUrl: string | null, startDate: string | null, confirmUrl?: string): string {
-  const dateStr = startDate ? new Date(startDate).toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" }) : "";
+function buildReminderEmailHtml(
+  eventTitle: string,
+  name: string,
+  inviteUrl: string,
+  publicEventUrl: string | null,
+  startDate: string | null,
+  confirmUrl?: string,
+): string {
+  const dateStr = startDate
+    ? new Date(startDate).toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })
+    : "";
   return `
     <div style="font-family: 'Inter', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden;">
       <div style="background: linear-gradient(135deg, #f59e0b, #d97706); padding: 32px 24px; text-align: center;">
