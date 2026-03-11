@@ -170,9 +170,20 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ── WhatsApp template SIDs ──
+    const WA_TEMPLATE_INVITE = (Deno.env.get("TWILIO_WA_TEMPLATE_INVITE") || "").trim();
+    const WA_TEMPLATE_REMINDER = (Deno.env.get("TWILIO_WA_TEMPLATE_REMINDER") || "").trim();
+
+    if (whatsappConfigured && !WA_TEMPLATE_INVITE) {
+      log("WARNING: TWILIO_WA_TEMPLATE_INVITE not set — WhatsApp sends will fail for invitations");
+    }
+    if (whatsappConfigured && !WA_TEMPLATE_REMINDER) {
+      log("WARNING: TWILIO_WA_TEMPLATE_REMINDER not set — will fall back to invitation template for reminders");
+    }
+
     if (whatsappConfigured) {
       log("WhatsApp sender ready", TWILIO_FROM);
-      log("NOTE: Ensure this number is WhatsApp-enabled in Twilio Console or connected to the Twilio WhatsApp Sandbox. An active SMS/voice number alone is not sufficient for WhatsApp.");
+      log("NOTE: WhatsApp business-initiated messages require approved templates. Free-form messages are only allowed within a 24h conversation window.");
     }
 
     // ── Service-role client (bypasses RLS) ──
