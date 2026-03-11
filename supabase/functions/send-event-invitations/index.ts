@@ -442,19 +442,24 @@ Deno.serve(async (req) => {
             result.whatsapp_error = sanitizeError(String(waErr));
             logErr(`whatsapp failed for ${maskedPhone(attendee.mobile)}`, result.whatsapp_error);
 
-            await db
-              .from("message_logs")
-              .insert({
-                event_id,
-                attendee_id: attendee.id,
-                channel: "whatsapp",
-                to_address: waTo,
-                message_body: "Failed to send",
-                provider: "twilio",
-                status: "failed",
-                error: sanitizeError(String(waErr)),
-              })
-              .catch(() => {});
+            // Log failure to message_logs — never crash main flow
+            try {
+              const { error: mlErr } = await db
+                .from("message_logs")
+                .insert({
+                  event_id,
+                  attendee_id: attendee.id,
+                  channel: "whatsapp",
+                  to_address: waTo,
+                  message_body: "Failed to send",
+                  provider: "twilio",
+                  status: "failed",
+                  error: sanitizeError(String(waErr)),
+                });
+              if (mlErr) logErr("message_logs insert failed", mlErr.message);
+            } catch (logInsertErr) {
+              logErr("message_logs insert threw", String(logInsertErr).slice(0, 200));
+            }
           }
         }
       }
