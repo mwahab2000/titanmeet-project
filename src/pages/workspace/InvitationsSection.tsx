@@ -28,6 +28,7 @@ import AdminDryRunPanel from "@/components/invitations/AdminDryRunPanel";
 
 const InvitationsSection = () => {
   const { event, isArchived } = useEventWorkspace();
+  const { isAdmin } = useAdminRole();
   const [invites, setInvites] = useState<EventInvite[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
