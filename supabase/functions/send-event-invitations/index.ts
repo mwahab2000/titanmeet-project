@@ -126,24 +126,51 @@ Deno.serve(async (req) => {
     // ── Validate WhatsApp secrets ──
     const TWILIO_SID = Deno.env.get("TWILIO_ACCOUNT_SID");
     const TWILIO_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN");
-    let TWILIO_FROM = Deno.env.get("TWILIO_WHATSAPP_FROM") || "";
+    let TWILIO_FROM_RAW = (Deno.env.get("TWILIO_WHATSAPP_FROM") || "").trim();
 
-    // Normalize: ensure From always has whatsapp: prefix
-    TWILIO_FROM = TWILIO_FROM.trim();
-    if (TWILIO_FROM && !TWILIO_FROM.toLowerCase().startsWith("whatsapp:")) {
-      // Secret stored as plain number like +12243134841 — auto-prefix
-      TWILIO_FROM = `whatsapp:${TWILIO_FROM.startsWith("+") ? TWILIO_FROM : "+" + TWILIO_FROM}`;
-      log("auto-prefixed TWILIO_WHATSAPP_FROM with whatsapp:");
+    // Strip whatsapp: prefix if present, then normalise the number
+    let senderNumber = TWILIO_FROM_RAW;
+    if (senderNumber.toLowerCase().startsWith("whatsapp:")) {
+      senderNumber = senderNumber.slice(9);
     }
-    const whatsappConfigured = !!(TWILIO_SID && TWILIO_TOKEN && TWILIO_FROM);
+    // Remove ALL formatting: spaces, dashes, parentheses, dots
+    senderNumber = senderNumber.replace(/[\s\-().·]/g, "");
+    // Handle 00-prefix
+    if (senderNumber.startsWith("00") && senderNumber.length > 4) {
+      senderNumber = "+" + senderNumber.slice(2);
+    }
+    // Ensure leading +
+    if (senderNumber && !senderNumber.startsWith("+")) {
+      senderNumber = "+" + senderNumber;
+    }
+    // Rebuild canonical whatsapp:+E164
+    const TWILIO_FROM = senderNumber ? `whatsapp:${senderNumber}` : "";
 
-    if (whatsappConfigured && !TWILIO_FROM.startsWith("whatsapp:+")) {
-      logErr("Invalid TWILIO_WHATSAPP_FROM format; expected whatsapp:+<number>");
-      summary.whatsapp_not_configured = true;
+    // Strict validation: must be whatsapp:+<digits only>
+    const SENDER_VALID = /^whatsapp:\+[1-9]\d{6,14}$/.test(TWILIO_FROM);
+    if (TWILIO_FROM && !SENDER_VALID) {
+      logErr("Invalid TWILIO_WHATSAPP_FROM after normalisation", TWILIO_FROM);
+      if (sendChannels.includes("whatsapp") && sendChannels.length === 1) {
+        return json({
+          ...summary,
+          whatsapp_not_configured: true,
+          error: "Invalid TWILIO_WHATSAPP_FROM format. Expected whatsapp:+E164 with no spaces. Got: " + TWILIO_FROM,
+        }, 400);
+      }
     }
+
+    const whatsappConfigured = !!(TWILIO_SID && TWILIO_TOKEN && TWILIO_FROM && SENDER_VALID);
 
     if (!whatsappConfigured && sendChannels.includes("whatsapp")) {
       summary.whatsapp_not_configured = true;
+      if (!TWILIO_SID || !TWILIO_TOKEN || !TWILIO_FROM) {
+        log("whatsapp secrets incomplete");
+      }
+    }
+
+    if (whatsappConfigured) {
+      log("WhatsApp sender ready", TWILIO_FROM);
+      log("NOTE: Ensure this number is WhatsApp-enabled in Twilio Console or connected to the Twilio WhatsApp Sandbox. An active SMS/voice number alone is not sufficient for WhatsApp.");
     }
 
     // ── Service-role client (bypasses RLS) ──
