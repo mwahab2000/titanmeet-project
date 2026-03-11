@@ -19,6 +19,7 @@
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, handleCorsOptions } from "../_shared/cors.ts";
+import { normalizePhone, toWhatsAppAddress, maskedPhone } from "../_shared/phone.ts";
 import nodemailer from "npm:nodemailer@6";
 
 interface AttendeeResult {
