@@ -20,6 +20,23 @@ const Attendees = () => {
       setLoading(false);
     };
     fetchAttendees();
+
+    // Live RSVP updates
+    const channel = supabase
+      .channel("attendees-rsvp-global")
+      .on(
+        "postgres_changes" as any,
+        { event: "UPDATE", schema: "public", table: "attendees" },
+        (payload: any) => {
+          const updated = payload.new;
+          if (!updated?.id) return;
+          setAttendees(prev =>
+            prev.map(a => a.id === updated.id ? { ...a, confirmed: updated.confirmed, confirmed_at: updated.confirmed_at } : a)
+          );
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   const filtered = attendees.filter(a =>
