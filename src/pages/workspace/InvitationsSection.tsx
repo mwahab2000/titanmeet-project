@@ -355,6 +355,13 @@ const InvitationsSection = () => {
             </div>
           )}
         </TabsContent>
+
+        {/* ── Debug Tab (admin only) ── */}
+        {isAdmin && (
+          <TabsContent value="debug">
+            <AdminDryRunPanel eventId={event.id} invites={invites} isArchived={!!isArchived} />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );
