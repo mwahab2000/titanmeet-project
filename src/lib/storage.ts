@@ -1,6 +1,4 @@
-import { supabase } from "@/integrations/supabase/client";
-
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
+import { supabase, edgeFunctionUrl } from "@/integrations/supabase/client";
 
 /**
  * Extract the relative storage path from a stored value.
@@ -38,7 +36,7 @@ export function extractStoragePath(bucket: string, storedValue: string): string 
 export function getPublicAssetUrl(bucket: string, storedValue: string): string {
   const path = extractStoragePath(bucket, storedValue);
   if (!path) return storedValue; // External URL, return as-is
-  return `${SUPABASE_URL}/functions/v1/serve-event-asset/${bucket}/${path}`;
+  return edgeFunctionUrl(`serve-event-asset/${bucket}/${path}`);
 }
 
 /**

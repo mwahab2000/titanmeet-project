@@ -1,6 +1,6 @@
 import { useParams } from "react-router-dom";
 import { useState, useEffect, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, edgeFunctionUrl } from "@/integrations/supabase/client";
 import { Loader2, CheckCircle2, AlertCircle, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,10 +45,9 @@ const PublicSurveyPage = () => {
         headers: {},
       });
       // supabase.functions.invoke doesn't support GET with query params well,
-      // so use fetch directly
-      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      // so use fetch directly via centralized helper
       const res = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/survey-api?action=get&token=${token}`
+        edgeFunctionUrl("survey-api", { action: "get", token })
       );
       const json = await res.json();
       if (!res.ok) {
@@ -81,9 +80,8 @@ const PublicSurveyPage = () => {
     setError(null);
     setSubmitting(true);
     try {
-      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
       const res = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/survey-api?action=submit`,
+        edgeFunctionUrl("survey-api", { action: "submit" }),
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

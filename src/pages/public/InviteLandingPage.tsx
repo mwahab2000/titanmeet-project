@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, edgeFunctionUrl } from "@/integrations/supabase/client";
 import { Loader2, CheckCircle2, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -57,7 +57,7 @@ const InviteLandingPage = () => {
     if (!token) return;
     setConfirming(true);
     try {
-      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/confirm-rsvp?token=${token}`;
+      const url = edgeFunctionUrl("confirm-rsvp", { token });
       const res = await fetch(url, {
         method: "GET",
         headers: { "Content-Type": "application/json" },
