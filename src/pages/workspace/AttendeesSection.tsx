@@ -201,8 +201,7 @@ function getFailedIds(res: SendResponse): Set<string> {
 
 /** Build a result map from the API response */
 function buildResultMap(res: SendResponse): Map<string, AttendeeResultFromApi> {
-  const results = res.results || res.attendee_results || [];
-  return new Map(results.map(r => [r.attendee_id, r]));
+  return new Map((res.results || []).map(r => [r.attendee_id, r]));
 }
 
 // ── Send summary panel ──

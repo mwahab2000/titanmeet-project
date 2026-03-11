@@ -87,16 +87,7 @@ const InvitationsSection = () => {
     setSending(false);
   };
 
-  const handleResend = async (attendeeId: string) => {
-    if (!event || selectedChannels.length === 0) return;
-    try {
-      await sendEventInvitations(event.id, selectedChannels, [attendeeId]);
-      toast.success("Resent");
-      loadInvites();
-    } catch {
-      toast.error("Failed to resend");
-    }
-  };
+  // Note: per-row resend is handled by handleSendSingle below.
 
   const handleSendSingle = async (attendeeId: string, channel: SendChannel) => {
     if (!event) return;
