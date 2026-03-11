@@ -150,58 +150,65 @@ Deno.serve(async (req) => {
         if (!attendee.mobile) {
           skippedNoPhone++;
         } else if (TWILIO_SID && TWILIO_TOKEN && TWILIO_FROM) {
-          try {
-            const waTo = `whatsapp:${attendee.mobile.startsWith("+") ? attendee.mobile : "+" + attendee.mobile}`;
-            const messageBody = `Hi ${attendee.name}! 📋\n\nYou're invited to complete a survey for *${eventData?.title || "our event"}*:\n\n*${surveyData?.title || "Survey"}*\n\n👉 ${surveyUrl}\n\nThis link is unique to you. Thank you!`;
+          // Normalise phone to E.164 WhatsApp address
+          const waTo = toWhatsAppAddress(attendee.mobile);
+          if (!waTo) {
+            console.warn(`Invalid phone for ${attendee.name}: ${maskedPhone(attendee.mobile)}`);
+            skippedNoPhone++;
+            // Continue to next invite — don't attempt to send
+          } else {
+            try {
+              const messageBody = `Hi ${attendee.name}! 📋\n\nYou're invited to complete a survey for *${eventData?.title || "our event"}*:\n\n*${surveyData?.title || "Survey"}*\n\n👉 ${surveyUrl}\n\nThis link is unique to you. Thank you!`;
 
-            const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_SID}/Messages.json`;
-            const formData = new URLSearchParams();
-            formData.append("From", TWILIO_FROM);
-            formData.append("To", waTo);
-            formData.append("Body", messageBody);
+              const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_SID}/Messages.json`;
+              const formData = new URLSearchParams();
+              formData.append("From", TWILIO_FROM);
+              formData.append("To", waTo);
+              formData.append("Body", messageBody);
 
-            const twilioResp = await fetch(twilioUrl, {
-              method: "POST",
-              headers: {
-                "Authorization": "Basic " + btoa(`${TWILIO_SID}:${TWILIO_TOKEN}`),
-                "Content-Type": "application/x-www-form-urlencoded",
-              },
-              body: formData.toString(),
-            });
+              const twilioResp = await fetch(twilioUrl, {
+                method: "POST",
+                headers: {
+                  "Authorization": "Basic " + btoa(`${TWILIO_SID}:${TWILIO_TOKEN}`),
+                  "Content-Type": "application/x-www-form-urlencoded",
+                },
+                body: formData.toString(),
+              });
 
-            const twilioData = await twilioResp.json();
+              const twilioData = await twilioResp.json();
 
-            if (!twilioResp.ok) {
-              throw new Error(twilioData.message || `Twilio error ${twilioResp.status}`);
+              if (!twilioResp.ok) {
+                throw new Error(twilioData.message || `Twilio error ${twilioResp.status}`);
+              }
+
+              await db.from("survey_invites").update({
+                sent_via_whatsapp: true,
+                whatsapp_sent_at: now,
+                last_sent_at: now,
+                sent_at: invite.sent_at || now,
+                status: invite.status === "created" ? "sent" : invite.status,
+              }).eq("id", invite.id);
+
+              await db.from("message_logs").insert({
+                event_id, survey_id, attendee_id: invite.attendee_id,
+                channel: "whatsapp", to_address: waTo,
+                message_body: messageBody, provider: "twilio",
+                provider_message_id: twilioData.sid || null,
+                status: "sent",
+              });
+
+              sentWhatsapp++;
+            } catch (waErr) {
+              console.error(`WhatsApp to ${maskedPhone(attendee.mobile)} failed:`, waErr);
+              failedWhatsapp++;
+              await db.from("message_logs").insert({
+                event_id, survey_id, attendee_id: invite.attendee_id,
+                channel: "whatsapp",
+                to_address: waTo,
+                message_body: "Failed to send", provider: "twilio",
+                status: "failed", error: String(waErr),
+              });
             }
-
-            await db.from("survey_invites").update({
-              sent_via_whatsapp: true,
-              whatsapp_sent_at: now,
-              last_sent_at: now,
-              sent_at: invite.sent_at || now,
-              status: invite.status === "created" ? "sent" : invite.status,
-            }).eq("id", invite.id);
-
-            await db.from("message_logs").insert({
-              event_id, survey_id, attendee_id: invite.attendee_id,
-              channel: "whatsapp", to_address: waTo,
-              message_body: messageBody, provider: "twilio",
-              provider_message_id: twilioData.sid || null,
-              status: "sent",
-            });
-
-            sentWhatsapp++;
-          } catch (waErr) {
-            console.error(`WhatsApp to ${attendee.mobile} failed:`, waErr);
-            failedWhatsapp++;
-            await db.from("message_logs").insert({
-              event_id, survey_id, attendee_id: invite.attendee_id,
-              channel: "whatsapp",
-              to_address: `whatsapp:${attendee.mobile}`,
-              message_body: "Failed to send", provider: "twilio",
-              status: "failed", error: String(waErr),
-            });
           }
         } else {
           console.warn("Twilio not configured, skipping WhatsApp");
