@@ -202,6 +202,64 @@ Deno.serve(async (req) => {
       (inserted || []).forEach((i: any) => existingMap.set(i.attendee_id, i));
     }
 
+    // ── Dry-run mode: validate everything, skip actual sending ──
+    if (isDryRun) {
+      log("DRY RUN — validating without sending");
+      for (const attendee of attendees) {
+        const invite = existingMap.get(attendee.id);
+        const result: AttendeeResult = {
+          attendee_id: attendee.id,
+          name: attendee.name,
+          email: attendee.email || null,
+          mobile: attendee.mobile || null,
+          email_status: "not_requested",
+          whatsapp_status: "not_requested",
+          email_error: null,
+          whatsapp_error: null,
+          invite_id: invite?.id ?? null,
+        };
+
+        if (!invite) {
+          result.email_status = "failed";
+          result.email_error = "No invite token could be created";
+          result.whatsapp_status = "failed";
+          result.whatsapp_error = "No invite token could be created";
+        } else {
+          if (sendChannels.includes("email")) {
+            if (!emailConfigured) {
+              result.email_status = "would_skip";
+              result.email_error = "Email secrets not configured (GMAIL_USER / GMAIL_APP_PASSWORD)";
+            } else if (!attendee.email) {
+              result.email_status = "would_skip";
+              result.email_error = "No email address";
+            } else {
+              result.email_status = "would_send";
+            }
+          }
+          if (sendChannels.includes("whatsapp")) {
+            if (!whatsappConfigured) {
+              result.whatsapp_status = "would_skip";
+              result.whatsapp_error = "WhatsApp secrets not configured (TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN / TWILIO_WHATSAPP_FROM)";
+            } else if (!attendee.mobile) {
+              result.whatsapp_status = "would_skip";
+              result.whatsapp_error = "No phone number";
+            } else {
+              const waTo = toWhatsAppAddress(attendee.mobile);
+              if (!waTo) {
+                result.whatsapp_status = "would_fail";
+                result.whatsapp_error = `Cannot normalise "${maskedPhone(attendee.mobile)}" to E.164`;
+              } else {
+                result.whatsapp_status = "would_send";
+              }
+            }
+          }
+        }
+        summary.results.push(result);
+      }
+      log("DRY RUN complete");
+      return json(summary);
+    }
+
     // ── SMTP transporter: create once, verify once before the send loop ──
     let transporter: any = null;
     let emailUsable = false;
