@@ -18,13 +18,12 @@ Set these in **Supabase → Settings → Edge Functions → Secrets**.
 
 ## Template Variables
 
-Both templates must accept three variables in this order:
+The approved invitation template (`copy_event_invitation_1`) uses named variables:
 
 | Variable | Content | Example |
 |----------|---------|---------|
-| `{{1}}` | Attendee name | `Ahmed` |
-| `{{2}}` | Event title | `Annual Gala 2026` |
-| `{{3}}` | Invitation link | `https://titanmeet.com/i/abc123` |
+| `name` | Attendee name | `Ahmed` |
+| `event` | Event title | `Annual Gala 2026` |
 
 ## How to Create Templates
 
