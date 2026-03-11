@@ -186,6 +186,12 @@ const InvitationsSection = () => {
         <TabsList>
           <TabsTrigger value="send">Send</TabsTrigger>
           <TabsTrigger value="tracking">Tracking</TabsTrigger>
+          {isAdmin && (
+            <TabsTrigger value="debug" className="gap-1">
+              <FlaskConical className="h-3.5 w-3.5" />
+              Debug
+            </TabsTrigger>
+          )}
         </TabsList>
 
         {/* ── Send Tab ── */}
