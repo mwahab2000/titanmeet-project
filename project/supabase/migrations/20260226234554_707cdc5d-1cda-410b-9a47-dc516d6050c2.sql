@@ -1,1 +1,0 @@
-ALTER TABLE public.attendees ADD COLUMN invitation_sent BOOLEAN NOT NULL DEFAULT false;
