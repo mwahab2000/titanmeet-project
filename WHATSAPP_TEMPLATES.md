@@ -11,20 +11,19 @@ If you send a free-form message, Twilio returns error **63016**:
 
 | Secret | Description | Example |
 |--------|-------------|---------|
-| `TWILIO_WA_TEMPLATE_INVITE` | Content SID for the invitation template | `HXabc123def456...` |
-| `TWILIO_WA_TEMPLATE_REMINDER` | Content SID for the reminder template (optional — falls back to invite template) | `HXdef789abc012...` |
+| `TWILIO_WHATSAPP_INVITE_TEMPLATE_SID` | Content SID for the invitation template | `HXabc123def456...` |
+| `TWILIO_WHATSAPP_REMINDER_TEMPLATE_SID` | Content SID for the reminder template (optional — falls back to invite template) | `HXdef789abc012...` |
 
 Set these in **Supabase → Settings → Edge Functions → Secrets**.
 
 ## Template Variables
 
-Both templates must accept three variables in this order:
+The approved invitation template (`copy_event_invitation_1`) uses named variables:
 
 | Variable | Content | Example |
 |----------|---------|---------|
-| `{{1}}` | Attendee name | `Ahmed` |
-| `{{2}}` | Event title | `Annual Gala 2026` |
-| `{{3}}` | Invitation link | `https://titanmeet.com/i/abc123` |
+| `name` | Attendee name | `Ahmed` |
+| `event` | Event title | `Annual Gala 2026` |
 
 ## How to Create Templates
 
@@ -53,7 +52,7 @@ Both templates must accept three variables in this order:
    Please confirm your attendance!
    ```
 5. Submit for approval. Once approved, copy the **Content SID** (starts with `HX`).
-6. Set as `TWILIO_WA_TEMPLATE_INVITE` / `TWILIO_WA_TEMPLATE_REMINDER`.
+6. Set as `TWILIO_WHATSAPP_INVITE_TEMPLATE_SID` / `TWILIO_WHATSAPP_REMINDER_TEMPLATE_SID`.
 
 ### Option B: Twilio Sandbox (Testing Only)
 
@@ -68,5 +67,5 @@ The Twilio WhatsApp Sandbox comes with a pre-approved template:
 |---------|-------|-----|
 | Error 63016 | Free-form message outside 24h window | Use template (this is now the default) |
 | Error 63032 | Template not found or not approved | Verify Content SID is correct and approved |
-| "No WhatsApp template configured" | `TWILIO_WA_TEMPLATE_INVITE` secret missing | Add the secret in Supabase |
-| Template variables wrong | Mismatch between template and code | Ensure template has `{{1}}`, `{{2}}`, `{{3}}` |
+| "No WhatsApp template configured" | `TWILIO_WHATSAPP_INVITE_TEMPLATE_SID` secret missing | Add the secret in Supabase |
+| Template variables wrong | Mismatch between template and code | Ensure template uses `name` and `event` variables |

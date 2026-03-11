@@ -13,8 +13,8 @@
  *   TWILIO_ACCOUNT_SID    – Twilio Account SID
  *   TWILIO_AUTH_TOKEN      – Twilio Auth Token
  *   TWILIO_WHATSAPP_FROM   – Twilio WhatsApp sender number (e.g. whatsapp:+14155238886)
- *   TWILIO_WA_TEMPLATE_INVITE  – Twilio Content SID for invitation template (e.g. HXabc123...)
- *   TWILIO_WA_TEMPLATE_REMINDER – Twilio Content SID for reminder template (e.g. HXdef456...)
+ *   TWILIO_WHATSAPP_INVITE_TEMPLATE_SID – Twilio Content SID for invitation template (e.g. HXabc123...)
+ *   TWILIO_WHATSAPP_REMINDER_TEMPLATE_SID – (optional) Content SID for reminder template
  *
  * Auto-provided by Supabase runtime:
  *   SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY
@@ -171,14 +171,20 @@ Deno.serve(async (req) => {
     }
 
     // ── WhatsApp template SIDs ──
-    const WA_TEMPLATE_INVITE = (Deno.env.get("TWILIO_WA_TEMPLATE_INVITE") || "").trim();
-    const WA_TEMPLATE_REMINDER = (Deno.env.get("TWILIO_WA_TEMPLATE_REMINDER") || "").trim();
+    const WA_TEMPLATE_INVITE = (
+      Deno.env.get("TWILIO_WHATSAPP_INVITE_TEMPLATE_SID") ||
+      Deno.env.get("TWILIO_WA_TEMPLATE_INVITE") || ""
+    ).trim();
+    const WA_TEMPLATE_REMINDER = (
+      Deno.env.get("TWILIO_WHATSAPP_REMINDER_TEMPLATE_SID") ||
+      Deno.env.get("TWILIO_WA_TEMPLATE_REMINDER") || ""
+    ).trim();
 
     if (whatsappConfigured && !WA_TEMPLATE_INVITE) {
-      log("WARNING: TWILIO_WA_TEMPLATE_INVITE not set — WhatsApp sends will fail for invitations");
+      log("WARNING: TWILIO_WHATSAPP_INVITE_TEMPLATE_SID not set — WhatsApp sends will fail for invitations");
     }
     if (whatsappConfigured && !WA_TEMPLATE_REMINDER) {
-      log("WARNING: TWILIO_WA_TEMPLATE_REMINDER not set — will fall back to invitation template for reminders");
+      log("INFO: TWILIO_WHATSAPP_REMINDER_TEMPLATE_SID not set — will fall back to invitation template for reminders");
     }
 
     if (whatsappConfigured) {
@@ -436,18 +442,17 @@ Deno.serve(async (req) => {
 
             if (!templateSid) {
               result.whatsapp_status = "skipped_no_template";
-              result.whatsapp_error = "No WhatsApp template configured. Set TWILIO_WA_TEMPLATE_INVITE secret.";
+              result.whatsapp_error = "No WhatsApp template configured. Set TWILIO_WHATSAPP_INVITE_TEMPLATE_SID secret.";
               summary.failed_whatsapp++;
               logErr(`whatsapp skipped for ${attendee.name}: no template SID configured`);
               summary.results.push(result);
               continue;
             }
 
-            // Template variables: {{1}}=name, {{2}}=eventTitle, {{3}}=inviteUrl
+            // Template variables — match approved template: name, event
             const contentVariables = JSON.stringify({
-              "1": attendee.name,
-              "2": eventTitle,
-              "3": inviteUrl || "",
+              "name": attendee.name,
+              "event": eventTitle,
             });
 
             const messageBody = `[Template] Invitation for ${eventTitle} to ${attendee.name}`;
