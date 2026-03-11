@@ -449,11 +449,10 @@ Deno.serve(async (req) => {
               continue;
             }
 
-            // Template variables: {{1}}=name, {{2}}=eventTitle, {{3}}=inviteUrl
+            // Template variables — match approved template: name, event
             const contentVariables = JSON.stringify({
-              "1": attendee.name,
-              "2": eventTitle,
-              "3": inviteUrl || "",
+              "name": attendee.name,
+              "event": eventTitle,
             });
 
             const messageBody = `[Template] Invitation for ${eventTitle} to ${attendee.name}`;
