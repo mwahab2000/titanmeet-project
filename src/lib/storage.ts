@@ -1,6 +1,4 @@
-import { supabase } from "@/integrations/supabase/client";
-
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
+import { supabase, edgeFunctionUrl } from "@/integrations/supabase/client";
 
 /**
  * Extract the relative storage path from a stored value.
