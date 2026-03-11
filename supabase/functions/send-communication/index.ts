@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, handleCorsOptions } from "../_shared/cors.ts";
+import { normalizePhone, isE164, maskedPhone } from "../_shared/phone.ts";
 
 const RATE_LIMIT_WINDOW_MS = 3600000; // 1 hour
 const RATE_LIMIT_MAX_PER_EVENT = 200;
@@ -10,17 +11,6 @@ class AppError extends Error {
     super(message);
     this.status = status;
   }
-}
-
-function normalizePhone(value: string) {
-  const trimmed = (value || "").trim();
-  const cleaned = trimmed.replace(/[\s\-()]/g, "");
-  if (cleaned.startsWith("00")) return `+${cleaned.slice(2)}`;
-  return cleaned;
-}
-
-function isE164(value: string) {
-  return /^\+[1-9]\d{7,14}$/.test(value);
 }
 
 async function sendTwilio(toRaw: string, body: string, isWhatsApp: boolean) {
