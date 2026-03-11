@@ -340,6 +340,38 @@ const AttendeesSection = () => {
     return () => { Object.values(timersRef.current).forEach(clearTimeout); };
   }, [load]);
 
+  // ── Realtime: live RSVP confirmation updates ──
+  useEffect(() => {
+    if (!event?.id) return;
+    const channel = supabase
+      .channel(`attendees-rsvp-${event.id}`)
+      .on(
+        "postgres_changes" as any,
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "attendees",
+          filter: `event_id=eq.${event.id}`,
+        },
+        (payload: any) => {
+          const updated = payload.new;
+          if (!updated?.id) return;
+          setItems(prev =>
+            prev.map(item =>
+              item.id === updated.id
+                ? { ...item, confirmed: updated.confirmed, confirmed_at: updated.confirmed_at }
+                : item
+            )
+          );
+          if (updated.confirmed) {
+            toast.success(`${updated.name || "Attendee"} confirmed attendance`);
+          }
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [event?.id]);
+
   function createEmptyRow(): AttendeeRow {
     return {
       id: `temp-${Date.now()}-${Math.random()}`,
