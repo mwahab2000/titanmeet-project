@@ -174,8 +174,6 @@ interface SendResponse {
   total?: number;
   error?: string;
   results?: AttendeeResultFromApi[];
-  attendee_results?: AttendeeResultFromApi[];
-  reason?: string;
 }
 
 /** Return IDs of attendees who had at least one channel successfully sent */
