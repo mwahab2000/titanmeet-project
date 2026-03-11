@@ -278,9 +278,12 @@ Deno.serve(async (req) => {
 
       // ── Email ──
       if (sendChannels.includes("email")) {
-        if (!emailConfigured || !transporter || emailAuthBroken) {
+        if (!emailUsable) {
           summary.skipped_email_not_configured++;
           result.email_status = "skipped_not_configured";
+          if (summary.email_auth_failed) result.email_error = "SMTP auth failed";
+          else if (summary.smtp_connection_failed) result.email_error = "SMTP connection failed";
+          else if (summary.email_not_configured) result.email_error = "Email secrets not configured";
         } else if (!attendee.email) {
           summary.skipped_no_email++;
           result.email_status = "skipped_no_email";
@@ -311,26 +314,13 @@ Deno.serve(async (req) => {
             result.email_status = "sent";
             log(`email sent to ${attendee.email}`);
           } catch (emailErr: any) {
-            const errStr = String(emailErr);
-            const errCode = emailErr?.responseCode || emailErr?.code || "";
-
-            const isAuthError =
-              String(errCode) === "535" ||
-              errStr.includes("535") ||
-              errStr.includes("Username and Password not accepted") ||
-              errStr.includes("Invalid login");
-
-            if (isAuthError) {
-              summary.email_auth_failed = true;
-              emailAuthBroken = true;
-            }
-
             summary.failed_email++;
             result.email_status = "failed";
-            result.email_error = sanitizeError(errStr);
+            result.email_error = sanitizeError(String(emailErr));
             logErr(`email failed for ${attendee.email}`, result.email_error);
           }
         }
+      }
       }
 
       // ── WhatsApp ──
