@@ -110,6 +110,7 @@ Deno.serve(async (req) => {
         : ["email"];
     if (sendChannels.length === 0) return json({ error: "No valid channels", correlationId }, 400);
     summary.channels = sendChannels;
+    summary.dry_run = isDryRun;
 
     // ── Validate email secrets ──
     const gmailUser = Deno.env.get("GMAIL_USER");
