@@ -179,8 +179,7 @@ interface SendResponse {
 /** Return IDs of attendees who had at least one channel successfully sent */
 function getSuccessfullySentIds(res: SendResponse): Set<string> {
   const ids = new Set<string>();
-  const results = res.results || res.attendee_results || [];
-  for (const r of results) {
+  for (const r of res.results || []) {
     if (r.email_status === "sent" || r.whatsapp_status === "sent") {
       ids.add(r.attendee_id);
     }
