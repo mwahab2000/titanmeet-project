@@ -25,9 +25,9 @@
 | `GMAIL_USER` | ✅ | Supabase → Settings → Edge Functions → Secrets |
 | `GMAIL_APP_PASSWORD` | ✅ | Supabase → Settings → Edge Functions → Secrets |
 | `SEND_EMAIL_HOOK_SECRET` | ✅ | Supabase → Settings → Edge Functions → Secrets |
-| `TWILIO_ACCOUNT_SID` | ❌ MVP | Only for SMS/WhatsApp |
-| `TWILIO_AUTH_TOKEN` | ❌ MVP | Only for SMS/WhatsApp |
-| `TWILIO_PHONE_NUMBER` | ❌ MVP | Only for SMS/WhatsApp |
+| `TWILIO_ACCOUNT_SID` | ❌ MVP | Twilio Account SID (starts with `AC…`) |
+| `TWILIO_AUTH_TOKEN` | ❌ MVP | Twilio Auth Token |
+| `TWILIO_WHATSAPP_FROM` | ❌ MVP | WhatsApp sender, e.g. `whatsapp:+14155238886` |
 | `PAYPAL_CLIENT_ID` | ✅ | PayPal Developer → API credentials |
 | `PAYPAL_CLIENT_SECRET` | ✅ | PayPal Developer → API credentials |
 | `PAYPAL_WEBHOOK_ID` | ✅ | PayPal Developer → Webhooks |
