@@ -181,10 +181,10 @@ Deno.serve(async (req) => {
     ).trim();
 
     if (whatsappConfigured && !WA_TEMPLATE_INVITE) {
-      log("WARNING: TWILIO_WA_TEMPLATE_INVITE not set — WhatsApp sends will fail for invitations");
+      log("WARNING: TWILIO_WHATSAPP_INVITE_TEMPLATE_SID not set — WhatsApp sends will fail for invitations");
     }
     if (whatsappConfigured && !WA_TEMPLATE_REMINDER) {
-      log("WARNING: TWILIO_WA_TEMPLATE_REMINDER not set — will fall back to invitation template for reminders");
+      log("INFO: TWILIO_WHATSAPP_REMINDER_TEMPLATE_SID not set — will fall back to invitation template for reminders");
     }
 
     if (whatsappConfigured) {
