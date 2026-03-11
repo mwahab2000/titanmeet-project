@@ -52,7 +52,7 @@ The approved invitation template (`copy_event_invitation_1`) uses named variable
    Please confirm your attendance!
    ```
 5. Submit for approval. Once approved, copy the **Content SID** (starts with `HX`).
-6. Set as `TWILIO_WA_TEMPLATE_INVITE` / `TWILIO_WA_TEMPLATE_REMINDER`.
+6. Set as `TWILIO_WHATSAPP_INVITE_TEMPLATE_SID` / `TWILIO_WHATSAPP_REMINDER_TEMPLATE_SID`.
 
 ### Option B: Twilio Sandbox (Testing Only)
 
