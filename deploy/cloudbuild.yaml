@@ -1,0 +1,48 @@
+# Optional: Google Cloud Build config
+# Trigger via: gcloud builds submit --config deploy/cloudbuild.yaml .
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-f'
+      - 'deploy/Dockerfile'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/titanmeet:$SHORT_SHA'
+      - '--build-arg'
+      - 'VITE_SUPABASE_URL=$_VITE_SUPABASE_URL'
+      - '--build-arg'
+      - 'VITE_SUPABASE_PUBLISHABLE_KEY=$_VITE_SUPABASE_PUBLISHABLE_KEY'
+      - '--build-arg'
+      - 'VITE_SUPABASE_PROJECT_ID=$_VITE_SUPABASE_PROJECT_ID'
+      - '--build-arg'
+      - 'VITE_PUBLIC_ROOT_DOMAIN=$_VITE_PUBLIC_ROOT_DOMAIN'
+      - '.'
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/titanmeet:$SHORT_SHA']
+
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'titanmeet'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/titanmeet:$SHORT_SHA'
+      - '--region'
+      - '$_REGION'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--port'
+      - '8080'
+
+substitutions:
+  _REGION: me-central1
+  _VITE_SUPABASE_URL: ''
+  _VITE_SUPABASE_PUBLISHABLE_KEY: ''
+  _VITE_SUPABASE_PROJECT_ID: ''
+  _VITE_PUBLIC_ROOT_DOMAIN: titanmeet.com
+
+images:
+  - 'gcr.io/$PROJECT_ID/titanmeet:$SHORT_SHA'

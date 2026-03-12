@@ -106,9 +106,15 @@ No extra setup needed — uses PayPal Orders API.
 
 ## 6. Deploy Steps
 
-### Frontend
+### Option A: Lovable Publish (staging)
 1. Click **Publish** in Lovable editor (top-right)
 2. Click **Update** in the publish dialog
+
+### Option B: Google Cloud Run (production)
+See **[deploy/CLOUD_RUN_DEPLOYMENT.md](deploy/CLOUD_RUN_DEPLOYMENT.md)** for full instructions:
+- Multi-stage Dockerfile with Nginx SPA fallback
+- HTTPS Load Balancer with wildcard SSL (`*.titanmeet.com`)
+- GoDaddy DNS A records (`@`, `www`, `*`) → static IP
 
 ### Backend (auto-deployed)
 - Edge functions deploy automatically on save
@@ -118,7 +124,7 @@ No extra setup needed — uses PayPal Orders API.
 1. Verify all secrets are set in Supabase dashboard
 2. Verify storage buckets exist (they should from migrations)
 3. If using custom domain: configure DNS in Lovable Settings → Domains
-4. **Wildcard subdomain**: configure DNS with `*.titanmeet.com` → A record pointing to your hosting IP
+4. **Wildcard subdomain**: configure DNS with `*.titanmeet.com` → A record pointing to your LB static IP
 5. Set `VITE_PUBLIC_ROOT_DOMAIN=titanmeet.com` in your build environment
 
 ---
