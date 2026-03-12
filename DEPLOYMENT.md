@@ -123,7 +123,39 @@ No extra setup needed — uses PayPal Orders API.
 
 ---
 
-## 7. Smoke Test Checklist
+## 7. Wildcard Subdomain Hosting
+
+Public event pages are served at `{clientSlug}.titanmeet.com/{eventSlug}`.
+
+### DNS
+
+- Add a **wildcard A record**: `*.titanmeet.com` → your hosting IP (e.g. `185.158.133.1`)
+- Add root A records for `titanmeet.com` and `www.titanmeet.com` as usual
+- A **wildcard SSL certificate** (e.g. via Let's Encrypt) is required
+
+### SPA Rewrite
+
+All paths must rewrite to `index.html` so client-side routing works on direct page loads / refresh. Configure your hosting provider accordingly (e.g. Lovable handles this automatically; for Nginx add `try_files $uri /index.html`).
+
+### How It Works
+
+1. `getClientSlugFromHostname()` in `src/lib/subdomain.ts` extracts the client slug from the hostname
+2. If a client slug is detected, the app renders subdomain-mode routes (`/:eventSlug`)
+3. If no client slug (main domain, localhost, `*.lovable.app`), the full dashboard + path-based public routes are rendered
+4. Reserved subdomains (`www`, `app`, `api`, `admin`) are excluded from client resolution
+
+### Test Checklist
+
+1. Open `titanmeet.com` → main site / landing page
+2. Open `acme.titanmeet.com/board-meeting` → loads correct event
+3. Wrong clientSlug (e.g. `nonexistent.titanmeet.com/x`) → "Client not found" / 404
+4. Wrong eventSlug (e.g. `acme.titanmeet.com/no-such-event`) → "Event not found" / 404
+5. Refresh on `/{eventSlug}` works (SPA rewrite enabled)
+6. `www.titanmeet.com` → main site (not treated as client slug)
+
+---
+
+## 8. Smoke Test Checklist
 
 - [ ] Sign in with email/password
 - [ ] Create a client
