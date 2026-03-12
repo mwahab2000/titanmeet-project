@@ -1,4 +1,5 @@
 import type { PublicEventData } from "@/lib/publicSite/types";
+import { PublicEventSeo } from "./PublicEventSeo";
 import { ThemePublicCorporate } from "./themes/ThemePublicCorporate";
 import { ThemePublicElegant } from "./themes/ThemePublicElegant";
 import { ThemePublicModern } from "./themes/ThemePublicModern";
@@ -25,5 +26,10 @@ const themeMap: Record<string, React.FC<Props>> = {
 
 export const EventThemeRenderer: React.FC<Props> = ({ data }) => {
   const ThemeComponent = themeMap[data.event.themeId] ?? ThemePublicCorporateMui;
-  return <ThemeComponent data={data} />;
+  return (
+    <>
+      <PublicEventSeo data={data} />
+      <ThemeComponent data={data} />
+    </>
+  );
 };
