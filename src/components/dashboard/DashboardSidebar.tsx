@@ -165,7 +165,12 @@ export const GroupedWorkspaceSections = ({ activeEventId, completionMap, eventTi
               onClick={() => toggleGroup(groupIdx)}
               className="flex w-full items-center justify-between px-3 py-1.5 group"
             >
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
+                {group.step && (
+                  <span className="flex h-4 w-4 items-center justify-center rounded-full bg-sidebar-accent text-[9px] font-bold text-sidebar-foreground/70">
+                    {group.step}
+                  </span>
+                )}
                 <span className={`h-1.5 w-1.5 rounded-full ${groupDot}`} />
                 <span className="text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/50">
                   {group.label}
