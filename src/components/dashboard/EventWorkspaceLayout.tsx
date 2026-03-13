@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, Outlet, useLocation, Link } from "react-router-dom";
 import { EventWorkspaceProvider, useEventWorkspace } from "@/contexts/EventWorkspaceContext";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +12,8 @@ import { toast } from "sonner";
 import { PUBLISH_CHECKS, getPublishStatus } from "@/lib/publishChecks";
 import { SaveAsTemplateDialog } from "@/components/templates/SaveAsTemplateDialog";
 import AiChatWidget from "@/components/ai/AiChatWidget";
+import VoiceStudioSheet from "@/components/voice/VoiceStudioSheet";
+import VoiceEarIcon from "@/components/voice/VoiceEarIcon";
 
 const sectionLabels: Record<string, string> = {
   hero: "Hero", info: "Event Info", agenda: "Agenda", organizers: "Organizers", speakers: "Speakers",
@@ -94,7 +96,43 @@ const PublishReadinessStrip = () => {
   );
 };
 
-const WorkspaceHeader = () => {
+
+
+
+export const EventWorkspaceLayout: React.FC = () => {
+  const { id } = useParams<{ id: string }>();
+  const [voiceOpen, setVoiceOpen] = useState(false);
+
+  // Keyboard shortcut: Ctrl/Cmd + Shift + V
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "V") {
+        e.preventDefault();
+        setVoiceOpen((v) => !v);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
+
+  if (!id) return <div>No event ID</div>;
+
+  return (
+    <EventWorkspaceProvider eventId={id}>
+      <div className="flex flex-col h-full">
+        <WorkspaceHeaderWithVoice onOpenVoice={() => setVoiceOpen(true)} />
+        <div className="flex-1 overflow-auto p-6">
+          <Outlet />
+        </div>
+        <AiChatWidget />
+        <VoiceStudioSheet open={voiceOpen} onOpenChange={setVoiceOpen} />
+      </div>
+    </EventWorkspaceProvider>
+  );
+};
+
+/** Wrapper to inject voice button into the header */
+const WorkspaceHeaderWithVoice: React.FC<{ onOpenVoice: () => void }> = ({ onOpenVoice }) => {
   const { event, saveStatus, manualSave, setEvent, isArchived } = useEventWorkspace();
   const { user } = useAuth();
   const location = useLocation();
@@ -113,12 +151,9 @@ const WorkspaceHeader = () => {
     if (error) { toast.error(error.message); return; }
     setEvent(prev => prev ? { ...prev, status: "published" } : prev);
     toast.success("Event published!");
-
     if (user) {
       await supabase.from("notifications" as any).insert({
-        user_id: user.id,
-        type: "event_published",
-        title: "Event published",
+        user_id: user.id, type: "event_published", title: "Event published",
         message: `Your event "${event.title}" is now live.`,
         link: `/dashboard/events/${event.id}/website`,
         metadata: { event_id: event.id },
@@ -148,7 +183,6 @@ const WorkspaceHeader = () => {
           <ChevronRight className="h-3 w-3" />
           <span className="text-foreground font-medium">{sectionName}</span>
         </nav>
-
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <h2 className="font-display text-lg font-bold truncate max-w-[300px]">{event.title || "Untitled Event"}</h2>
@@ -160,6 +194,15 @@ const WorkspaceHeader = () => {
             </span>
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onOpenVoice}
+              className="gap-1.5 bg-gradient-to-r from-[hsl(260,70%,55%)] to-[hsl(230,70%,55%)] text-primary-foreground border-0 hover:opacity-90"
+              title="Voice Studio (Ctrl+Shift+V)"
+            >
+              <VoiceEarIcon size={16} /> Voice Studio
+            </Button>
             <Button variant="outline" size="sm" onClick={() => setTemplateDialogOpen(true)}>
               <Copy className="h-4 w-4 mr-1" /> Save as Template
             </Button>
@@ -183,22 +226,5 @@ const WorkspaceHeader = () => {
       </div>
       <PublishReadinessStrip />
     </>
-  );
-};
-
-export const EventWorkspaceLayout: React.FC = () => {
-  const { id } = useParams<{ id: string }>();
-  if (!id) return <div>No event ID</div>;
-
-  return (
-    <EventWorkspaceProvider eventId={id}>
-      <div className="flex flex-col h-full">
-        <WorkspaceHeader />
-        <div className="flex-1 overflow-auto p-6">
-          <Outlet />
-        </div>
-        <AiChatWidget />
-      </div>
-    </EventWorkspaceProvider>
   );
 };
