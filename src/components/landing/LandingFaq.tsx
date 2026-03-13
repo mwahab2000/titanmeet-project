@@ -4,11 +4,11 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 
 const faqs = [
   { q: 'What counts as an "active event"?', a: "An active event is any site currently published and accepting RSVPs. Drafts and past archived events do not count against your limit." },
-  { q: "Can I manage multiple clients?", a: "Yes! Our multi-tenant architecture is built specifically for agencies. You can create isolated workspaces for different clients under a single login." },
-  { q: "How customizable are the pages?", a: "You have full control over branding, colors, fonts, and layout. You can also inject custom CSS and JavaScript if you need extra flexibility." },
-  { q: "What happens if I exceed my limits?", a: "We won't shut you down. If you go over your event or storage limits, you'll be billed at the standard overage rate on your next cycle." },
+  { q: "Can I manage multiple clients?", a: "Yes! Our multi-tenant architecture is built specifically for agencies and HR teams. You can create isolated workspaces for different clients under a single login." },
+  { q: "What is Voice Studio?", a: "Voice Studio lets you build events by speaking naturally. Describe your agenda, speakers, and venue — TitanMeet turns your words into structured actions you confirm before publishing." },
+  { q: "What happens if I use all my voice minutes?", a: "Voice minutes are included with every plan. If you need more, overage packs are available — no surprise charges." },
   { q: "Are RSVPs and surveys unlimited?", a: "Yes, we do not charge per RSVP or survey response. Scale your guest list as much as you need without extra costs." },
-  { q: "Can I export my data?", a: "Absolutely. You can export guest lists, survey results, and analytics as CSV or PDF at any time." },
+  { q: "Can I export my data?", a: "Absolutely. You can export guest lists, survey results, and analytics as Excel or PDF at any time." },
 ];
 
 export const LandingFaq = () => {

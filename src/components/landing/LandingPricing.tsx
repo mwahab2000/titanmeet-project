@@ -1,14 +1,13 @@
-import { useRef, useState } from "react";
+import { useRef } from "react";
 import { Link } from "react-router-dom";
 import { motion, useInView } from "framer-motion";
 import { Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { PLANS, PLAN_ORDER, getPlanFeatures } from "@/config/plans";
+import { PLANS, PLAN_ORDER, VOICE_MINUTES_NOTE } from "@/config/pricing";
 
 export const LandingPricing = () => {
   const ref = useRef(null);
   const isInView = useInView(ref, { once: true, margin: "-80px" });
-  const [annual, setAnnual] = useState(false);
 
   return (
     <section id="pricing" className="py-24" ref={ref}>
@@ -32,38 +31,14 @@ export const LandingPricing = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={isInView ? { opacity: 1, y: 0 } : {}}
           transition={{ delay: 0.2 }}
-          className="mx-auto max-w-2xl text-center text-[hsl(var(--landing-fg-muted))] mb-10"
+          className="mx-auto max-w-2xl text-center text-[hsl(var(--landing-fg-muted))] mb-12"
         >
-          Choose the plan that fits your current volume and scale as you grow.
+          Built for small HR teams. Pick a plan and start publishing events today.
         </motion.p>
-
-        {/* Annual/Monthly Toggle */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={isInView ? { opacity: 1, y: 0 } : {}}
-          transition={{ delay: 0.25 }}
-          className="flex items-center justify-center gap-3 mb-12"
-        >
-          <span className={`text-sm font-medium transition-colors ${!annual ? "text-[hsl(var(--landing-fg))]" : "text-[hsl(var(--landing-fg-muted))]"}`}>Monthly</span>
-          <button
-            onClick={() => setAnnual(!annual)}
-            className={`relative h-7 w-12 rounded-full transition-colors duration-300 ${annual ? "gradient-titan" : "bg-[hsl(var(--landing-fg)/0.15)]"}`}
-          >
-            <span className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow-md transition-transform duration-300 ${annual ? "translate-x-5" : "translate-x-0.5"}`} />
-          </button>
-          <span className={`text-sm font-medium transition-colors ${annual ? "text-[hsl(var(--landing-fg))]" : "text-[hsl(var(--landing-fg-muted))]"}`}>
-            Annual
-            <span className="ml-1.5 inline-flex items-center rounded-full bg-[hsl(var(--titan-green)/0.1)] px-2 py-0.5 text-xs font-semibold text-[hsl(var(--titan-green))]">
-              Save 20%
-            </span>
-          </span>
-        </motion.div>
 
         <div className="grid gap-8 md:grid-cols-3 max-w-5xl mx-auto">
           {PLAN_ORDER.map((planId, i) => {
             const plan = PLANS[planId];
-            const features = getPlanFeatures(planId);
-            const price = annual ? plan.annualPrice : plan.monthlyPrice;
             return (
               <motion.div
                 key={planId}
@@ -81,15 +56,15 @@ export const LandingPricing = () => {
                 )}
                 <h3 className="font-display text-xl font-semibold mb-1">{plan.name}</h3>
                 <div className="mb-4">
-                  <span className="font-display text-4xl font-bold">${price}</span>
+                  <span className="font-display text-4xl font-bold">${plan.monthlyPrice}</span>
                   <span className="text-[hsl(var(--landing-fg-muted))]">/mo</span>
                 </div>
                 <p className="text-sm text-[hsl(var(--landing-fg-muted))] mb-6">{plan.description}</p>
                 <ul className="space-y-3 mb-8">
-                  {features.map((feat) => (
-                    <li key={feat} className="flex items-center gap-2 text-sm text-[hsl(var(--landing-fg-muted))]">
-                      <Check className="h-4 w-4 text-[hsl(var(--titan-green))]" />
-                      {feat}
+                  {plan.features.map((feat) => (
+                    <li key={feat.text} className={`flex items-center gap-2 text-sm ${feat.highlight ? "text-[hsl(var(--titan-green))] font-medium" : "text-[hsl(var(--landing-fg-muted))]"}`}>
+                      <Check className="h-4 w-4 text-[hsl(var(--titan-green))] shrink-0" />
+                      {feat.text}
                     </li>
                   ))}
                 </ul>
@@ -113,7 +88,7 @@ export const LandingPricing = () => {
           transition={{ delay: 0.7 }}
           className="text-center text-sm text-[hsl(var(--landing-fg-muted)/0.6)] mt-8 max-w-2xl mx-auto"
         >
-          All plans include unlimited RSVPs and survey responses. Limits are enforced at creation — no surprise overage charges.
+          {VOICE_MINUTES_NOTE}
         </motion.p>
       </div>
     </section>

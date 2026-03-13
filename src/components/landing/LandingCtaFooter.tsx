@@ -1,7 +1,9 @@
 import { useRef } from "react";
 import { Link } from "react-router-dom";
 import { motion, useInView } from "framer-motion";
+import { ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { DEMO_SITE_URL } from "@/config/pricing";
 import logo from "@/assets/logo.png";
 
 export const LandingCta = () => {
@@ -19,17 +21,18 @@ export const LandingCta = () => {
         >
           <h2 className="mb-4 font-display text-3xl font-bold text-white">Ready to launch your next event?</h2>
           <p className="mb-8 text-white/80">
-            Join 2,000+ event organizers who trust TitanMeet for their premium event experiences.
+            See how a real event site looks — built entirely with Voice Studio.
           </p>
           <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
             <Button size="lg" className="bg-white text-[hsl(222,47%,11%)] hover:bg-white/90 px-8 font-semibold border-0" asChild>
-              <Link to="/login?tab=signup">Start Your Free Trial</Link>
+              <a href={DEMO_SITE_URL} target="_blank" rel="noopener noreferrer">
+                View Demo Site <ExternalLink className="ml-2 h-4 w-4" />
+              </a>
             </Button>
             <Button size="lg" variant="outline" className="border-white/30 bg-transparent text-white hover:bg-white/10 px-8" asChild>
               <a href="#pricing">Compare Plans</a>
             </Button>
           </div>
-          <p className="mt-4 text-xs text-white/50">No credit card required for trial.</p>
         </motion.div>
       </div>
     </section>
@@ -45,7 +48,7 @@ export const LandingFooter = () => (
             <img src={logo} alt="TitanMeet" className="h-8 w-8" />
             <span className="font-display text-lg font-bold gradient-titan-text">TitanMeet</span>
           </div>
-          <p className="text-sm text-[hsl(var(--landing-fg-muted))]">Making premium event management accessible, secure, and blazing fast.</p>
+          <p className="text-sm text-[hsl(var(--landing-fg-muted))]">Voice-first event management for HR teams worldwide.</p>
         </div>
         {[
           { title: "Product", links: ["Features", "Roadmap", "Templates", "API"] },
