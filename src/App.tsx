@@ -52,6 +52,7 @@ import GallerySection from "./pages/workspace/GallerySection";
 import PreviewEventPage from "./pages/workspace/PreviewEventPage";
 import PublicEventPage from "./pages/public/PublicEventPage";
 import SubdomainEventPage from "./pages/public/SubdomainEventPage";
+import ClientLandingPage from "./pages/public/ClientLandingPage";
 import PublicSurveyPage from "./pages/public/PublicSurveyPage";
 import InviteLandingPage from "./pages/public/InviteLandingPage";
 
@@ -74,6 +75,7 @@ const App = () => (
           {subdomainClient ? (
             /* ── Subdomain mode: clientslug.titanmeet.com ── */
             <Routes>
+              <Route path="/" element={<ClientLandingPage clientSlug={subdomainClient} />} />
               <Route path="/:eventSlug" element={<SubdomainEventPage clientSlug={subdomainClient} />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
