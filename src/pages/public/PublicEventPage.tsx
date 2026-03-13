@@ -26,7 +26,7 @@ const PublicEventPage = () => {
     );
   }
 
-  if (result.status === "not_found" || result.status === "error") return <PublicNotFoundPage />;
+  if (result.status === "not_found" || result.status === "error") return <PublicNotFoundPage reason={result.status === "not_found" ? result.reason : undefined} />;
   if (result.status === "private") return <PublicPrivatePage />;
 
   return <EventThemeRenderer data={result.data} />;
