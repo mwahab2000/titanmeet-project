@@ -1,11 +1,10 @@
 import React from "react";
 
-interface VoiceEarIconProps {
-  className?: string;
+interface VoiceEarIconProps extends React.SVGProps<SVGSVGElement> {
   size?: number;
 }
 
-const VoiceEarIcon: React.FC<VoiceEarIconProps> = ({ className = "", size = 24 }) => (
+const VoiceEarIcon: React.FC<VoiceEarIconProps> = ({ className = "", size = 24, ...rest }) => (
   <svg
     width={size}
     height={size}
