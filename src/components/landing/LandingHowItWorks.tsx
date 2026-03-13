@@ -94,13 +94,16 @@ export const LandingHowItWorks = () => {
           />
 
           <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3 relative" style={{ zIndex: 1 }}>
-            {steps.map((step, i) => (
+            {steps.map((step, i) => {
+              // On desktop (lg:grid-cols-3), reverse row 2: step4→col3, step5→col2, step6→col1
+              const row2ColClass = i === 3 ? 'lg:col-start-3' : i === 4 ? 'lg:col-start-2' : i === 5 ? 'lg:col-start-1' : '';
+              return (
               <motion.div
                 key={step.title}
                 initial={{ opacity: 0, y: 40 }}
                 animate={isInView ? { opacity: 1, y: 0 } : {}}
                 transition={{ delay: 0.25 + i * 0.12, duration: 0.6 }}
-                className="relative flex flex-col items-center text-center"
+                className={`relative flex flex-col items-center text-center ${row2ColClass}`}
               >
                 <div ref={setIconRef(i)} className="relative mb-6">
                   <div className="h-16 w-16 rounded-2xl gradient-titan flex items-center justify-center shadow-lg">
@@ -113,7 +116,8 @@ export const LandingHowItWorks = () => {
                 <h3 className="font-display text-lg font-semibold mb-2">{step.title}</h3>
                 <p className="text-sm text-[hsl(var(--landing-fg-muted))] max-w-xs">{step.description}</p>
               </motion.div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>
