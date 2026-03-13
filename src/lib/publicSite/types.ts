@@ -47,8 +47,10 @@ export interface PublicEventData {
   surveys: { hasSurvey: boolean };
 }
 
+export type NotFoundReason = "client_not_found" | "event_not_found";
+
 export type FetchResult =
   | { status: "ok"; data: PublicEventData }
-  | { status: "not_found" }
+  | { status: "not_found"; reason?: NotFoundReason }
   | { status: "private" }
   | { status: "error"; message: string };
