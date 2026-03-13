@@ -1,25 +1,44 @@
 import { useRef } from "react";
 import { motion, useInView } from "framer-motion";
-import { Layers, Paintbrush, Rocket } from "lucide-react";
+import { Building2, CalendarPlus, ImageIcon, Users, MapPin, MessageSquare } from "lucide-react";
+import VoiceEarIcon from "@/components/voice/VoiceEarIcon";
 
 const steps = [
   {
-    icon: Layers,
-    number: "01",
-    title: "Create Workspace",
-    description: "Set up a dedicated workspace for each client with custom branding, assets, and team permissions.",
+    icon: Building2,
+    number: "1",
+    title: "Create the Client Workspace",
+    description: "Set up a dedicated workspace for each client with branding, assets, and permissions.",
   },
   {
-    icon: Paintbrush,
-    number: "02",
-    title: "Build Event Page",
-    description: "Use the sidebar editor to craft stunning event pages with agenda, speakers, gallery, venue info, and more.",
+    icon: CalendarPlus,
+    number: "2",
+    title: "Create the Event",
+    description: "Start a new event, set the basics (name, date, venue), and choose a template if needed.",
   },
   {
-    icon: Rocket,
-    number: "03",
-    title: "Launch & Track",
-    description: "Publish instantly, send invitations, track RSVPs in real-time, and collect post-event feedback.",
+    icon: ImageIcon,
+    number: "3",
+    title: "Design the Event Page",
+    description: "Upload banners and logos, configure the hero section, and make the site look premium in minutes.",
+  },
+  {
+    icon: Users,
+    number: "4",
+    title: "Add Attendees",
+    description: "Import from Excel/CSV or add manually, then generate unique invite and survey links per attendee.",
+  },
+  {
+    icon: MapPin,
+    number: "5",
+    title: "Plan Logistics",
+    description: "Capture venue details, transportation, dress code, organizers, and on-ground coordination.",
+  },
+  {
+    icon: MessageSquare,
+    number: "6",
+    title: "Communicate & Collect Feedback",
+    description: "Send WhatsApp/email messages, reminders, and surveys — track responses, view stats, and export results to Excel.",
   },
 ];
 
@@ -42,39 +61,45 @@ export const LandingHowItWorks = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={isInView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.5, delay: 0.1 }}
-          className="font-display text-3xl font-bold md:text-4xl text-center mb-16"
+          className="font-display text-3xl font-bold md:text-4xl text-center mb-6"
         >
-          Three steps to your next event
+          Six steps to your next event
         </motion.h2>
 
-        <div className="relative max-w-4xl mx-auto">
-          {/* Connecting line */}
-          <div className="absolute top-16 left-0 right-0 hidden md:block">
-            <div className="mx-auto w-2/3 h-0.5 bg-gradient-to-r from-transparent via-[hsl(var(--titan-green)/0.3)] to-transparent" />
-          </div>
+        {/* Voice Studio badge */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={isInView ? { opacity: 1, y: 0 } : {}}
+          transition={{ duration: 0.4, delay: 0.2 }}
+          className="flex justify-center mb-14"
+        >
+          <span className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-purple-600/15 to-indigo-600/15 border border-purple-500/20 px-4 py-1.5 text-sm font-medium text-purple-300">
+            <VoiceEarIcon size={16} className="text-purple-400" />
+            Bonus: Build steps 2–5 by voice with Voice Studio
+          </span>
+        </motion.div>
 
-          <div className="grid gap-8 md:grid-cols-3">
-            {steps.map((step, i) => (
-              <motion.div
-                key={step.title}
-                initial={{ opacity: 0, y: 40 }}
-                animate={isInView ? { opacity: 1, y: 0 } : {}}
-                transition={{ delay: 0.2 + i * 0.2, duration: 0.6 }}
-                className="relative flex flex-col items-center text-center"
-              >
-                <div className="relative mb-6">
-                  <div className="h-16 w-16 rounded-2xl gradient-titan flex items-center justify-center shadow-lg">
-                    <step.icon className="h-7 w-7 text-white" />
-                  </div>
-                  <span className="absolute -top-2 -right-2 h-7 w-7 rounded-full bg-[hsl(var(--landing-bg))] border-2 border-[hsl(var(--titan-green))] flex items-center justify-center text-xs font-bold font-display text-[hsl(var(--titan-green))]">
-                    {step.number.replace("0", "")}
-                  </span>
+        <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3 max-w-5xl mx-auto">
+          {steps.map((step, i) => (
+            <motion.div
+              key={step.title}
+              initial={{ opacity: 0, y: 40 }}
+              animate={isInView ? { opacity: 1, y: 0 } : {}}
+              transition={{ delay: 0.25 + i * 0.12, duration: 0.6 }}
+              className="relative flex flex-col items-center text-center"
+            >
+              <div className="relative mb-6">
+                <div className="h-16 w-16 rounded-2xl gradient-titan flex items-center justify-center shadow-lg">
+                  <step.icon className="h-7 w-7 text-white" />
                 </div>
-                <h3 className="font-display text-lg font-semibold mb-2">{step.title}</h3>
-                <p className="text-sm text-[hsl(var(--landing-fg-muted))] max-w-xs">{step.description}</p>
-              </motion.div>
-            ))}
-          </div>
+                <span className="absolute -top-2 -right-2 h-7 w-7 rounded-full bg-[hsl(var(--landing-bg))] border-2 border-[hsl(var(--titan-green))] flex items-center justify-center text-xs font-bold font-display text-[hsl(var(--titan-green))]">
+                  {step.number}
+                </span>
+              </div>
+              <h3 className="font-display text-lg font-semibold mb-2">{step.title}</h3>
+              <p className="text-sm text-[hsl(var(--landing-fg-muted))] max-w-xs">{step.description}</p>
+            </motion.div>
+          ))}
         </div>
       </div>
     </section>
