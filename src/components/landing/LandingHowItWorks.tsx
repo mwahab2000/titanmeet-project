@@ -1,7 +1,8 @@
-import { useRef } from "react";
+import { useRef, useCallback } from "react";
 import { motion, useInView } from "framer-motion";
 import { Building2, CalendarPlus, ImageIcon, Users, MapPin, MessageSquare } from "lucide-react";
 import VoiceEarIcon from "@/components/voice/VoiceEarIcon";
+import { HowItWorksConnector } from "./HowItWorksConnector";
 
 const steps = [
   {
@@ -43,11 +44,17 @@ const steps = [
 ];
 
 export const LandingHowItWorks = () => {
-  const ref = useRef(null);
-  const isInView = useInView(ref, { once: true, margin: "-80px" });
+  const sectionRef = useRef(null);
+  const gridRef = useRef<HTMLDivElement>(null);
+  const iconRefs = useRef<(HTMLElement | null)[]>([]);
+  const isInView = useInView(sectionRef, { once: true, margin: "-80px" });
+
+  const setIconRef = useCallback((index: number) => (el: HTMLDivElement | null) => {
+    iconRefs.current[index] = el;
+  }, []);
 
   return (
-    <section id="how-it-works" className="py-24 bg-[hsl(var(--landing-bg))]" ref={ref}>
+    <section id="how-it-works" className="py-24 bg-[hsl(var(--landing-bg))]" ref={sectionRef}>
       <div className="container">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -79,27 +86,35 @@ export const LandingHowItWorks = () => {
           </span>
         </motion.div>
 
-        <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3 max-w-5xl mx-auto">
-          {steps.map((step, i) => (
-            <motion.div
-              key={step.title}
-              initial={{ opacity: 0, y: 40 }}
-              animate={isInView ? { opacity: 1, y: 0 } : {}}
-              transition={{ delay: 0.25 + i * 0.12, duration: 0.6 }}
-              className="relative flex flex-col items-center text-center"
-            >
-              <div className="relative mb-6">
-                <div className="h-16 w-16 rounded-2xl gradient-titan flex items-center justify-center shadow-lg">
-                  <step.icon className="h-7 w-7 text-white" />
+        <div ref={gridRef} className="relative max-w-5xl mx-auto">
+          <HowItWorksConnector
+            containerRef={gridRef}
+            iconRefs={iconRefs}
+            isInView={isInView}
+          />
+
+          <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3 relative" style={{ zIndex: 1 }}>
+            {steps.map((step, i) => (
+              <motion.div
+                key={step.title}
+                initial={{ opacity: 0, y: 40 }}
+                animate={isInView ? { opacity: 1, y: 0 } : {}}
+                transition={{ delay: 0.25 + i * 0.12, duration: 0.6 }}
+                className="relative flex flex-col items-center text-center"
+              >
+                <div ref={setIconRef(i)} className="relative mb-6">
+                  <div className="h-16 w-16 rounded-2xl gradient-titan flex items-center justify-center shadow-lg">
+                    <step.icon className="h-7 w-7 text-white" />
+                  </div>
+                  <span className="absolute -top-2 -right-2 h-7 w-7 rounded-full bg-[hsl(var(--landing-bg))] border-2 border-[hsl(var(--titan-green))] flex items-center justify-center text-xs font-bold font-display text-[hsl(var(--titan-green))]">
+                    {step.number}
+                  </span>
                 </div>
-                <span className="absolute -top-2 -right-2 h-7 w-7 rounded-full bg-[hsl(var(--landing-bg))] border-2 border-[hsl(var(--titan-green))] flex items-center justify-center text-xs font-bold font-display text-[hsl(var(--titan-green))]">
-                  {step.number}
-                </span>
-              </div>
-              <h3 className="font-display text-lg font-semibold mb-2">{step.title}</h3>
-              <p className="text-sm text-[hsl(var(--landing-fg-muted))] max-w-xs">{step.description}</p>
-            </motion.div>
-          ))}
+                <h3 className="font-display text-lg font-semibold mb-2">{step.title}</h3>
+                <p className="text-sm text-[hsl(var(--landing-fg-muted))] max-w-xs">{step.description}</p>
+              </motion.div>
+            ))}
+          </div>
         </div>
       </div>
     </section>
