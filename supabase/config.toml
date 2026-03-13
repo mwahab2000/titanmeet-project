@@ -65,3 +65,18 @@ verify_jwt = false
 
 [functions.twilio-status-callback]
 verify_jwt = false
+
+[functions.voice-transcribe]
+verify_jwt = false
+
+[functions.voice-parse-actions]
+verify_jwt = false
+
+[functions.voice-session-get]
+verify_jwt = false
+
+[functions.voice-session-upsert]
+verify_jwt = false
+
+[functions.voice-session-confirm-actions]
+verify_jwt = false
