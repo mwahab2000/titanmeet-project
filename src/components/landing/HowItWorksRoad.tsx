@@ -1,10 +1,11 @@
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 
 /**
  * SVG wavy road that runs horizontally across the How It Works section.
  * Desktop: horizontal snake. Mobile: hidden (vertical timeline used instead).
  */
 export const HowItWorksRoad: React.FC<{ isInView: boolean }> = ({ isInView }) => {
+  const prefersReducedMotion = useReducedMotion();
   // Road dimensions – designed for a 1200px-wide container, viewBox scales it
   const W = 1200;
   const H = 200;
@@ -130,17 +131,15 @@ export const HowItWorksRoad: React.FC<{ isInView: boolean }> = ({ isInView }) =>
         strokeLinejoin="round"
       />
 
-      {/* Center dashed line – animated */}
-      <motion.path
+      {/* Center dashed line – continuous flow */}
+      <path
         d={roadPath}
         fill="none"
         stroke="url(#road-dash-grad)"
         strokeWidth={2.5}
         strokeLinecap="round"
         strokeDasharray="12 10"
-        initial={{ strokeDashoffset: 300 }}
-        animate={isInView ? { strokeDashoffset: 0 } : { strokeDashoffset: 300 }}
-        transition={{ duration: 2.5, ease: "easeInOut" }}
+        className={prefersReducedMotion ? "" : "animate-road-flow"}
       />
     </svg>
   );
