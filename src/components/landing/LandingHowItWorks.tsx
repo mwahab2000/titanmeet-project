@@ -94,13 +94,17 @@ export const LandingHowItWorks = () => {
           />
 
           <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3 relative" style={{ zIndex: 1 }}>
-            {steps.map((step, i) => (
+            {steps.map((step, i) => {
+              // On desktop (lg:grid-cols-3), reverse row 2 so step 4 is right, 5 middle, 6 left
+              const colStart = i >= 3 ? `lg:col-start-${3 - (i - 3)}` : '';
+              return (
               <motion.div
                 key={step.title}
                 initial={{ opacity: 0, y: 40 }}
                 animate={isInView ? { opacity: 1, y: 0 } : {}}
                 transition={{ delay: 0.25 + i * 0.12, duration: 0.6 }}
-                className="relative flex flex-col items-center text-center"
+                className={`relative flex flex-col items-center text-center ${colStart}`}
+                style={i >= 3 ? { order: undefined } : undefined}
               >
                 <div ref={setIconRef(i)} className="relative mb-6">
                   <div className="h-16 w-16 rounded-2xl gradient-titan flex items-center justify-center shadow-lg">
