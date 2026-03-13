@@ -47,32 +47,31 @@ export const HowItWorksConnector: React.FC<ConnectorProps> = ({
 
     let d = "";
     if (detectedCols >= 3) {
-      // Desktop snake: 1→2→3 then curve down, then 4←5←6 (but items are in DOM order 4,5,6 left-to-right)
-      // Row 1: indices 0,1,2 (left to right)
-      // Row 2: indices 3,4,5 (left to right in DOM, but snake goes right-to-left: 3←4←5 visually means 5→4→3)
-      const row1 = centers.slice(0, 3);
-      const row2 = centers.slice(3, 6);
+      // With reversed row 2, visual positions match DOM ref order:
+      // centers[0]=step1(left), [1]=step2(mid), [2]=step3(right)
+      // centers[3]=step4(right), [4]=step5(mid), [5]=step6(left)
+      // Snake: 1→2→3 → drop down → 4→5→6 (which visually goes right→left)
 
-      d = `M ${row1[0].x} ${row1[0].y}`;
+      d = `M ${centers[0].x} ${centers[0].y}`;
 
-      // Row 1: smooth curves through 1→2→3
-      for (let i = 1; i < row1.length; i++) {
-        const prev = row1[i - 1];
-        const curr = row1[i];
+      // Segment A: 1→2→3 (left to right)
+      for (let i = 1; i <= 2; i++) {
+        const prev = centers[i - 1];
+        const curr = centers[i];
         const cpx = (prev.x + curr.x) / 2;
         d += ` C ${cpx} ${prev.y}, ${cpx} ${curr.y}, ${curr.x} ${curr.y}`;
       }
 
-      // Curve down from step 3 (row1[2]) to step 6 (row2[2]) — rightmost of row 2
-      const downStart = row1[2];
-      const downEnd = row2[2];
+      // Segment B: drop from step 3 → step 4 (both on right side)
+      const downStart = centers[2];
+      const downEnd = centers[3];
       const midY = (downStart.y + downEnd.y) / 2;
       d += ` C ${downStart.x + 40} ${midY}, ${downEnd.x + 40} ${midY}, ${downEnd.x} ${downEnd.y}`;
 
-      // Row 2: right-to-left: 6→5→4
-      for (let i = row2.length - 2; i >= 0; i--) {
-        const prev = row2[i + 1];
-        const curr = row2[i];
+      // Segment C: 4→5→6 (visually right to left)
+      for (let i = 4; i <= 5; i++) {
+        const prev = centers[i - 1];
+        const curr = centers[i];
         const cpx = (prev.x + curr.x) / 2;
         d += ` C ${cpx} ${prev.y}, ${cpx} ${curr.y}, ${curr.x} ${curr.y}`;
       }

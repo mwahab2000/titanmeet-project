@@ -117,7 +117,8 @@ export const LandingHowItWorks = () => {
                 <h3 className="font-display text-lg font-semibold mb-2">{step.title}</h3>
                 <p className="text-sm text-[hsl(var(--landing-fg-muted))] max-w-xs">{step.description}</p>
               </motion.div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>
