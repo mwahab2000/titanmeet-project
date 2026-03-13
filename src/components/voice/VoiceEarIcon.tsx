@@ -15,6 +15,7 @@ const VoiceEarIcon: React.FC<VoiceEarIconProps> = ({ className = "", size = 24, 
     strokeLinecap="round"
     strokeLinejoin="round"
     className={className}
+    {...rest}
   >
     {/* Outer ear */}
     <path d="M6 8.5C6 4.36 9.36 1 13.5 1S21 4.36 21 8.5c0 3.04-1.83 5.66-4.45 6.82" />
