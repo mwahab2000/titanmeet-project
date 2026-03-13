@@ -123,6 +123,15 @@ html {
 }
 
 @layer utilities {
+  @keyframes road-flow {
+    to { stroke-dashoffset: -220; }
+  }
+  .animate-road-flow {
+    animation: road-flow 8s linear infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .animate-road-flow { animation: none; }
+  }
   .gradient-titan {
     background: linear-gradient(135deg, hsl(var(--titan-green)), hsl(var(--titan-blue)));
   }
