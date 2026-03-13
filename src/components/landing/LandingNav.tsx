@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Menu } from "lucide-react";
+import { Menu, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { DEMO_SITE_URL } from "@/config/pricing";
 import logo from "@/assets/logo.png";
 
 const navLinks = [
@@ -30,6 +31,11 @@ export const LandingNav = () => {
         </div>
         <div className="flex items-center gap-2">
           <ThemeToggle className="text-[hsl(var(--landing-fg)/0.6)] hover:text-[hsl(var(--landing-fg))] hover:bg-[hsl(var(--landing-fg)/0.1)]" />
+          <Button variant="outline" size="sm" className="hidden md:inline-flex border-[hsl(var(--landing-border)/0.4)] bg-transparent text-[hsl(var(--landing-fg))] hover:bg-[hsl(var(--landing-fg)/0.1)] gap-1.5" asChild>
+            <a href={DEMO_SITE_URL} target="_blank" rel="noopener noreferrer">
+              Demo <ExternalLink className="h-3 w-3" />
+            </a>
+          </Button>
           <Button className="hidden gradient-titan border-0 text-white font-semibold md:inline-flex" asChild>
             <Link to="/login?tab=signup">Get Started</Link>
           </Button>
@@ -44,7 +50,12 @@ export const LandingNav = () => {
                 {navLinks.map((link) => (
                   <a key={link.href} href={link.href} onClick={() => setMobileOpen(false)} className="rounded-lg px-4 py-3 text-base font-medium text-[hsl(var(--landing-fg-muted))] transition-colors hover:bg-[hsl(var(--landing-fg)/0.1)] hover:text-[hsl(var(--landing-fg))]">{link.label}</a>
                 ))}
-                <div className="mt-4 pt-4 border-t border-[hsl(var(--landing-border)/0.3)]">
+                <div className="mt-4 pt-4 border-t border-[hsl(var(--landing-border)/0.3)] space-y-2">
+                  <Button variant="outline" className="w-full border-[hsl(var(--landing-border)/0.4)] bg-transparent text-[hsl(var(--landing-fg))] gap-1.5" asChild>
+                    <a href={DEMO_SITE_URL} target="_blank" rel="noopener noreferrer" onClick={() => setMobileOpen(false)}>
+                      View Demo Site <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </Button>
                   <Button className="w-full gradient-titan border-0 text-white font-semibold" asChild>
                     <Link to="/login?tab=signup" onClick={() => setMobileOpen(false)}>Get Started</Link>
                   </Button>

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { PLANS, PLAN_ORDER, formatLimit } from "@/config/plans";
+import { PLANS, PLAN_ORDER, formatLimit, VOICE_MINUTES_NOTE } from "@/config/pricing";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { CreditCard, TrendingUp, AlertTriangle, CheckCircle, Clock, XCircle, RefreshCw, ShieldCheck, Crown, Link as LinkIcon } from "lucide-react";
+import { CreditCard, TrendingUp, AlertTriangle, CheckCircle, Clock, XCircle, RefreshCw, ShieldCheck, Crown, Link as LinkIcon, Check } from "lucide-react";
 import { useBilling } from "@/hooks/useBilling";
 import { formatCents, usagePercent } from "@/lib/billing";
 import { supabase } from "@/integrations/supabase/client";
@@ -50,21 +50,6 @@ const STATUS_LABELS: Record<string, { label: string; icon: React.ReactNode; vari
   canceled: { label: "Canceled", icon: <XCircle className="h-3 w-3" />, variant: "destructive" },
 };
 
-// Paddle price IDs now come from PLANS config (single source of truth)
-
-const PLAN_NUMERIC_LIMITS: Record<string, Record<string, number>> = Object.fromEntries(
-  PLAN_ORDER.map((id) => [
-    id,
-    {
-      clients: PLANS[id].limits.clients,
-      events: PLANS[id].limits.activeEvents,
-      attendees: PLANS[id].limits.attendeesPerMonth,
-      emails: PLANS[id].limits.emailsPerMonth,
-      storage: PLANS[id].limits.storageGB,
-    },
-  ])
-);
-
 const PLAN_ORDER_IDX: Record<string, number> = Object.fromEntries(PLAN_ORDER.map((id, i) => [id, i]));
 
 const RESOURCE_LABELS_DG: Record<string, string> = {
@@ -83,39 +68,6 @@ const RESOURCE_LINKS: Record<string, string> = {
   storage: "/dashboard/settings",
 };
 
-interface PlanDisplay {
-  id: string;
-  name: string;
-  monthlyPrice: number;
-  annualPrice: number;
-  annualTotal: number;
-  clients: string;
-  events: string;
-  attendees: string;
-  emails: string;
-  storage: string;
-  support: string;
-  popular?: boolean;
-}
-
-const PLAN_DISPLAY: PlanDisplay[] = PLAN_ORDER.map((id) => {
-  const p = PLANS[id];
-  return {
-    id,
-    name: p.name,
-    monthlyPrice: p.monthlyPrice * 100,
-    annualPrice: p.annualPrice * 100,
-    annualTotal: p.annualTotal * 100,
-    clients: formatLimit(p.limits.clients),
-    events: formatLimit(p.limits.activeEvents),
-    attendees: formatLimit(p.limits.attendeesPerMonth),
-    emails: formatLimit(p.limits.emailsPerMonth),
-    storage: `${p.limits.storageGB} GB`,
-    support: p.support.replace(' support', ''),
-    popular: p.highlight,
-  };
-});
-
 const BillingPage = () => {
   const { user } = useAuth();
   const { plans, subscription, currentPlan, usage, loading } = useBilling();
@@ -123,7 +75,6 @@ const BillingPage = () => {
   const [paymentIntents, setPaymentIntents] = useState<any[]>([]);
   const [entitlement, setEntitlement] = useState<{ access_until: string; source: string } | null>(null);
   const [loadingPayments, setLoadingPayments] = useState(true);
-  const [isAnnual, setIsAnnual] = useState(false);
   const [cancellingSubscription, setCancellingSubscription] = useState(false);
   const [schedulingDowngrade, setSchedulingDowngrade] = useState(false);
   const [cancellingDowngrade, setCancellingDowngrade] = useState(false);
@@ -192,7 +143,6 @@ const BillingPage = () => {
       toast.success("Subscription cancellation requested. Access continues until end of current period.");
       await loadPaymentIntents();
       await loadEntitlement();
-      // Force reload subscription state
       window.location.reload();
     } catch (err: any) {
       console.error("Cancel subscription failed:", err);
@@ -246,13 +196,15 @@ const BillingPage = () => {
     const targetIdx = PLAN_ORDER_IDX[targetPlanId] ?? 0;
     if (targetIdx >= currentIdx) return null;
 
-    const targetLimits = PLAN_NUMERIC_LIMITS[targetPlanId] || PLAN_NUMERIC_LIMITS.starter;
+    const targetPlan = PLANS[targetPlanId];
+    if (!targetPlan) return null;
+    const targetLimits: Record<string, number> = {
+      clients: targetPlan.limits.clients,
+      events: targetPlan.limits.events,
+    };
     const usageMap: Record<string, number> = {
       clients: planLimits.clients.used,
       events: planLimits.activeEvents.used,
-      attendees: planLimits.attendees.used,
-      emails: planLimits.emails.used,
-      storage: planLimits.storage.used,
     };
 
     const issues: { resource: string; current: number; limit: number }[] = [];
@@ -272,6 +224,7 @@ const BillingPage = () => {
     );
   }
 
+  // No subscription — show plan cards
   if (!subscription) {
     return (
       <div className="max-w-5xl space-y-6">
@@ -280,7 +233,6 @@ const BillingPage = () => {
           <p className="text-muted-foreground">No active subscription found. Choose a plan below to get started.</p>
         </div>
 
-        {/* Sandbox Testing Mode */}
         <Alert className="border-primary/30 bg-primary/5">
           <ShieldCheck className="h-4 w-4 text-primary" />
           <AlertTitle>Sandbox Testing Mode</AlertTitle>
@@ -289,51 +241,36 @@ const BillingPage = () => {
           </AlertDescription>
         </Alert>
 
-        {/* Annual toggle */}
-        <div className="flex items-center justify-center gap-3">
-          <span className={`text-sm font-medium ${!isAnnual ? "text-foreground" : "text-muted-foreground"}`}>Monthly</span>
-          <Switch checked={isAnnual} onCheckedChange={setIsAnnual} />
-          <span className={`text-sm font-medium ${isAnnual ? "text-foreground" : "text-muted-foreground"}`}>
-            Annual <Badge variant="secondary" className="ml-1 text-[10px]">Save 20%</Badge>
-          </span>
-        </div>
-
-        {/* Plan cards */}
         <div className="grid gap-4 md:grid-cols-3">
-          {PLAN_DISPLAY.map((plan) => {
-            const priceId = isAnnual
-              ? PLANS[plan.id]?.paddlePriceIdAnnual
-              : PLANS[plan.id]?.paddlePriceIdMonthly;
+          {PLAN_ORDER.map((planId) => {
+            const plan = PLANS[planId];
             return (
-              <Card key={plan.id} className={plan.popular ? "border-primary shadow-lg relative" : ""}>
-                {plan.popular && (
+              <Card key={planId} className={plan.highlight ? "border-primary shadow-lg relative" : ""}>
+                {plan.highlight && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                     <Badge className="bg-primary text-primary-foreground"><Crown className="h-3 w-3 mr-1" /> Most Popular</Badge>
                   </div>
                 )}
                 <CardHeader>
                   <CardTitle className="font-display">{plan.name}</CardTitle>
-                  <CardDescription>{PLANS[plan.id]?.description}</CardDescription>
+                  <CardDescription>{plan.description}</CardDescription>
                   <p className="text-3xl font-bold mt-2">
-                    ${isAnnual ? plan.annualPrice / 100 : plan.monthlyPrice / 100}
+                    ${plan.monthlyPrice}
                     <span className="text-sm text-muted-foreground font-normal">/mo</span>
                   </p>
-                  {isAnnual && (
-                    <p className="text-xs text-muted-foreground">${plan.annualTotal / 100}/year</p>
-                  )}
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <ul className="text-sm space-y-1">
-                    <li>✓ {plan.clients} clients</li>
-                    <li>✓ {plan.events} events</li>
-                    <li>✓ {plan.attendees} attendees/mo</li>
-                    <li>✓ {plan.emails} emails/mo</li>
-                    <li>✓ {plan.storage} storage</li>
-                    <li>✓ {plan.support} support</li>
+                  <ul className="text-sm space-y-1.5">
+                    {plan.features.map((f) => (
+                      <li key={f.text} className={`flex items-center gap-2 ${f.highlight ? "text-primary font-medium" : ""}`}>
+                        <Check className="h-3.5 w-3.5 text-primary shrink-0" /> {f.text}
+                      </li>
+                    ))}
                   </ul>
+                  <p className="text-[11px] text-muted-foreground">{VOICE_MINUTES_NOTE}</p>
                   <PaddleCheckoutButton
-                    priceId={priceId || ""}
-                    planId={plan.id}
+                    priceId={plan.paddlePriceIdMonthly}
+                    planId={planId}
                     type="subscription"
                     onSuccess={handlePaddleSuccess}
                   />
@@ -347,11 +284,11 @@ const BillingPage = () => {
   }
 
   const usageMetrics = [
-    { label: "Clients", used: usage.clients_count, limit: currentPlan.max_clients },
-    { label: "Active Events", used: usage.active_events_count, limit: currentPlan.max_active_events },
-    { label: "Attendees", used: usage.attendees_count, limit: currentPlan.max_attendees },
-    { label: "Emails Sent", used: usage.emails_sent_count, limit: currentPlan.max_emails },
-    { label: "Storage (GB)", used: Math.round((usage.storage_used_mb / 1024) * 10) / 10, limit: currentPlan.max_storage_gb },
+    { label: "Clients", used: usage.clients_count, limit: currentPlan?.max_clients ?? 3 },
+    { label: "Active Events", used: usage.active_events_count, limit: currentPlan?.max_active_events ?? 20 },
+    { label: "Attendees", used: usage.attendees_count, limit: currentPlan?.max_attendees ?? 500 },
+    { label: "Emails Sent", used: usage.emails_sent_count, limit: currentPlan?.max_emails ?? 2000 },
+    { label: "Storage (GB)", used: Math.round((usage.storage_used_mb / 1024) * 10) / 10, limit: currentPlan?.max_storage_gb ?? 5 },
   ];
 
   const warnings = usageMetrics.filter((m) => usagePercent(m.used, m.limit) >= 80);
@@ -366,7 +303,6 @@ const BillingPage = () => {
         <p className="text-muted-foreground">Manage your plan, track usage, and pay securely with card.</p>
       </div>
 
-      {/* STATE 4: Subscription ended — view-only mode */}
       {isSubscriptionEnded && (
         <Alert className="border-destructive/50 bg-destructive/10">
           <XCircle className="h-4 w-4 text-destructive" />
@@ -377,7 +313,6 @@ const BillingPage = () => {
         </Alert>
       )}
 
-      {/* Access expired (non-subscription) */}
       {isAccessExpired && entitlement && !isSubscriptionEnded && (
         <Alert className="border-destructive/50 bg-destructive/10">
           <XCircle className="h-4 w-4 text-destructive" />
@@ -388,7 +323,6 @@ const BillingPage = () => {
         </Alert>
       )}
 
-      {/* STATE 3: Cancellation scheduled */}
       {isCanceledButActive && (
         <Alert className="border-yellow-500/50 bg-yellow-500/10">
           <AlertTriangle className="h-4 w-4 text-yellow-500" />
@@ -399,14 +333,13 @@ const BillingPage = () => {
         </Alert>
       )}
 
-      {/* STATE 2: Downgrade scheduled */}
       {hasScheduledDowngrade && (
         <Alert className="border-yellow-500/50 bg-yellow-500/10">
           <AlertTriangle className="h-4 w-4 text-yellow-500" />
           <AlertTitle className="text-yellow-600 dark:text-yellow-400">Downgrade Scheduled</AlertTitle>
           <AlertDescription className="flex items-center justify-between">
             <span>
-              Your plan will downgrade to {PLANS[subscription.scheduled_plan!]?.name || subscription.scheduled_plan} on {periodEndDate}. You'll keep {currentPlan.name} access until then.
+              Your plan will downgrade to {PLANS[subscription.scheduled_plan!]?.name || subscription.scheduled_plan} on {periodEndDate}. You'll keep {currentPlan?.name} access until then.
             </span>
             <Button
               variant="outline"
@@ -421,7 +354,6 @@ const BillingPage = () => {
         </Alert>
       )}
 
-      {/* Usage warnings */}
       {warnings.length > 0 && (
         <Alert className="border-yellow-500/50 bg-yellow-500/10">
           <AlertTriangle className="h-4 w-4 text-yellow-500" />
@@ -446,7 +378,7 @@ const BillingPage = () => {
           </CardHeader>
           <CardContent className="space-y-2">
             <div className="flex items-center gap-3">
-              <span className="text-2xl font-bold font-display">{currentPlan.name}</span>
+              <span className="text-2xl font-bold font-display">{currentPlan?.name}</span>
               {isSubscriptionEnded ? (
                 <Badge variant="destructive">Subscription Ended</Badge>
               ) : isCanceledButActive ? (
@@ -454,11 +386,10 @@ const BillingPage = () => {
               ) : hasScheduledDowngrade ? (
                 <Badge className="bg-yellow-500/15 text-yellow-600 dark:text-yellow-400 border-yellow-500/30">Downgrade Scheduled</Badge>
               ) : (
-                <Badge variant="secondary">{currentPlan.support_tier} support</Badge>
+                <Badge variant="secondary">{currentPlan?.support_tier} support</Badge>
               )}
             </div>
 
-            {/* Period info */}
             {!isSubscriptionEnded && (
               <div className="text-sm text-muted-foreground space-y-0.5">
                 <p>Current period: {periodStartDate} – {periodEndDate}</p>
@@ -477,11 +408,10 @@ const BillingPage = () => {
             )}
 
             <p className="text-3xl font-bold gradient-titan-text">
-              {formatCents(currentPlan.monthly_price_cents)}
+              {formatCents(currentPlan?.monthly_price_cents ?? 0)}
               <span className="text-sm text-muted-foreground font-normal">/mo</span>
             </p>
 
-            {/* Cancel subscription button */}
             {canCancelSubscription && !hasScheduledDowngrade && (
               <AlertDialog>
                 <AlertDialogTrigger asChild>
@@ -517,7 +447,6 @@ const BillingPage = () => {
               </AlertDialog>
             )}
 
-            {/* Cancel downgrade button (in plan card) */}
             {hasScheduledDowngrade && (
               <Button
                 variant="outline"
@@ -530,11 +459,10 @@ const BillingPage = () => {
               </Button>
             )}
 
-            {/* Resubscribe button for cancelled/ended */}
             {(isCanceledButActive || isSubscriptionEnded) && (
               <div className="mt-2">
                 <PaddleCheckoutButton
-                  priceId={(isAnnual ? PLANS[subscription.plan_id]?.paddlePriceIdAnnual : PLANS[subscription.plan_id]?.paddlePriceIdMonthly) || ""}
+                  priceId={PLANS[subscription.plan_id]?.paddlePriceIdMonthly || ""}
                   planId={subscription.plan_id}
                   type="subscription"
                   onSuccess={handlePaddleSuccess}
@@ -596,10 +524,8 @@ const BillingPage = () => {
         </Card>
       </div>
 
-      {/* Usage meters */}
       <UsageMeters />
 
-      {/* Sandbox mode banner */}
       {import.meta.env.VITE_PADDLE_ENV === "sandbox" && (
         <Alert className="border-amber-500/50 bg-amber-500/10">
           <AlertTriangle className="h-4 w-4 text-amber-600" />
@@ -611,44 +537,30 @@ const BillingPage = () => {
         </Alert>
       )}
 
-      {/* Plans + Paddle Checkout */}
+      {/* Available Plans */}
       <Card>
         <CardHeader>
-          <CardTitle className="font-display">Available Plans — Secure Card Payment</CardTitle>
-          <CardDescription>Choose monthly or annual billing</CardDescription>
+          <CardTitle className="font-display">Available Plans</CardTitle>
+          <CardDescription>Choose a plan · {VOICE_MINUTES_NOTE}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Monthly / Annual toggle */}
-          <div className="flex items-center justify-center gap-3">
-            <span className={`text-sm font-medium ${!isAnnual ? "text-foreground" : "text-muted-foreground"}`}>Monthly</span>
-            <Switch checked={isAnnual} onCheckedChange={setIsAnnual} />
-            <span className={`text-sm font-medium ${isAnnual ? "text-foreground" : "text-muted-foreground"}`}>Annual</span>
-            {isAnnual && (
-              <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20">
-                Save 20%
-              </Badge>
-            )}
-          </div>
-
           <div className="grid gap-4 md:grid-cols-3">
-            {PLAN_DISPLAY.map((plan) => {
-              const isCurrent = plan.id === subscription?.plan_id;
-              const planConfig = PLANS[plan.id];
-              const priceId = isAnnual ? planConfig?.paddlePriceIdAnnual : planConfig?.paddlePriceIdMonthly;
-              const displayPrice = isAnnual ? plan.annualPrice : plan.monthlyPrice;
+            {PLAN_ORDER.map((planId) => {
+              const plan = PLANS[planId];
+              const isCurrent = planId === subscription?.plan_id;
 
               return (
                 <div
-                  key={plan.id}
+                  key={planId}
                   className={`relative rounded-lg border p-4 space-y-3 ${
-                    plan.popular
+                    plan.highlight
                       ? "border-primary ring-2 ring-primary/20 bg-primary/5"
                       : isCurrent
                         ? "border-primary bg-primary/5"
                         : "border-border"
                   }`}
                 >
-                  {plan.popular && (
+                  {plan.highlight && (
                     <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                       <Badge className="bg-gradient-to-r from-amber-500 to-yellow-400 text-white border-0 shadow-md gap-1">
                         <Crown className="h-3 w-3" /> Most Popular
@@ -663,47 +575,34 @@ const BillingPage = () => {
                     )}
                   </div>
 
-                  <div>
-                    <p className="text-2xl font-bold">
-                      {isAnnual && (
-                        <span className="text-base text-muted-foreground line-through mr-2 font-normal">
-                          {formatCents(plan.monthlyPrice)}
-                        </span>
-                      )}
-                      {formatCents(displayPrice)}
-                      <span className="text-sm text-muted-foreground font-normal">/mo</span>
-                    </p>
-                    {isAnnual && (
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        billed {formatCents(plan.annualTotal)}/yr
-                      </p>
-                    )}
-                  </div>
+                  <p className="text-2xl font-bold">
+                    ${plan.monthlyPrice}
+                    <span className="text-sm text-muted-foreground font-normal">/mo</span>
+                  </p>
 
-                  <ul className="text-sm text-muted-foreground space-y-1">
-                    <li>{plan.clients} clients</li>
-                    <li>{plan.events} active events/mo</li>
-                    <li>{plan.attendees} attendees/mo</li>
-                    <li>{plan.emails} emails/mo</li>
-                    <li>{plan.storage} storage</li>
-                    <li>{plan.support} support</li>
+                  <ul className="text-sm text-muted-foreground space-y-1.5">
+                    {plan.features.map((f) => (
+                      <li key={f.text} className={`flex items-center gap-2 ${f.highlight ? "text-primary font-medium" : ""}`}>
+                        <Check className="h-3.5 w-3.5 text-primary shrink-0" /> {f.text}
+                      </li>
+                    ))}
                   </ul>
 
                   {isCurrent ? (
                     <Button variant="outline" className="w-full" disabled>
                       Current Plan
                     </Button>
-                  ) : !priceId ? (
+                  ) : !plan.paddlePriceIdMonthly ? (
                     <p className="text-sm text-muted-foreground text-center py-2">Plan not configured</p>
                   ) : (() => {
-                    const isDowngrade = (PLAN_ORDER_IDX[plan.id] ?? 0) < (PLAN_ORDER_IDX[subscription?.plan_id || "starter"] ?? 0);
+                    const isDowngrade = (PLAN_ORDER_IDX[planId] ?? 0) < (PLAN_ORDER_IDX[subscription?.plan_id || "starter"] ?? 0);
                     if (isDowngrade) {
                       return (
                         <Button
                           className="w-full"
                           variant="outline"
                           onClick={() => {
-                            const result = checkDowngrade(plan.id);
+                            const result = checkDowngrade(planId);
                             if (result) setDowngradeDialog(result);
                           }}
                         >
@@ -713,8 +612,8 @@ const BillingPage = () => {
                     }
                     return (
                       <PaddleCheckoutButton
-                        priceId={priceId}
-                        planId={plan.id}
+                        priceId={plan.paddlePriceIdMonthly}
+                        planId={planId}
                         type="subscription"
                         onSuccess={handlePaddleSuccess}
                       />
@@ -811,7 +710,7 @@ const BillingPage = () => {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="font-display">
-              {downgradeDialog?.blocked ? "Cannot Downgrade Yet" : `Downgrade to ${PLAN_DISPLAY.find(p => p.id === downgradeDialog?.planId)?.name}?`}
+              {downgradeDialog?.blocked ? "Cannot Downgrade Yet" : `Downgrade to ${PLANS[downgradeDialog?.planId || ""]?.name}?`}
             </DialogTitle>
             <DialogDescription>
               {downgradeDialog?.blocked
@@ -843,7 +742,7 @@ const BillingPage = () => {
               <ul className="list-disc list-inside space-y-1">
                 <li>Takes effect: <strong>{periodEndDate}</strong></li>
                 <li>New monthly price: <strong>${PLANS[downgradeDialog.planId]?.monthlyPrice}/mo</strong></li>
-                <li>You keep {currentPlan.name} access until <strong>{periodEndDate}</strong></li>
+                <li>You keep {currentPlan?.name} access until <strong>{periodEndDate}</strong></li>
                 <li>No data will be deleted</li>
               </ul>
             </div>
