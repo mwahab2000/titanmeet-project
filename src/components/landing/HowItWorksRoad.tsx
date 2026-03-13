@@ -5,6 +5,7 @@ import { motion, useReducedMotion } from "framer-motion";
  * Desktop: horizontal snake. Mobile: hidden (vertical timeline used instead).
  */
 export const HowItWorksRoad: React.FC<{ isInView: boolean }> = ({ isInView }) => {
+  const prefersReducedMotion = useReducedMotion();
   // Road dimensions – designed for a 1200px-wide container, viewBox scales it
   const W = 1200;
   const H = 200;
