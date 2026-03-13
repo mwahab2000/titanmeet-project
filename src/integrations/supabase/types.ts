@@ -2003,6 +2003,127 @@ export type Database = {
         }
         Relationships: []
       }
+      voice_action_log: {
+        Row: {
+          action: Json
+          created_at: string
+          error: string | null
+          event_id: string | null
+          id: string
+          status: string
+          user_id: string
+          voice_session_id: string
+        }
+        Insert: {
+          action: Json
+          created_at?: string
+          error?: string | null
+          event_id?: string | null
+          id?: string
+          status: string
+          user_id: string
+          voice_session_id: string
+        }
+        Update: {
+          action?: Json
+          created_at?: string
+          error?: string | null
+          event_id?: string | null
+          id?: string
+          status?: string
+          user_id?: string
+          voice_session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_action_log_voice_session_id_fkey"
+            columns: ["voice_session_id"]
+            isOneToOne: false
+            referencedRelation: "voice_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      voice_sessions: {
+        Row: {
+          confirmed_actions: Json
+          context: Json
+          created_at: string
+          draft_key: string | null
+          event_id: string | null
+          id: string
+          language_mode: string
+          last_heard_at: string | null
+          paused_at: string | null
+          pending_actions: Json
+          status: string
+          transcript: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          confirmed_actions?: Json
+          context?: Json
+          created_at?: string
+          draft_key?: string | null
+          event_id?: string | null
+          id?: string
+          language_mode?: string
+          last_heard_at?: string | null
+          paused_at?: string | null
+          pending_actions?: Json
+          status?: string
+          transcript?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          confirmed_actions?: Json
+          context?: Json
+          created_at?: string
+          draft_key?: string | null
+          event_id?: string | null
+          id?: string
+          language_mode?: string
+          last_heard_at?: string | null
+          paused_at?: string | null
+          pending_actions?: Json
+          status?: string
+          transcript?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_sessions_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      voice_usage: {
+        Row: {
+          parse_count: number
+          transcribe_count: number
+          usage_date: string
+          user_id: string
+        }
+        Insert: {
+          parse_count?: number
+          transcribe_count?: number
+          usage_date: string
+          user_id: string
+        }
+        Update: {
+          parse_count?: number
+          transcribe_count?: number
+          usage_date?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       v_pickup_point_counts: {
