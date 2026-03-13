@@ -25,12 +25,14 @@ interface SectionGroup {
   label: string;
   icon: LucideIcon;
   sections: WorkspaceSection[];
+  step?: number;
 }
 
 const sectionGroups: SectionGroup[] = [
   {
     label: "Content",
     icon: Palette,
+    step: 1,
     sections: [
       { icon: Image, label: "Hero", path: "hero" },
       { icon: Info, label: "Event Info", path: "info" },
@@ -42,6 +44,7 @@ const sectionGroups: SectionGroup[] = [
   {
     label: "Attendees",
     icon: UserCheck,
+    step: 2,
     sections: [
       { icon: UsersRound, label: "Attendees", path: "attendees" },
       { icon: Layers, label: "Groups", path: "groups" },
@@ -51,6 +54,7 @@ const sectionGroups: SectionGroup[] = [
   {
     label: "Logistics",
     icon: Truck,
+    step: 3,
     sections: [
       { icon: Bus, label: "Transportation", path: "transportation" },
       { icon: MapPin, label: "Venue", path: "venue" },
@@ -58,21 +62,23 @@ const sectionGroups: SectionGroup[] = [
     ],
   },
   {
+    label: "Publish",
+    icon: Send,
+    step: 4,
+    sections: [
+      { icon: Globe, label: "Website", path: "website" },
+    ],
+  },
+  {
     label: "Engagement",
     icon: Sparkles,
+    step: 5,
     sections: [
       { icon: Images, label: "Gallery", path: "gallery" },
       { icon: Megaphone, label: "Announcements", path: "announcements" },
       { icon: Megaphone, label: "Event Alerts", path: "event-announcements" },
       { icon: ClipboardList, label: "Survey", path: "survey" },
       { icon: MessageSquare, label: "Communications Center", path: "communications" },
-    ],
-  },
-  {
-    label: "Publish",
-    icon: Send,
-    sections: [
-      { icon: Globe, label: "Website", path: "website" },
     ],
   },
 ];
