@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, Outlet, useLocation, Link } from "react-router-dom";
 import { EventWorkspaceProvider, useEventWorkspace } from "@/contexts/EventWorkspaceContext";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +12,8 @@ import { toast } from "sonner";
 import { PUBLISH_CHECKS, getPublishStatus } from "@/lib/publishChecks";
 import { SaveAsTemplateDialog } from "@/components/templates/SaveAsTemplateDialog";
 import AiChatWidget from "@/components/ai/AiChatWidget";
+import VoiceStudioSheet from "@/components/voice/VoiceStudioSheet";
+import VoiceEarIcon from "@/components/voice/VoiceEarIcon";
 
 const sectionLabels: Record<string, string> = {
   hero: "Hero", info: "Event Info", agenda: "Agenda", organizers: "Organizers", speakers: "Speakers",
