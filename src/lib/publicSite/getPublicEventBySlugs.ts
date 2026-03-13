@@ -9,9 +9,16 @@ export async function getPublicEventBySlugs(clientSlug: string, eventSlug: strin
       .from("clients")
       .select("id, name, slug, logo_url")
       .eq("slug", clientSlug)
-      .single();
+      .maybeSingle();
 
-    if (clientErr || !client) return { status: "not_found" };
+    if (clientErr) {
+      console.error("[PublicEvent] client query error:", clientErr.message);
+      return { status: "error", message: clientErr.message };
+    }
+    if (!client) {
+      console.warn(`[PublicEvent] client not found for slug: "${clientSlug}"`);
+      return { status: "not_found", reason: "client_not_found" };
+    }
 
     // 2. Find event by slug + client_id
     const { data: event, error: eventErr } = await supabase
@@ -19,12 +26,20 @@ export async function getPublicEventBySlugs(clientSlug: string, eventSlug: strin
       .select("*")
       .eq("slug", eventSlug)
       .eq("client_id", client.id)
-      .single();
+      .maybeSingle();
 
-    if (eventErr || !event) return { status: "not_found" };
+    if (eventErr) {
+      console.error("[PublicEvent] event query error:", eventErr.message);
+      return { status: "error", message: eventErr.message };
+    }
+    if (!event) {
+      console.warn(`[PublicEvent] event not found for slug: "${eventSlug}" under client: "${clientSlug}"`);
+      return { status: "not_found", reason: "event_not_found" };
+    }
 
     // 3. Check published status
     if (event.status !== "published" && event.status !== "ongoing") {
+      console.warn(`[PublicEvent] event "${eventSlug}" exists but status is "${event.status}"`);
       return { status: "private" };
     }
 
@@ -50,6 +65,7 @@ export async function getPublicEventBySlugs(clientSlug: string, eventSlug: strin
       data: mapPublicEventData(client, event, agendaRes.data ?? [], speakersRes.data ?? [], organizersRes.data ?? [], announcementsRes.data ?? [], (surveyRes as any).count ?? 0, speakerMap, dressCodeRes.data ?? [], transportSettingsRes.data, transportRoutesRes.data ?? [], transportStopsRes.data ?? []),
     };
   } catch (e: any) {
+    console.error("[PublicEvent] unexpected error:", e);
     return { status: "error", message: e.message ?? "Unknown error" };
   }
 }
