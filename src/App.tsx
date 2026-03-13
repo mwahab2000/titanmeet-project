@@ -75,6 +75,7 @@ const App = () => (
           {subdomainClient ? (
             /* ── Subdomain mode: clientslug.titanmeet.com ── */
             <Routes>
+              <Route path="/" element={<ClientLandingPage clientSlug={subdomainClient} />} />
               <Route path="/:eventSlug" element={<SubdomainEventPage clientSlug={subdomainClient} />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
