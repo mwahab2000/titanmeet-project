@@ -104,7 +104,7 @@ export const LandingHowItWorks = () => {
           <span className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-purple-600/15 to-indigo-600/15 border border-purple-500/20 px-4 py-1.5 text-sm font-medium text-purple-300">
             <VoiceEarIcon size={16} className="text-purple-400" />
             Bonus: Build steps 2–5 by voice with Voice Studio
-            <VoiceEarIcon size={16} aria-hidden="true" className="text-purple-400 animate-ear-pulse motion-reduce:animate-none" style={{ filter: "drop-shadow(0 0 3px hsl(270 60% 60% / 0.4))" }} />
+            <VoiceEarIcon size={16} aria-hidden="true" className="text-purple-400 animate-ear-pulse motion-reduce:animate-none" />
           </span>
         </motion.div>
 
