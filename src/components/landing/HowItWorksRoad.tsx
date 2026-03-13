@@ -131,17 +131,15 @@ export const HowItWorksRoad: React.FC<{ isInView: boolean }> = ({ isInView }) =>
         strokeLinejoin="round"
       />
 
-      {/* Center dashed line – animated */}
-      <motion.path
+      {/* Center dashed line – continuous flow */}
+      <path
         d={roadPath}
         fill="none"
         stroke="url(#road-dash-grad)"
         strokeWidth={2.5}
         strokeLinecap="round"
         strokeDasharray="12 10"
-        initial={{ strokeDashoffset: 300 }}
-        animate={isInView ? { strokeDashoffset: 0 } : { strokeDashoffset: 300 }}
-        transition={{ duration: 2.5, ease: "easeInOut" }}
+        className={prefersReducedMotion ? "" : "animate-road-flow"}
       />
     </svg>
   );
