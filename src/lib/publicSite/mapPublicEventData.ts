@@ -20,6 +20,9 @@ export function mapPublicEventData(
   transportSettings: any | null = null,
   transportRoutes: any[] = [],
   transportStops: any[] = [],
+  attendeesRaw: any[] = [],
+  groupsRaw: any[] = [],
+  attendeeGroupsRaw: any[] = [],
 ): PublicEventData {
   const heroImages = resolveImages("event-assets", event.hero_images);
   const venueImages = resolveImages("event-assets", event.venue_images);

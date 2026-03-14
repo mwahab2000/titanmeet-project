@@ -32,6 +32,16 @@ export interface PublicTransportData {
   routes: PublicTransportRoute[];
 }
 
+export interface PublicAttendeeGroup {
+  name: string;
+  names: string[];
+}
+
+export interface PublicAttendeesData {
+  hasGroups: boolean;
+  groups: PublicAttendeeGroup[];
+}
+
 export interface PublicEventData {
   client: { id: string; name: string; slug: string; logoUrl: string | null };
   event: { id: string; title: string; slug: string; description: string | null; date: string | null; status: string; themeId: string };
@@ -45,6 +55,7 @@ export interface PublicEventData {
   dressCode: PublicDressCode[];
   transport: PublicTransportData;
   surveys: { hasSurvey: boolean };
+  attendees: PublicAttendeesData;
 }
 
 export type NotFoundReason = "client_not_found" | "event_not_found";
