@@ -15,6 +15,7 @@ import { PublicFooterSection } from "../sections/PublicFooterSection";
 import { PublicStickyNav } from "../sections/PublicStickyNav";
 import { PublicStatsSection } from "../sections/PublicStatsSection";
 import { PublicCountdownSection } from "../sections/PublicCountdownSection";
+import { PublicAttendeesSection } from "../sections/PublicAttendeesSection";
 
 interface Props { data: PublicEventData; }
 
