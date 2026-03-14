@@ -78,6 +78,7 @@ export const FestivalHero: React.FC<Props> = ({ data }) => {
             <HeroAttendeeMarquee data={data} variant="glass" />
           </div>
         </div>
+      </div>
 
       {/* Hero image collage */}
       {hasImages && (

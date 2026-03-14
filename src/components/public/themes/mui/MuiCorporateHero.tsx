@@ -144,6 +144,7 @@ export const MuiCorporateHero: React.FC<Props> = ({ data }) => {
             <HeroAttendeeMarquee data={data} variant="glass" />
           </Box>
         </Stack>
+      </Container>
 
       {/* Scroll hint */}
       <Box
