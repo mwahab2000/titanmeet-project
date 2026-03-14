@@ -65,7 +65,7 @@ export async function getPublicEventBySlugs(clientSlug: string, eventSlug: strin
 
     return {
       status: "ok",
-      data: mapPublicEventData(client, event, agendaRes.data ?? [], speakersRes.data ?? [], organizersRes.data ?? [], announcementsRes.data ?? [], (surveyRes as any).count ?? 0, speakerMap, dressCodeRes.data ?? [], transportSettingsRes.data, transportRoutesRes.data ?? [], transportStopsRes.data ?? []),
+      data: mapPublicEventData(client, event, agendaRes.data ?? [], speakersRes.data ?? [], organizersRes.data ?? [], announcementsRes.data ?? [], (surveyRes as any).count ?? 0, speakerMap, dressCodeRes.data ?? [], transportSettingsRes.data, transportRoutesRes.data ?? [], transportStopsRes.data ?? [], attendeesRes.data ?? [], groupsRes.data ?? [], attendeeGroupsRes.data ?? []),
     };
   } catch (e: any) {
     console.error("[PublicEvent] unexpected error:", e);

@@ -122,7 +122,7 @@ export async function getEventPreview(eventId: string): Promise<FetchResult> {
     const speakerMap = new Map<string, string>();
     (speakersRes.data ?? []).forEach((s: any) => speakerMap.set(s.id, s.name));
 
-    const mapped = mapPublicEventData(client, event, agendaRes.data ?? [], speakersRes.data ?? [], organizersRes.data ?? [], announcementsRes.data ?? [], (surveyRes as any).count ?? 0, speakerMap, dressCodeRes.data ?? [], transportSettingsRes.data, transportRoutesRes.data ?? [], transportStopsRes.data ?? []);
+    const mapped = mapPublicEventData(client, event, agendaRes.data ?? [], speakersRes.data ?? [], organizersRes.data ?? [], announcementsRes.data ?? [], (surveyRes as any).count ?? 0, speakerMap, dressCodeRes.data ?? [], transportSettingsRes.data, transportRoutesRes.data ?? [], transportStopsRes.data ?? [], attendeesRes.data ?? [], groupsRes.data ?? [], attendeeGroupsRes.data ?? []);
 
     // Attach raw image paths for signed URL resolution
     const rawHero = Array.isArray(event.hero_images) ? (event.hero_images as string[]) : [];
