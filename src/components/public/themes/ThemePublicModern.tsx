@@ -192,7 +192,7 @@ export const ThemePublicModern: React.FC<Props> = ({ data }) => {
       <div className="mod-dark-section">
         <PublicOrganizersSection data={data} />
       </div>
-      <PublicAttendeesSection data={data} />
+      
       <PublicDressCodeSection data={data} />
       <PublicTransportSection data={data} />
       <PublicTransportSection data={data} />

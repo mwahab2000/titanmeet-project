@@ -127,7 +127,7 @@ export const ThemePublicCreativeFestival: React.FC<Props> = ({ data }) => {
         <PublicGallerySection data={data} />
       </div>
       <PublicOrganizersSection data={data} />
-      <PublicAttendeesSection data={data} />
+      
       <PublicDressCodeSection data={data} />
       <PublicTransportSection data={data} />
       <FestivalFooter data={data} />

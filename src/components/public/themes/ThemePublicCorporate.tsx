@@ -149,7 +149,7 @@ export const ThemePublicCorporate: React.FC<Props> = ({ data }) => {
       <div className="corp-section-striped">
         <PublicOrganizersSection data={data} />
       </div>
-      <PublicAttendeesSection data={data} />
+      
       <PublicDressCodeSection data={data} />
       <PublicTransportSection data={data} />
       <PublicFooterSection data={data} className="corp-footer" />

@@ -292,6 +292,16 @@ export const PublicHeroSection: React.FC<Props> = ({ data, className = "", paral
           )}
         </motion.div>
 
+        {/* Attendee marquee bars */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.8, duration: 0.8 }}
+          className="w-full max-w-5xl mt-10"
+        >
+          <HeroAttendeeMarquee data={data} variant={hasImages ? "glass" : "light"} />
+        </motion.div>
+
         {/* Slide indicators */}
         {images.length > 1 && (
           <motion.div
