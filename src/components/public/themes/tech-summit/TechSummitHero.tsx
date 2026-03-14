@@ -115,5 +115,6 @@ export const TechSummitHero: React.FC<Props> = ({ data }) => {
           <HeroAttendeeMarquee data={data} variant="glass" />
         </div>
       </div>
+    </section>
   );
 };
