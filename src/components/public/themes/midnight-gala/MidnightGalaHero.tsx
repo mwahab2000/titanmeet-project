@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import type { PublicEventData } from "@/lib/publicSite/types";
 import { format } from "date-fns";
 import { ArrowDown } from "lucide-react";
+import { HeroAttendeeMarquee } from "../../sections/HeroAttendeeMarquee";
 
 interface Props { data: PublicEventData; }
 
