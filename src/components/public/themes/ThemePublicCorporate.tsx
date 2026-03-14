@@ -15,7 +15,7 @@ import { PublicFooterSection } from "../sections/PublicFooterSection";
 import { PublicStickyNav } from "../sections/PublicStickyNav";
 import { PublicStatsSection } from "../sections/PublicStatsSection";
 import { PublicCountdownSection } from "../sections/PublicCountdownSection";
-import { PublicAttendeesSection } from "../sections/PublicAttendeesSection";
+
 
 interface Props { data: PublicEventData; }
 
@@ -149,7 +149,7 @@ export const ThemePublicCorporate: React.FC<Props> = ({ data }) => {
       <div className="corp-section-striped">
         <PublicOrganizersSection data={data} />
       </div>
-      <PublicAttendeesSection data={data} />
+      
       <PublicDressCodeSection data={data} />
       <PublicTransportSection data={data} />
       <PublicFooterSection data={data} className="corp-footer" />

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import type { PublicEventData } from "@/lib/publicSite/types";
 import { format } from "date-fns";
 import { ArrowDown } from "lucide-react";
+import { HeroAttendeeMarquee } from "../../sections/HeroAttendeeMarquee";
 
 interface Props { data: PublicEventData; }
 
@@ -143,6 +144,11 @@ export const MidnightGalaHero: React.FC<Props> = ({ data }) => {
               Request Invitation
             </button>
           </div>
+        </div>
+
+        {/* Attendee marquee bars */}
+        <div className="mt-10 w-full">
+          <HeroAttendeeMarquee data={data} variant="glass" />
         </div>
       </div>
 

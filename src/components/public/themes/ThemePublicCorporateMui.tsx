@@ -15,7 +15,7 @@ import { MuiCorporateOrganizers } from "./mui/MuiCorporateOrganizers";
 import { MuiCorporateDressCode } from "./mui/MuiCorporateDressCode";
 import { MuiCorporateTransport } from "./mui/MuiCorporateTransport";
 import { MuiCorporateFooter } from "./mui/MuiCorporateFooter";
-import { PublicAttendeesSection } from "../sections/PublicAttendeesSection";
+
 
 interface Props { data: PublicEventData; }
 
@@ -34,7 +34,7 @@ export const ThemePublicCorporateMui: React.FC<Props> = ({ data }) => (
       <MuiCorporateVenue data={data} />
       <MuiCorporateGallery data={data} />
       <MuiCorporateOrganizers data={data} />
-      <PublicAttendeesSection data={data} />
+      
       <MuiCorporateDressCode data={data} />
       <MuiCorporateTransport data={data} />
       <MuiCorporateFooter data={data} />

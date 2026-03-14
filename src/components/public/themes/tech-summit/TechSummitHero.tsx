@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import type { PublicEventData } from "@/lib/publicSite/types";
 import { format } from "date-fns";
+import { HeroAttendeeMarquee } from "../../sections/HeroAttendeeMarquee";
 
 interface Props { data: PublicEventData; }
 
@@ -107,6 +108,11 @@ export const TechSummitHero: React.FC<Props> = ({ data }) => {
           >
             Register Now →
           </button>
+        </div>
+
+        {/* Attendee marquee bars */}
+        <div className="mt-10 w-full max-w-5xl mx-auto">
+          <HeroAttendeeMarquee data={data} variant="glass" />
         </div>
       </div>
     </section>

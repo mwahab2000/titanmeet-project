@@ -6,6 +6,7 @@ import PlaceIcon from "@mui/icons-material/Place";
 import InsightsIcon from "@mui/icons-material/Insights";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import { format } from "date-fns";
+import { HeroAttendeeMarquee } from "../../sections/HeroAttendeeMarquee";
 
 const AnimatedShaderBackground = lazy(() => import("@/components/ui/animated-shader-background"));
 
@@ -136,6 +137,11 @@ export const MuiCorporateHero: React.FC<Props> = ({ data }) => {
             <Button variant="contained" size="large" sx={{ px: 5, py: 1.5, fontSize: "0.95rem" }}>
               Register Now
             </Button>
+          </Box>
+
+          {/* Attendee marquee bars */}
+          <Box sx={{ mt: 4, width: "100%" }}>
+            <HeroAttendeeMarquee data={data} variant="glass" />
           </Box>
         </Stack>
       </Container>

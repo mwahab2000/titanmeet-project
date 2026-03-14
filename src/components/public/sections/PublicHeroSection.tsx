@@ -4,6 +4,7 @@ import { Calendar, MapPin, ArrowDown } from "lucide-react";
 import { format } from "date-fns";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import { HeroAttendeeMarquee } from "./HeroAttendeeMarquee";
 
 const AnimatedShaderBackground = lazy(() => import("@/components/ui/animated-shader-background"));
 
@@ -289,6 +290,16 @@ export const PublicHeroSection: React.FC<Props> = ({ data, className = "", paral
               />
             </motion.div>
           )}
+        </motion.div>
+
+        {/* Attendee marquee bars */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.8, duration: 0.8 }}
+          className="w-full max-w-5xl mt-10"
+        >
+          <HeroAttendeeMarquee data={data} variant={hasImages ? "glass" : "light"} />
         </motion.div>
 
         {/* Slide indicators */}

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import type { PublicEventData } from "@/lib/publicSite/types";
 import { format } from "date-fns";
+import { HeroAttendeeMarquee } from "../../sections/HeroAttendeeMarquee";
 
 interface Props { data: PublicEventData; }
 
@@ -70,6 +71,11 @@ export const FestivalHero: React.FC<Props> = ({ data }) => {
             >
               Get Tickets →
             </button>
+          </div>
+
+          {/* Attendee marquee bars */}
+          <div className="mt-10 w-full">
+            <HeroAttendeeMarquee data={data} variant="glass" />
           </div>
         </div>
       </div>

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import type { PublicEventData } from "@/lib/publicSite/types";
 import { format } from "date-fns";
 import { ArrowDown } from "lucide-react";
+import { HeroAttendeeMarquee } from "../../sections/HeroAttendeeMarquee";
 
 interface Props { data: PublicEventData; }
 
@@ -103,6 +104,11 @@ export const NatureWellnessHero: React.FC<Props> = ({ data }) => {
           >
             Join Us
           </button>
+        </div>
+
+        {/* Attendee marquee bars */}
+        <div className="mt-8 w-full max-w-5xl mx-auto">
+          <HeroAttendeeMarquee data={data} variant={hasImages ? "glass" : "light"} />
         </div>
       </div>
 
