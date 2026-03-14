@@ -109,7 +109,11 @@ export const TechSummitHero: React.FC<Props> = ({ data }) => {
             Register Now →
           </button>
         </div>
+
+        {/* Attendee marquee bars */}
+        <div className="mt-10 w-full max-w-5xl mx-auto">
+          <HeroAttendeeMarquee data={data} variant="glass" />
+        </div>
       </div>
-    </section>
   );
 };

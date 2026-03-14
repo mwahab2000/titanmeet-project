@@ -145,6 +145,11 @@ export const MidnightGalaHero: React.FC<Props> = ({ data }) => {
             </button>
           </div>
         </div>
+
+        {/* Attendee marquee bars */}
+        <div className="mt-10 w-full">
+          <HeroAttendeeMarquee data={data} variant="glass" />
+        </div>
       </div>
 
       {/* Scroll indicator */}

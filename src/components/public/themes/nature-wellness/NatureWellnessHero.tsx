@@ -105,6 +105,11 @@ export const NatureWellnessHero: React.FC<Props> = ({ data }) => {
             Join Us
           </button>
         </div>
+
+        {/* Attendee marquee bars */}
+        <div className="mt-8 w-full max-w-5xl mx-auto">
+          <HeroAttendeeMarquee data={data} variant={hasImages ? "glass" : "light"} />
+        </div>
       </div>
 
       <WaveDivider />

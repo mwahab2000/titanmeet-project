@@ -138,8 +138,12 @@ export const MuiCorporateHero: React.FC<Props> = ({ data }) => {
               Register Now
             </Button>
           </Box>
+
+          {/* Attendee marquee bars */}
+          <Box sx={{ mt: 4, width: "100%" }}>
+            <HeroAttendeeMarquee data={data} variant="glass" />
+          </Box>
         </Stack>
-      </Container>
 
       {/* Scroll hint */}
       <Box

@@ -72,8 +72,12 @@ export const FestivalHero: React.FC<Props> = ({ data }) => {
               Get Tickets →
             </button>
           </div>
+
+          {/* Attendee marquee bars */}
+          <div className="mt-10 w-full">
+            <HeroAttendeeMarquee data={data} variant="glass" />
+          </div>
         </div>
-      </div>
 
       {/* Hero image collage */}
       {hasImages && (
