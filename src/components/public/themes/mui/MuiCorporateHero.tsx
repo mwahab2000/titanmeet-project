@@ -6,6 +6,7 @@ import PlaceIcon from "@mui/icons-material/Place";
 import InsightsIcon from "@mui/icons-material/Insights";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import { format } from "date-fns";
+import { HeroAttendeeMarquee } from "../../sections/HeroAttendeeMarquee";
 
 const AnimatedShaderBackground = lazy(() => import("@/components/ui/animated-shader-background"));
 
