@@ -16,6 +16,7 @@ import { PublicGallerySection } from "../sections/PublicGallerySection";
 import { PublicOrganizersSection } from "../sections/PublicOrganizersSection";
 import { PublicDressCodeSection } from "../sections/PublicDressCodeSection";
 import { PublicTransportSection } from "../sections/PublicTransportSection";
+import { PublicAttendeesSection } from "../sections/PublicAttendeesSection";
 
 interface Props { data: PublicEventData; }
 
@@ -126,6 +127,7 @@ export const ThemePublicCreativeFestival: React.FC<Props> = ({ data }) => {
         <PublicGallerySection data={data} />
       </div>
       <PublicOrganizersSection data={data} />
+      <PublicAttendeesSection data={data} />
       <PublicDressCodeSection data={data} />
       <PublicTransportSection data={data} />
       <FestivalFooter data={data} />

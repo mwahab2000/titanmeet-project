@@ -44,7 +44,7 @@ export async function getPublicEventBySlugs(clientSlug: string, eventSlug: strin
     }
 
     // 4. Parallel-fetch related data
-    const [agendaRes, speakersRes, organizersRes, announcementsRes, surveyRes, dressCodeRes, transportSettingsRes, transportRoutesRes, transportStopsRes] = await Promise.all([
+    const [agendaRes, speakersRes, organizersRes, announcementsRes, surveyRes, dressCodeRes, transportSettingsRes, transportRoutesRes, transportStopsRes, attendeesRes, groupsRes, attendeeGroupsRes] = await Promise.all([
       supabase.from("agenda_items").select("id, title, description, start_time, end_time, day_number, speaker_id").eq("event_id", event.id).order("day_number").order("order_index"),
       supabase.from("speakers").select("id, name, title, bio, photo_url, linkedin_url").eq("event_id", event.id),
       supabase.from("organizers").select("id, name, role, email, mobile, photo_url").eq("event_id", event.id),
@@ -54,6 +54,9 @@ export async function getPublicEventBySlugs(clientSlug: string, eventSlug: strin
       supabase.from("transport_settings").select("enabled, general_instructions, meetup_time").eq("event_id", event.id).maybeSingle(),
       supabase.from("transport_routes").select("id, name, day_number, departure_time, vehicle_type, notes").eq("event_id", event.id).order("day_number").order("name"),
       supabase.from("transport_pickup_points").select("id, name, address, pickup_time, stop_type, map_url, notes, route_id, order_index").eq("event_id", event.id).order("order_index"),
+      supabase.from("attendees").select("id, name").eq("event_id", event.id),
+      supabase.from("groups").select("id, name").eq("event_id", event.id),
+      supabase.from("attendee_groups").select("attendee_id, group_id"),
     ]);
 
     // Build speaker name map for agenda
@@ -62,7 +65,7 @@ export async function getPublicEventBySlugs(clientSlug: string, eventSlug: strin
 
     return {
       status: "ok",
-      data: mapPublicEventData(client, event, agendaRes.data ?? [], speakersRes.data ?? [], organizersRes.data ?? [], announcementsRes.data ?? [], (surveyRes as any).count ?? 0, speakerMap, dressCodeRes.data ?? [], transportSettingsRes.data, transportRoutesRes.data ?? [], transportStopsRes.data ?? []),
+      data: mapPublicEventData(client, event, agendaRes.data ?? [], speakersRes.data ?? [], organizersRes.data ?? [], announcementsRes.data ?? [], (surveyRes as any).count ?? 0, speakerMap, dressCodeRes.data ?? [], transportSettingsRes.data, transportRoutesRes.data ?? [], transportStopsRes.data ?? [], attendeesRes.data ?? [], groupsRes.data ?? [], attendeeGroupsRes.data ?? []),
     };
   } catch (e: any) {
     console.error("[PublicEvent] unexpected error:", e);

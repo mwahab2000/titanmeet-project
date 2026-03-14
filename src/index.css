@@ -136,9 +136,25 @@ html {
   .animate-ear-pulse {
     animation: ear-pulse 1.2s ease-in-out infinite;
   }
+  @keyframes marquee-left {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
+  @keyframes marquee-right {
+    0% { transform: translateX(-50%); }
+    100% { transform: translateX(0); }
+  }
+  .animate-marquee-left {
+    animation: marquee-left linear infinite;
+  }
+  .animate-marquee-right {
+    animation: marquee-right linear infinite;
+  }
   @media (prefers-reduced-motion: reduce) {
     .animate-road-flow { animation: none; }
     .animate-ear-pulse { animation: none; }
+    .animate-marquee-left { animation: none; }
+    .animate-marquee-right { animation: none; }
   }
   .gradient-titan {
     background: linear-gradient(135deg, hsl(var(--titan-green)), hsl(var(--titan-blue)));

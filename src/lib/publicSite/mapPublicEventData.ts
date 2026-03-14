@@ -20,6 +20,9 @@ export function mapPublicEventData(
   transportSettings: any | null = null,
   transportRoutes: any[] = [],
   transportStops: any[] = [],
+  attendeesRaw: any[] = [],
+  groupsRaw: any[] = [],
+  attendeeGroupsRaw: any[] = [],
 ): PublicEventData {
   const heroImages = resolveImages("event-assets", event.hero_images);
   const venueImages = resolveImages("event-assets", event.venue_images);
@@ -120,5 +123,45 @@ export function mapPublicEventData(
       })),
     },
     surveys: { hasSurvey: surveyCount > 0 },
+    attendees: (() => {
+      const validAttendees = attendeesRaw.filter((a: any) => a.name?.trim());
+      const hasGroups = groupsRaw.length > 0;
+      if (!hasGroups) {
+        return {
+          hasGroups: false,
+          groups: validAttendees.length > 0
+            ? [{ name: "", names: validAttendees.map((a: any) => a.name.trim()) }]
+            : [],
+        };
+      }
+      // Build attendee-to-groups map
+      const attendeeToGroups = new Map<string, string[]>();
+      attendeeGroupsRaw.forEach((ag: any) => {
+        if (!attendeeToGroups.has(ag.attendee_id)) attendeeToGroups.set(ag.attendee_id, []);
+        attendeeToGroups.get(ag.attendee_id)!.push(ag.group_id);
+      });
+      // Build group-to-names
+      const groupNames = new Map<string, string[]>();
+      groupsRaw.forEach((g: any) => groupNames.set(g.id, []));
+      validAttendees.forEach((a: any) => {
+        const gids = attendeeToGroups.get(a.id) ?? [];
+        if (gids.length === 0) {
+          // ungrouped - we'll add to a special group
+          if (!groupNames.has("__ungrouped__")) groupNames.set("__ungrouped__", []);
+          groupNames.get("__ungrouped__")!.push(a.name.trim());
+        } else {
+          gids.forEach((gid) => {
+            if (groupNames.has(gid)) groupNames.get(gid)!.push(a.name.trim());
+          });
+        }
+      });
+      const groups = groupsRaw
+        .filter((g: any) => (groupNames.get(g.id) ?? []).length > 0)
+        .map((g: any) => ({ name: g.name, names: groupNames.get(g.id)! }));
+      // Add ungrouped if any
+      const ungrouped = groupNames.get("__ungrouped__");
+      if (ungrouped?.length) groups.push({ name: "Other", names: ungrouped });
+      return { hasGroups: true, groups };
+    })(),
   };
 }
