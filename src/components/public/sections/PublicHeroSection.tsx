@@ -4,6 +4,7 @@ import { Calendar, MapPin, ArrowDown } from "lucide-react";
 import { format } from "date-fns";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import { HeroAttendeeMarquee } from "./HeroAttendeeMarquee";
 
 const AnimatedShaderBackground = lazy(() => import("@/components/ui/animated-shader-background"));
 
