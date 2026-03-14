@@ -16,6 +16,7 @@ import { PublicGallerySection } from "../sections/PublicGallerySection";
 import { PublicOrganizersSection } from "../sections/PublicOrganizersSection";
 import { PublicDressCodeSection } from "../sections/PublicDressCodeSection";
 import { PublicTransportSection } from "../sections/PublicTransportSection";
+import { PublicAttendeesSection } from "../sections/PublicAttendeesSection";
 
 interface Props { data: PublicEventData; }
 
