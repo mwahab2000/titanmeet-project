@@ -176,6 +176,7 @@ export const ThemePublicElegant: React.FC<Props> = ({ data }) => {
       <PublicVenueSection data={data} className="elg-section" />
       <PublicGallerySection data={data} className="elg-section" />
       <PublicOrganizersSection data={data} className="elg-section" />
+      <PublicAttendeesSection data={data} className="elg-section" />
       <PublicDressCodeSection data={data} className="elg-section" />
       <PublicTransportSection data={data} className="elg-section" />
       <PublicFooterSection data={data} className="elg-footer" />

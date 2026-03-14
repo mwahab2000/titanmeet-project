@@ -128,6 +128,7 @@ export const ThemePublicNatureWellness: React.FC<Props> = ({ data }) => {
         <PublicGallerySection data={data} />
       </div>
       <PublicOrganizersSection data={data} />
+      <PublicAttendeesSection data={data} />
       <div className="nw-alt">
         <PublicDressCodeSection data={data} />
       </div>

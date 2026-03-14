@@ -145,6 +145,7 @@ export const ThemePublicMidnightGala: React.FC<Props> = ({ data }) => {
         <PublicGallerySection data={data} />
       </div>
       <PublicOrganizersSection data={data} />
+      <PublicAttendeesSection data={data} />
       <div className="mg-alt-bg">
         <PublicDressCodeSection data={data} />
       </div>
