@@ -15,7 +15,7 @@ import { MuiCorporateOrganizers } from "./mui/MuiCorporateOrganizers";
 import { MuiCorporateDressCode } from "./mui/MuiCorporateDressCode";
 import { MuiCorporateTransport } from "./mui/MuiCorporateTransport";
 import { MuiCorporateFooter } from "./mui/MuiCorporateFooter";
-import { PublicAttendeesSection } from "../sections/PublicAttendeesSection";
+
 
 interface Props { data: PublicEventData; }
 
