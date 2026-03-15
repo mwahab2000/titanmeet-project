@@ -371,6 +371,7 @@ const CommunicationsSection = () => {
           <TabsTrigger value="invitations">Invitations & RSVP</TabsTrigger>
           <TabsTrigger value="messages">Messages & Updates</TabsTrigger>
           <TabsTrigger value="log">Message Log</TabsTrigger>
+          <TabsTrigger value="inbox" className="gap-1"><Inbox className="h-3.5 w-3.5" /> Inbox</TabsTrigger>
         </TabsList>
 
         {/* ═══ TAB 1: Invitations & RSVP ═══ */}
