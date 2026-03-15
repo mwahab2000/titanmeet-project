@@ -870,6 +870,79 @@ export type Database = {
           },
         ]
       }
+      inbound_messages: {
+        Row: {
+          attendee_id: string | null
+          body: string
+          channel: string
+          client_id: string | null
+          event_id: string | null
+          from_phone: string
+          id: string
+          provider: string
+          provider_message_id: string | null
+          raw_payload: Json | null
+          received_at: string
+          resolution_reason: string | null
+          resolved_status: string
+          to_phone: string
+        }
+        Insert: {
+          attendee_id?: string | null
+          body: string
+          channel?: string
+          client_id?: string | null
+          event_id?: string | null
+          from_phone: string
+          id?: string
+          provider?: string
+          provider_message_id?: string | null
+          raw_payload?: Json | null
+          received_at?: string
+          resolution_reason?: string | null
+          resolved_status?: string
+          to_phone: string
+        }
+        Update: {
+          attendee_id?: string | null
+          body?: string
+          channel?: string
+          client_id?: string | null
+          event_id?: string | null
+          from_phone?: string
+          id?: string
+          provider?: string
+          provider_message_id?: string | null
+          raw_payload?: Json | null
+          received_at?: string
+          resolution_reason?: string | null
+          resolved_status?: string
+          to_phone?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inbound_messages_attendee_id_fkey"
+            columns: ["attendee_id"]
+            isOneToOne: false
+            referencedRelation: "attendees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inbound_messages_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inbound_messages_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       message_logs: {
         Row: {
           attendee_id: string
