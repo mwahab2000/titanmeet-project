@@ -298,7 +298,18 @@ const Dashboard = () => {
           <UsageMeters compact />
         </motion.div>
 
-        {/* AI Insights full width */}
+        {/* Communications Performance */}
+        <motion.div
+          className="md:col-span-2"
+          variants={cellVariants}
+          initial="hidden"
+          animate="visible"
+          custom={cellIndex++}
+        >
+          <GlobalCommsWidget />
+        </motion.div>
+
+        {/* AI Insights */}
         <motion.div
           className="md:col-span-4"
           variants={cellVariants}
