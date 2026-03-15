@@ -4,6 +4,7 @@ import { Calendar, Users, TrendingUp, Clock, AlertTriangle, ArrowUpRight, Zap, F
 import { motion } from "framer-motion";
 import AIInsightsCard from "@/components/ai/AIInsightsCard";
 import UsageMeters from "@/components/billing/UsageMeters";
+import { GlobalCommsWidget } from "@/components/dashboard/GlobalCommsWidget";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
@@ -297,7 +298,18 @@ const Dashboard = () => {
           <UsageMeters compact />
         </motion.div>
 
-        {/* AI Insights full width */}
+        {/* Communications Performance */}
+        <motion.div
+          className="md:col-span-2"
+          variants={cellVariants}
+          initial="hidden"
+          animate="visible"
+          custom={cellIndex++}
+        >
+          <GlobalCommsWidget />
+        </motion.div>
+
+        {/* AI Insights */}
         <motion.div
           className="md:col-span-4"
           variants={cellVariants}
