@@ -16,8 +16,9 @@ import { toast } from "sonner";
 import {
   Send, Users, User, Sparkles, Loader2, Clock, ChevronDown,
   Mail, CheckCircle2, Eye, MessageSquare, Link2, UserPlus,
-  BarChart3,
+  BarChart3, Inbox,
 } from "lucide-react";
+import { InboxTab } from "@/components/comms/InboxTab";
 import { format } from "date-fns";
 import { callAi, type CommsDraftResult, type BestSendTimeResult } from "@/lib/ai-api";
 import { SectionHint } from "@/components/ui/section-hint";
