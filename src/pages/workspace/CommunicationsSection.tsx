@@ -16,8 +16,9 @@ import { toast } from "sonner";
 import {
   Send, Users, User, Sparkles, Loader2, Clock, ChevronDown,
   Mail, CheckCircle2, Eye, MessageSquare, Link2, UserPlus,
-  BarChart3,
+  BarChart3, Inbox,
 } from "lucide-react";
+import { InboxTab } from "@/components/comms/InboxTab";
 import { format } from "date-fns";
 import { callAi, type CommsDraftResult, type BestSendTimeResult } from "@/lib/ai-api";
 import { SectionHint } from "@/components/ui/section-hint";
@@ -370,6 +371,7 @@ const CommunicationsSection = () => {
           <TabsTrigger value="invitations">Invitations & RSVP</TabsTrigger>
           <TabsTrigger value="messages">Messages & Updates</TabsTrigger>
           <TabsTrigger value="log">Message Log</TabsTrigger>
+          <TabsTrigger value="inbox" className="gap-1"><Inbox className="h-3.5 w-3.5" /> Inbox</TabsTrigger>
         </TabsList>
 
         {/* ═══ TAB 1: Invitations & RSVP ═══ */}
@@ -661,6 +663,11 @@ const CommunicationsSection = () => {
               </Table>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* ═══ TAB 4: Inbox ═══ */}
+        <TabsContent value="inbox" className="space-y-4">
+          <InboxTab />
         </TabsContent>
       </Tabs>
     </div>

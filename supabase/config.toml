@@ -80,3 +80,6 @@ verify_jwt = false
 
 [functions.voice-session-confirm-actions]
 verify_jwt = false
+
+[functions.twilio-whatsapp-inbound]
+verify_jwt = false
