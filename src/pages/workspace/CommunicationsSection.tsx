@@ -664,6 +664,11 @@ const CommunicationsSection = () => {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* ═══ TAB 4: Inbox ═══ */}
+        <TabsContent value="inbox" className="space-y-4">
+          <InboxTab />
+        </TabsContent>
       </Tabs>
     </div>
   );
