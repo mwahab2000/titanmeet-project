@@ -48,7 +48,7 @@ export const LandingFooter = () => (
             <img src={logo} alt="TitanMeet" className="h-8 w-8" />
             <span className="font-display text-lg font-bold gradient-titan-text">TitanMeet</span>
           </div>
-          <p className="text-sm text-[hsl(var(--landing-fg-muted))]">Voice-first event management for HR teams worldwide.</p>
+          <p className="text-sm text-[hsl(var(--landing-fg-muted))]">Event management for HR teams worldwide.</p>
         </div>
         {[
           { title: "Product", links: ["Features", "Roadmap", "Templates", "API"] },

@@ -6,13 +6,10 @@ const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 // ── Startup guard ──────────────────────────────────────────────
-const EXPECTED_PROJECT_HOST = "qclaciklevavttipztrv.supabase.co";
-if (!SUPABASE_URL || !new URL(SUPABASE_URL).host.includes(EXPECTED_PROJECT_HOST)) {
+if (!SUPABASE_URL) {
   console.error(
-    `[TitanMeet] ⚠️  SUPABASE PROJECT MISMATCH!\n` +
-    `  Expected: https://${EXPECTED_PROJECT_HOST}\n` +
-    `  Got:      ${SUPABASE_URL || "(empty)"}\n` +
-    `  Set VITE_SUPABASE_URL correctly in .env`
+    `[TitanMeet] ⚠️  SUPABASE_URL is not set!\n` +
+    `  Set VITE_SUPABASE_URL in your .env file.`
   );
 }
 
