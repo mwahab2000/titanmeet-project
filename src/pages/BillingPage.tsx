@@ -541,7 +541,7 @@ const BillingPage = () => {
       <Card>
         <CardHeader>
           <CardTitle className="font-display">Available Plans</CardTitle>
-          <CardDescription>Choose a plan · {VOICE_MINUTES_NOTE}</CardDescription>
+          <CardDescription>Choose a plan · Secure payments via Paddle.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="grid gap-4 md:grid-cols-3">
