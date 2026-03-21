@@ -1,5 +1,4 @@
-# Optional: Google Cloud Build config
-# Trigger via: gcloud builds submit --config deploy/cloudbuild.yaml .
+// Update cloudbuild.yaml to pass all Paddle build args
 steps:
   - name: 'gcr.io/cloud-builders/docker'
     args:
@@ -16,6 +15,22 @@ steps:
       - 'VITE_SUPABASE_PROJECT_ID=$_VITE_SUPABASE_PROJECT_ID'
       - '--build-arg'
       - 'VITE_PUBLIC_ROOT_DOMAIN=$_VITE_PUBLIC_ROOT_DOMAIN'
+      - '--build-arg'
+      - 'VITE_PADDLE_CLIENT_TOKEN=$_VITE_PADDLE_CLIENT_TOKEN'
+      - '--build-arg'
+      - 'VITE_PADDLE_ENV=$_VITE_PADDLE_ENV'
+      - '--build-arg'
+      - 'VITE_PADDLE_PRICE_STARTER_MONTHLY=$_VITE_PADDLE_PRICE_STARTER_MONTHLY'
+      - '--build-arg'
+      - 'VITE_PADDLE_PRICE_STARTER_ANNUAL=$_VITE_PADDLE_PRICE_STARTER_ANNUAL'
+      - '--build-arg'
+      - 'VITE_PADDLE_PRICE_PROFESSIONAL_MONTHLY=$_VITE_PADDLE_PRICE_PROFESSIONAL_MONTHLY'
+      - '--build-arg'
+      - 'VITE_PADDLE_PRICE_PROFESSIONAL_ANNUAL=$_VITE_PADDLE_PRICE_PROFESSIONAL_ANNUAL'
+      - '--build-arg'
+      - 'VITE_PADDLE_PRICE_ENTERPRISE_MONTHLY=$_VITE_PADDLE_PRICE_ENTERPRISE_MONTHLY'
+      - '--build-arg'
+      - 'VITE_PADDLE_PRICE_ENTERPRISE_ANNUAL=$_VITE_PADDLE_PRICE_ENTERPRISE_ANNUAL'
       - '.'
 
   - name: 'gcr.io/cloud-builders/docker'
@@ -43,6 +58,14 @@ substitutions:
   _VITE_SUPABASE_PUBLISHABLE_KEY: ''
   _VITE_SUPABASE_PROJECT_ID: ''
   _VITE_PUBLIC_ROOT_DOMAIN: titanmeet.com
+  _VITE_PADDLE_CLIENT_TOKEN: ''
+  _VITE_PADDLE_ENV: sandbox
+  _VITE_PADDLE_PRICE_STARTER_MONTHLY: ''
+  _VITE_PADDLE_PRICE_STARTER_ANNUAL: ''
+  _VITE_PADDLE_PRICE_PROFESSIONAL_MONTHLY: ''
+  _VITE_PADDLE_PRICE_PROFESSIONAL_ANNUAL: ''
+  _VITE_PADDLE_PRICE_ENTERPRISE_MONTHLY: ''
+  _VITE_PADDLE_PRICE_ENTERPRISE_ANNUAL: ''
 
 images:
   - 'gcr.io/$PROJECT_ID/titanmeet:$SHORT_SHA'
