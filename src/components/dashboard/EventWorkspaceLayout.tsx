@@ -12,8 +12,6 @@ import { toast } from "sonner";
 import { PUBLISH_CHECKS, getPublishStatus } from "@/lib/publishChecks";
 import { SaveAsTemplateDialog } from "@/components/templates/SaveAsTemplateDialog";
 import AiChatWidget from "@/components/ai/AiChatWidget";
-import VoiceStudioSheet from "@/components/voice/VoiceStudioSheet";
-import VoiceEarIcon from "@/components/voice/VoiceEarIcon";
 
 const sectionLabels: Record<string, string> = {
   hero: "Hero", info: "Event Info", agenda: "Agenda", organizers: "Organizers", speakers: "Speakers",
@@ -96,43 +94,25 @@ const PublishReadinessStrip = () => {
   );
 };
 
-
-
-
 export const EventWorkspaceLayout: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const [voiceOpen, setVoiceOpen] = useState(false);
-
-  // Keyboard shortcut: Ctrl/Cmd + Shift + V
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "V") {
-        e.preventDefault();
-        setVoiceOpen((v) => !v);
-      }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, []);
 
   if (!id) return <div>No event ID</div>;
 
   return (
     <EventWorkspaceProvider eventId={id}>
       <div className="flex flex-col h-full">
-        <WorkspaceHeaderWithVoice onOpenVoice={() => setVoiceOpen(true)} />
+        <WorkspaceHeader />
         <div className="flex-1 overflow-auto p-6">
           <Outlet />
         </div>
         <AiChatWidget />
-        <VoiceStudioSheet open={voiceOpen} onOpenChange={setVoiceOpen} />
       </div>
     </EventWorkspaceProvider>
   );
 };
 
-/** Wrapper to inject voice button into the header */
-const WorkspaceHeaderWithVoice: React.FC<{ onOpenVoice: () => void }> = ({ onOpenVoice }) => {
+const WorkspaceHeader: React.FC = () => {
   const { event, saveStatus, manualSave, setEvent, isArchived } = useEventWorkspace();
   const { user } = useAuth();
   const location = useLocation();
@@ -194,15 +174,6 @@ const WorkspaceHeaderWithVoice: React.FC<{ onOpenVoice: () => void }> = ({ onOpe
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onOpenVoice}
-              className="gap-1.5 bg-gradient-to-r from-[hsl(260,70%,55%)] to-[hsl(230,70%,55%)] text-primary-foreground border-0 hover:opacity-90"
-              title="Voice Studio (Ctrl+Shift+V)"
-            >
-              <VoiceEarIcon size={16} /> Voice Studio
-            </Button>
             <Button variant="outline" size="sm" onClick={() => setTemplateDialogOpen(true)}>
               <Copy className="h-4 w-4 mr-1" /> Save as Template
             </Button>

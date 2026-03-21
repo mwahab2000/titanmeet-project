@@ -1,13 +1,10 @@
-import { useState } from "react";
-import { ArrowRight, ExternalLink } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { DEMO_SITE_URL } from "@/config/pricing";
-import { VoiceStudioModal } from "@/components/landing/VoiceStudioModal";
+import { Link } from "react-router-dom";
 
 export const LandingHero = () => {
-  const [showVoiceModal, setShowVoiceModal] = useState(false);
-
   return (
     <section className="relative flex min-h-screen items-center pt-16 overflow-hidden">
       {/* Animated gradient mesh */}
@@ -38,7 +35,7 @@ export const LandingHero = () => {
             className="mb-6 inline-flex items-center gap-2 rounded-full border border-[hsl(var(--landing-border)/0.3)] bg-[hsl(var(--landing-fg)/0.05)] px-4 py-1.5 text-sm text-[hsl(var(--landing-fg-muted))]"
           >
             <span className="h-2 w-2 rounded-full bg-[hsl(var(--titan-green))]" />
-            Voice-first event management
+            Event management for HR teams
           </motion.div>
           <motion.h1
             initial={{ opacity: 0, y: 30 }}
@@ -46,7 +43,7 @@ export const LandingHero = () => {
             transition={{ duration: 0.7, delay: 0.15 }}
             className="mb-6 font-display text-5xl font-bold leading-tight tracking-tight md:text-7xl"
           >
-            Speak. Build.{" "}
+            Create. Invite.{" "}
             <span className="gradient-titan-text">Publish.</span>
           </motion.h1>
           <motion.p
@@ -55,7 +52,7 @@ export const LandingHero = () => {
             transition={{ duration: 0.6, delay: 0.3 }}
             className="mb-8 text-lg text-[hsl(var(--landing-fg-muted))] md:text-xl max-w-2xl mx-auto"
           >
-            The voice-first platform for HR teams that need polished event sites fast. Manage workspaces, RSVPs, surveys, and media from one dashboard — or just talk to it.
+            The all-in-one platform for HR teams that need polished event sites fast. Manage workspaces, RSVPs, surveys, and media from one dashboard.
           </motion.p>
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -72,9 +69,9 @@ export const LandingHero = () => {
               size="lg"
               variant="outline"
               className="border-[hsl(var(--landing-border)/0.4)] bg-transparent text-[hsl(var(--landing-fg))] hover:bg-[hsl(var(--landing-fg)/0.1)] px-8 text-base"
-              onClick={() => setShowVoiceModal(true)}
+              asChild
             >
-              See Voice Studio <ArrowRight className="ml-2 h-4 w-4" />
+              <Link to="/login?tab=signup">Get Started</Link>
             </Button>
           </motion.div>
         </div>
@@ -132,7 +129,6 @@ export const LandingHero = () => {
                     </motion.div>
                   ))}
                 </div>
-                {/* Animated chart bars */}
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
@@ -154,8 +150,6 @@ export const LandingHero = () => {
           </div>
         </motion.div>
       </div>
-
-      <VoiceStudioModal open={showVoiceModal} onOpenChange={setShowVoiceModal} />
     </section>
   );
 };
