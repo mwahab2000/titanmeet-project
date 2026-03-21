@@ -87,7 +87,7 @@ Edge functions deploy automatically via Lovable.
 1. Create Products and Price IDs in Paddle dashboard for each tier
 2. Set price IDs as frontend env vars: `VITE_PADDLE_PRICE_STARTER_MONTHLY`, etc.
 3. Set `PADDLE_API_KEY` and `PADDLE_WEBHOOK_SECRET` as Supabase secrets
-4. Configure webhook URL: `https://qclaciklevavttipztrv.supabase.co/functions/v1/paddle-webhook`
+4. Configure webhook URL: `https://<YOUR_PROJECT_ID>.supabase.co/functions/v1/paddle-webhook`
 
 ---
 
