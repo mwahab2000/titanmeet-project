@@ -7,16 +7,21 @@
 - Paddle account with API credentials
 - Custom domain (optional, for `/{clientSlug}/{eventSlug}` routing)
 
+## Setup
+
+1. Copy `.env.example` to `.env` and fill in your values
+2. **Never** commit `.env` to the repository
+
 ---
 
 ## 1. Environment & Secrets
 
-### Frontend (auto-populated by Lovable)
+### Frontend (set in `.env`)
 | Variable | Required | Notes |
 |---|---|---|
-| `VITE_SUPABASE_URL` | ✅ | Auto-set |
-| `VITE_SUPABASE_PUBLISHABLE_KEY` | ✅ | Auto-set |
-| `VITE_SUPABASE_PROJECT_ID` | ✅ | Auto-set |
+| `VITE_SUPABASE_URL` | ✅ | Your Supabase project URL |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | ✅ | Your Supabase anon key |
+| `VITE_SUPABASE_PROJECT_ID` | ✅ | Your Supabase project ID |
 | `VITE_PUBLIC_ROOT_DOMAIN` | ✅ | Root domain for subdomain routing (e.g. `titanmeet.com`) |
 | `VITE_PADDLE_CLIENT_TOKEN` | ✅ | Paddle client-side token |
 | `VITE_PADDLE_ENV` | ✅ | `sandbox` or `production` |
@@ -32,6 +37,7 @@
 | `SEND_EMAIL_HOOK_SECRET` | ✅ | Supabase → Settings → Edge Functions → Secrets |
 | `PADDLE_API_KEY` | ✅ | Server-side API key from Paddle dashboard |
 | `PADDLE_WEBHOOK_SECRET` | ✅ | Webhook secret for signature verification |
+| `OPENAI_API_KEY` | ✅ | For AI assistant edge function |
 | `TWILIO_ACCOUNT_SID` | ❌ MVP | Twilio Account SID (starts with `AC…`) |
 | `TWILIO_AUTH_TOKEN` | ❌ MVP | Twilio Auth Token |
 | `TWILIO_WHATSAPP_FROM` | ❌ MVP | WhatsApp sender, e.g. `whatsapp:+14155238886` |
