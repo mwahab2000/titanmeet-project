@@ -6,10 +6,9 @@
 
 ## 1. Supabase Project
 
-| Check | Expected |
-|-------|----------|
-| Project URL | `https://qclaciklevavttipztrv.supabase.co` |
-| Dashboard | [supabase.com/dashboard/project/qclaciklevavttipztrv](https://supabase.com/dashboard/project/qclaciklevavttipztrv) |
+Verify your project is correctly configured:
+- Project URL matches `VITE_SUPABASE_URL` in your `.env`
+- Dashboard accessible at `https://supabase.com/dashboard/project/<YOUR_PROJECT_ID>`
 
 ---
 
@@ -19,8 +18,8 @@
 
 | Secret | Format / Notes |
 |--------|---------------|
-| `GMAIL_USER` | Full Google Workspace address, e.g. `events@titanmeet.com` |
-| `GMAIL_APP_PASSWORD` | 16-char App Password (not the account password). Requires 2-Step Verification enabled on the Google account. Generate at *Google Account → Security → App Passwords*. |
+| `GMAIL_USER` | Full Google Workspace address, e.g. `events@yourdomain.com` |
+| `GMAIL_APP_PASSWORD` | 16-char App Password (not the account password). Requires 2-Step Verification enabled. Generate at *Google Account → Security → App Passwords*. |
 
 ### WhatsApp (Twilio)
 
@@ -35,8 +34,6 @@
 ```
 Supabase Dashboard → Settings → Edge Functions → Secrets
 ```
-
-Or visit: <https://supabase.com/dashboard/project/qclaciklevavttipztrv/settings/functions>
 
 ---
 
@@ -56,21 +53,19 @@ Or visit: <https://supabase.com/dashboard/project/qclaciklevavttipztrv/settings/
 Supabase Dashboard → Edge Functions
 ```
 
-Or visit: <https://supabase.com/dashboard/project/qclaciklevavttipztrv/functions>
-
 Each function should show **Active** status with a recent deployment timestamp.
 
 ---
 
 ## 4. Frontend Environment
 
-Verify these are set in the `.env` file (auto-populated by Lovable):
+Verify these are set in the `.env` file:
 
 | Variable | Expected |
 |----------|----------|
-| `VITE_SUPABASE_URL` | `https://qclaciklevavttipztrv.supabase.co` |
-| `VITE_SUPABASE_PUBLISHABLE_KEY` | Starts with `eyJ…` (anon key) |
-| `VITE_SUPABASE_PROJECT_ID` | `qclaciklevavttipztrv` |
+| `VITE_SUPABASE_URL` | Your Supabase project URL |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | Your Supabase anon key |
+| `VITE_SUPABASE_PROJECT_ID` | Your Supabase project ID |
 
 Quick browser console check (on the running app):
 
@@ -114,8 +109,6 @@ console.log(import.meta.env.VITE_SUPABASE_URL);
 Edge Functions → send-event-invitations → Logs
 ```
 
-Direct link: <https://supabase.com/dashboard/project/qclaciklevavttipztrv/functions/send-event-invitations/logs>
-
 ### What to look for
 
 - `correlationId` — matches the value shown in the Debug results panel.
@@ -129,7 +122,6 @@ Direct link: <https://supabase.com/dashboard/project/qclaciklevavttipztrv/functi
 ## 8. Inspect `event_invites` Table
 
 ```sql
--- All invites for an event
 SELECT id, attendee_id, status, token,
        sent_via_email, email_sent_at,
        sent_via_whatsapp, whatsapp_sent_at,
@@ -139,22 +131,11 @@ WHERE event_id = '<EVENT_UUID>'
 ORDER BY created_at DESC;
 ```
 
-Run in: <https://supabase.com/dashboard/project/qclaciklevavttipztrv/sql/new>
-
-| Column | What it tells you |
-|--------|-------------------|
-| `status` | `created` → not sent, `sent` → delivered, `opened` → link visited |
-| `sent_via_email` / `sent_via_whatsapp` | Which channels were used |
-| `email_sent_at` / `whatsapp_sent_at` | Exact delivery timestamps |
-| `opened_at` | When the attendee opened the invite link |
-| `rsvp_at` | When they confirmed |
-
 ---
 
 ## 9. Inspect `message_logs` Table
 
 ```sql
--- Recent messages for an event
 SELECT id, attendee_id, channel, to_address,
        provider, status, error,
        provider_message_id, created_at
@@ -163,13 +144,6 @@ WHERE event_id = '<EVENT_UUID>'
 ORDER BY created_at DESC
 LIMIT 50;
 ```
-
-| Column | What it tells you |
-|--------|-------------------|
-| `channel` | `email` or `whatsapp` |
-| `status` | `sent`, `failed`, `queued` |
-| `error` | Failure reason (Twilio error code, SMTP rejection, etc.) |
-| `provider_message_id` | Twilio SID — use to look up delivery status in Twilio Console |
 
 ---
 
