@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { motion, useInView } from "framer-motion";
 import { Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { PLANS, PLAN_ORDER, VOICE_MINUTES_NOTE } from "@/config/pricing";
+import { PLANS, PLAN_ORDER } from "@/config/pricing";
 
 export const LandingPricing = () => {
   const ref = useRef(null);
@@ -88,7 +88,7 @@ export const LandingPricing = () => {
           transition={{ delay: 0.7 }}
           className="text-center text-sm text-[hsl(var(--landing-fg-muted)/0.6)] mt-8 max-w-2xl mx-auto"
         >
-          {VOICE_MINUTES_NOTE}
+          Secure payments via Paddle. Cancel anytime.
         </motion.p>
       </div>
     </section>

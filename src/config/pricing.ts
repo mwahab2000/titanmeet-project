@@ -21,7 +21,6 @@ export interface PlanConfig {
   limits: {
     clients: number;
     events: number;
-    voiceMinutes: number;
     seats: number;
   };
   features: PlanFeature[];
@@ -40,13 +39,11 @@ export const PLANS: Record<string, PlanConfig> = {
     limits: {
       clients: 3,
       events: 20,
-      voiceMinutes: 30,
       seats: 1,
     },
     features: [
       { text: '3 clients' },
       { text: '20 events / month' },
-      { text: 'Voice Studio — 30 min / month', highlight: true },
       { text: 'Invitations (WhatsApp + email) + tracking' },
       { text: 'Surveys + stats + Excel export' },
       { text: '1 admin seat' },
@@ -63,13 +60,11 @@ export const PLANS: Record<string, PlanConfig> = {
     limits: {
       clients: 20,
       events: Infinity,
-      voiceMinutes: 250,
       seats: 5,
     },
     features: [
       { text: '20 clients' },
       { text: 'Unlimited events' },
-      { text: 'Voice Studio — 250 min / month', highlight: true },
       { text: 'Templates + readiness automation' },
       { text: '5 admin seats' },
     ],
@@ -85,13 +80,11 @@ export const PLANS: Record<string, PlanConfig> = {
     limits: {
       clients: Infinity,
       events: Infinity,
-      voiceMinutes: 1200,
       seats: Infinity,
     },
     features: [
       { text: 'Unlimited clients' },
       { text: 'Unlimited events' },
-      { text: 'Voice Studio — 1 200 min / month', highlight: true },
       { text: 'Governance + audit exports + SLA' },
       { text: 'Unlimited admin seats' },
     ],
@@ -116,9 +109,6 @@ export function getPlanFeatures(planId: string): string[] {
   if (!plan) return [];
   return plan.features.map((f) => f.text);
 }
-
-/** Overage footnote shown on every pricing surface */
-export const VOICE_MINUTES_NOTE = 'Voice minutes included. Overage packs available.';
 
 /** Demo site URL — single constant for all marketing CTAs */
 export const DEMO_SITE_URL = 'https://quantumdynamics.titanmeet.com/board-meeting2026';

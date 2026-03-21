@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { PLANS, PLAN_ORDER, formatLimit, VOICE_MINUTES_NOTE } from "@/config/pricing";
+import { PLANS, PLAN_ORDER, formatLimit } from "@/config/pricing";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
@@ -267,7 +267,7 @@ const BillingPage = () => {
                       </li>
                     ))}
                   </ul>
-                  <p className="text-[11px] text-muted-foreground">{VOICE_MINUTES_NOTE}</p>
+                  <p className="text-[11px] text-muted-foreground">Secure payments via Paddle.</p>
                   <PaddleCheckoutButton
                     priceId={plan.paddlePriceIdMonthly}
                     planId={planId}
@@ -541,7 +541,7 @@ const BillingPage = () => {
       <Card>
         <CardHeader>
           <CardTitle className="font-display">Available Plans</CardTitle>
-          <CardDescription>Choose a plan · {VOICE_MINUTES_NOTE}</CardDescription>
+          <CardDescription>Choose a plan · Secure payments via Paddle.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="grid gap-4 md:grid-cols-3">

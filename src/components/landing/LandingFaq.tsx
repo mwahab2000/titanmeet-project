@@ -5,10 +5,10 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 const faqs = [
   { q: 'What counts as an "active event"?', a: "An active event is any site currently published and accepting RSVPs. Drafts and past archived events do not count against your limit." },
   { q: "Can I manage multiple clients?", a: "Yes! Our multi-tenant architecture is built specifically for agencies and HR teams. You can create isolated workspaces for different clients under a single login." },
-  { q: "What is Voice Studio?", a: "Voice Studio lets you build events by speaking naturally. Describe your agenda, speakers, and venue — TitanMeet turns your words into structured actions you confirm before publishing." },
-  { q: "What happens if I use all my voice minutes?", a: "Voice minutes are included with every plan. If you need more, overage packs are available — no surprise charges." },
   { q: "Are RSVPs and surveys unlimited?", a: "Yes, we do not charge per RSVP or survey response. Scale your guest list as much as you need without extra costs." },
   { q: "Can I export my data?", a: "Absolutely. You can export guest lists, survey results, and analytics as Excel or PDF at any time." },
+  { q: "What payment methods do you accept?", a: "We accept all major credit/debit cards through Paddle, our payment processor. Your billing is handled securely with automatic tax compliance." },
+  { q: "Can I cancel anytime?", a: "Yes. You can cancel your subscription at any time. Your access continues until the end of the current billing period." },
 ];
 
 export const LandingFaq = () => {
