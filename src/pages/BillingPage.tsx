@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { PLANS, PLAN_ORDER, formatLimit, VOICE_MINUTES_NOTE } from "@/config/pricing";
+import { PLANS, PLAN_ORDER, formatLimit } from "@/config/pricing";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";

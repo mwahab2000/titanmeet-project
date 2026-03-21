@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { motion, useInView } from "framer-motion";
 import { Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { PLANS, PLAN_ORDER, VOICE_MINUTES_NOTE } from "@/config/pricing";
+import { PLANS, PLAN_ORDER } from "@/config/pricing";
 
 export const LandingPricing = () => {
   const ref = useRef(null);

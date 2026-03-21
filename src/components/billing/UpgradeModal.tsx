@@ -13,7 +13,7 @@ import { useUpgradeModal, type UpgradeTrigger } from "@/hooks/useUpgradeModal";
 import { usePlanLimits } from "@/hooks/usePlanLimits";
 import PaddleCheckoutButton from "@/components/billing/PaddleCheckoutButton";
 import { useCallback } from "react";
-import { PLANS, PLAN_ORDER, VOICE_MINUTES_NOTE, type PlanId } from "@/config/pricing";
+import { PLANS, PLAN_ORDER, type PlanId } from "@/config/pricing";
 
 const HEADLINES: Record<UpgradeTrigger, string> = {
   clients: "Need more clients?",
