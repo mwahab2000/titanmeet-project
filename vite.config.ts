@@ -50,7 +50,9 @@ export default defineConfig(({ mode }) => ({
           // Vendor: Animation
           "vendor-framer": ["framer-motion"],
           // Vendor: Utilities
-          "vendor-utils": ["date-fns", "exceljs", "zod"],
+          "vendor-utils": ["date-fns", "zod"],
+          // ExcelJS is large; isolate so it only loads when exporting
+          "vendor-exceljs": ["exceljs"],
         },
       },
     },
