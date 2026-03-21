@@ -1,4 +1,4 @@
-// Update cloudbuild.yaml to pass all Paddle build args
+
 steps:
   - name: 'gcr.io/cloud-builders/docker'
     args:
