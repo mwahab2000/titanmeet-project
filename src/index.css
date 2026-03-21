@@ -129,13 +129,6 @@ html {
   .animate-road-flow {
     animation: road-flow 8s linear infinite;
   }
-  @keyframes ear-pulse {
-    0%, 100% { transform: scale(1); filter: drop-shadow(0 0 3px hsl(270 60% 60% / 0.3)); }
-    50% { transform: scale(1.10); filter: drop-shadow(0 0 6px hsl(270 60% 60% / 0.5)); }
-  }
-  .animate-ear-pulse {
-    animation: ear-pulse 1.2s ease-in-out infinite;
-  }
   @keyframes marquee-left {
     0% { transform: translateX(0); }
     100% { transform: translateX(-50%); }
