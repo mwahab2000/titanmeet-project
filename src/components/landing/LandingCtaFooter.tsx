@@ -21,7 +21,7 @@ export const LandingCta = () => {
         >
           <h2 className="mb-4 font-display text-3xl font-bold text-white">Ready to launch your next event?</h2>
           <p className="mb-8 text-white/80">
-            See how a real event site looks — built entirely with Voice Studio.
+            See how a real event site looks — built entirely with TitanMeet.
           </p>
           <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
             <Button size="lg" className="bg-white text-[hsl(222,47%,11%)] hover:bg-white/90 px-8 font-semibold border-0" asChild>
