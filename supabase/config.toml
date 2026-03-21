@@ -9,18 +9,6 @@ verify_jwt = false
 [functions.confirm-rsvp]
 verify_jwt = false
 
-[functions.paypal-create-order]
-verify_jwt = false
-
-[functions.paypal-capture-order]
-verify_jwt = false
-
-[functions.paypal-create-subscription]
-verify_jwt = false
-
-[functions.paypal-webhook]
-verify_jwt = false
-
 [functions.send-notification-email]
 verify_jwt = false
 
@@ -28,9 +16,6 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.send-survey-links]
-verify_jwt = false
-
-[functions.paypal-register-subscription]
 verify_jwt = false
 
 [functions.send-event-invitations]
@@ -64,21 +49,6 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.twilio-status-callback]
-verify_jwt = false
-
-[functions.voice-transcribe]
-verify_jwt = false
-
-[functions.voice-parse-actions]
-verify_jwt = false
-
-[functions.voice-session-get]
-verify_jwt = false
-
-[functions.voice-session-upsert]
-verify_jwt = false
-
-[functions.voice-session-confirm-actions]
 verify_jwt = false
 
 [functions.twilio-whatsapp-inbound]

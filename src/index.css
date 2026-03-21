@@ -145,7 +145,6 @@ html {
   }
   @media (prefers-reduced-motion: reduce) {
     .animate-road-flow { animation: none; }
-    .animate-ear-pulse { animation: none; }
     .animate-marquee-left { animation: none; }
     .animate-marquee-right { animation: none; }
   }

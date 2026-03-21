@@ -150,7 +150,7 @@ export default function UpgradeModal() {
                 You'll be credited for unused days on your current plan.
               </p>
               <p className="text-[11px] text-muted-foreground">
-                {VOICE_MINUTES_NOTE}
+                Secure payments via Paddle.
               </p>
             </div>
           </div>
