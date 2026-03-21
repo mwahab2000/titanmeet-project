@@ -267,7 +267,7 @@ const BillingPage = () => {
                       </li>
                     ))}
                   </ul>
-                  <p className="text-[11px] text-muted-foreground">{VOICE_MINUTES_NOTE}</p>
+                  <p className="text-[11px] text-muted-foreground">Secure payments via Paddle.</p>
                   <PaddleCheckoutButton
                     priceId={plan.paddlePriceIdMonthly}
                     planId={planId}
