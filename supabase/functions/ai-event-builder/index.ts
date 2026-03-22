@@ -2477,6 +2477,223 @@ async function toolRecommendNextActions(
   return { success: true, result: { recommendations, scope: "workspace" } };
 }
 
+// ─── Media Tools ───────────────────────────────────────────
+
+async function toolGenerateEventImage(
+  db: SupabaseClient, userId: string,
+  args: { event_id: string; media_type: string; prompt: string; style?: string; aspect_ratio?: string },
+  correlationId: string,
+): Promise<ToolResult> {
+  const { allowed, event: evt } = await canManageEvent(db, userId, args.event_id);
+  if (!allowed || !evt) return { success: false, result: {}, error: "Event not found or access denied", category: "permission" };
+
+  const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+  if (!OPENAI_API_KEY) return { success: false, result: {}, error: "Image generation not configured", category: "internal" };
+
+  // Build DALL-E prompt
+  const styleHint = args.style ? ` Style: ${args.style}.` : "";
+  const typeHint = args.media_type === "banner" ? " This is a wide banner image." : args.media_type === "hero_image" ? " This is a hero/cover image for an event." : "";
+  const fullPrompt = `${args.prompt}${styleHint}${typeHint} Professional, high quality, suitable for a corporate event platform. Event: "${evt.title}".`;
+
+  // Map aspect ratio to DALL-E size
+  const sizeMap: Record<string, string> = {
+    "16:9": "1792x1024",
+    "1:1": "1024x1024",
+    "9:16": "1024x1792",
+    "4:3": "1792x1024",
+    "3:2": "1792x1024",
+  };
+  const size = sizeMap[args.aspect_ratio || "16:9"] || "1792x1024";
+
+  console.log(`[${correlationId}] Generating image with DALL-E: size=${size}, prompt=${fullPrompt.substring(0, 100)}...`);
+
+  try {
+    const dalleRes = await fetch("https://api.openai.com/v1/images/generations", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${OPENAI_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "dall-e-3",
+        prompt: fullPrompt,
+        n: 1,
+        size,
+        quality: "standard",
+        response_format: "b64_json",
+      }),
+    });
+
+    if (!dalleRes.ok) {
+      const errBody = await dalleRes.text();
+      console.error(`[${correlationId}] DALL-E error: ${dalleRes.status} ${errBody}`);
+      return { success: false, result: {}, error: "Image generation failed. Please try a different description.", category: "external_api" };
+    }
+
+    const dalleData = await dalleRes.json();
+    const b64 = dalleData.data?.[0]?.b64_json;
+    const revisedPrompt = dalleData.data?.[0]?.revised_prompt;
+
+    if (!b64) return { success: false, result: {}, error: "No image was generated", category: "external_api" };
+
+    // Upload to media-library bucket
+    const fileName = `${userId}/${args.event_id}/${args.media_type}_${Date.now()}.png`;
+    const imageBytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+
+    const { error: uploadErr } = await db.storage
+      .from("media-library")
+      .upload(fileName, imageBytes, { contentType: "image/png", upsert: false });
+
+    if (uploadErr) {
+      console.error(`[${correlationId}] Upload error:`, uploadErr);
+      return { success: false, result: {}, error: "Failed to save generated image", category: "internal" };
+    }
+
+    // Get signed URL for preview
+    const { data: urlData } = await db.storage.from("media-library").createSignedUrl(fileName, 3600);
+    const previewUrl = urlData?.signedUrl || "";
+
+    // Save to media_assets table
+    const { data: asset, error: assetErr } = await db.from("media_assets").insert({
+      workspace_id: null,
+      client_id: evt.client_id || null,
+      event_id: args.event_id,
+      media_type: args.media_type,
+      source_type: "ai_generated",
+      title: `AI Generated ${args.media_type} for ${evt.title}`,
+      prompt_used: fullPrompt,
+      style_tags: args.style ? [args.style] : [],
+      file_url: fileName,
+      thumbnail_url: fileName,
+      approved: false,
+      created_by: userId,
+    }).select("id").single();
+
+    if (assetErr) {
+      console.error(`[${correlationId}] Asset save error:`, assetErr);
+    }
+
+    return {
+      success: true,
+      result: {
+        media_asset_id: asset?.id || "",
+        preview_url: previewUrl,
+        media_type: args.media_type,
+        prompt_used: revisedPrompt || fullPrompt,
+        file_path: fileName,
+        message: `Generated ${args.media_type} image. Review the preview and confirm to apply it to your event.`,
+      },
+    };
+  } catch (err) {
+    console.error(`[${correlationId}] Image generation error:`, err);
+    return { success: false, result: {}, error: "Image generation failed unexpectedly", category: "external_api" };
+  }
+}
+
+async function toolSaveMediaToEvent(
+  db: SupabaseClient, userId: string,
+  args: { event_id: string; media_asset_id: string; media_type: string },
+  correlationId: string,
+): Promise<ToolResult> {
+  const { allowed, event: evt } = await canManageEvent(db, userId, args.event_id);
+  if (!allowed || !evt) return { success: false, result: {}, error: "Event not found or access denied", category: "permission" };
+
+  // Get the media asset
+  const { data: asset, error: assetErr } = await db.from("media_assets")
+    .select("*")
+    .eq("id", args.media_asset_id)
+    .single();
+
+  if (assetErr || !asset) return { success: false, result: {}, error: "Media asset not found", category: "validation" };
+
+  // Copy from media-library to event-assets bucket
+  const destPath = `events/${args.event_id}/hero/${Date.now()}-ai-generated.png`;
+
+  // Download from media-library
+  const { data: fileData, error: dlErr } = await db.storage.from("media-library").download(asset.file_url);
+  if (dlErr || !fileData) {
+    console.error(`[${correlationId}] Download error:`, dlErr);
+    return { success: false, result: {}, error: "Failed to retrieve generated image", category: "internal" };
+  }
+
+  // Upload to event-assets
+  const arrayBuffer = await fileData.arrayBuffer();
+  const { error: uploadErr } = await db.storage
+    .from("event-assets")
+    .upload(destPath, new Uint8Array(arrayBuffer), { contentType: "image/png", upsert: false });
+
+  if (uploadErr) {
+    console.error(`[${correlationId}] Event asset upload error:`, uploadErr);
+    return { success: false, result: {}, error: "Failed to save image to event", category: "internal" };
+  }
+
+  // Update event based on media type
+  if (args.media_type === "hero_image") {
+    const currentHero = Array.isArray(evt.hero_images) ? evt.hero_images : [];
+    const updatedHero = [...currentHero, destPath];
+    const { error: updateErr } = await db.from("events").update({ hero_images: updatedHero }).eq("id", args.event_id);
+    if (updateErr) return { success: false, result: {}, error: "Failed to update event hero images", category: "internal" };
+  } else if (args.media_type === "gallery") {
+    const currentGallery = Array.isArray(evt.gallery_images) ? evt.gallery_images : [];
+    const updatedGallery = [...currentGallery, destPath];
+    const { error: updateErr } = await db.from("events").update({ gallery_images: updatedGallery }).eq("id", args.event_id);
+    if (updateErr) return { success: false, result: {}, error: "Failed to update event gallery", category: "internal" };
+  } else if (args.media_type === "banner") {
+    // Store banner as cover_image
+    const { error: updateErr } = await db.from("events").update({ cover_image: destPath }).eq("id", args.event_id);
+    if (updateErr) return { success: false, result: {}, error: "Failed to update event banner", category: "internal" };
+  }
+
+  // Mark asset as approved
+  await db.from("media_assets").update({ approved: true }).eq("id", args.media_asset_id);
+
+  return {
+    success: true,
+    result: {
+      message: `Image saved as ${args.media_type} for "${evt.title}"`,
+      event_id: args.event_id,
+      media_type: args.media_type,
+      file_path: destPath,
+    },
+  };
+}
+
+async function toolListMediaLibrary(
+  db: SupabaseClient, userId: string,
+  args: { event_id?: string; client_id?: string; media_type?: string; source_type?: string; limit?: number },
+): Promise<ToolResult> {
+  const isPrivileged = await isAdminOrOwnerRole(db, userId);
+  let query = db.from("media_assets")
+    .select("id, media_type, source_type, title, prompt_used, style_tags, file_url, approved, created_at")
+    .order("created_at", { ascending: false })
+    .limit(Math.min(args.limit || 10, 20));
+
+  if (!isPrivileged) query = query.eq("created_by", userId);
+  if (args.event_id) query = query.eq("event_id", args.event_id);
+  if (args.client_id) query = query.eq("client_id", args.client_id);
+  if (args.media_type) query = query.eq("media_type", args.media_type);
+  if (args.source_type) query = query.eq("source_type", args.source_type);
+
+  const { data, error } = await query;
+  if (error) return { success: false, result: {}, error: "Failed to query media library", category: "internal" };
+
+  return {
+    success: true,
+    result: {
+      assets: (data || []).map(a => ({
+        id: a.id,
+        media_type: a.media_type,
+        source_type: a.source_type,
+        title: a.title,
+        prompt: a.prompt_used,
+        approved: a.approved,
+        created_at: a.created_at,
+      })),
+      total: data?.length || 0,
+    },
+  };
+}
+
 // ─── Action Log Persistence ────────────────────────────────
 
 async function persistActionLog(
