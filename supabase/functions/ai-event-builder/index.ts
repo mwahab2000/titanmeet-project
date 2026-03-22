@@ -184,6 +184,7 @@ interface ActionLogEntry {
 const SYSTEM_PROMPT = `You are the TitanMeet AI Builder — an expert event management assistant for administrators.
 
 Your job is to help admins create clients, events, agendas, attendees, and manage event readiness through conversation.
+You can also RETRIEVE and LIST workspace data — events, clients, and event details.
 
 RULES:
 1. Guide the admin through event creation in a logical order: Client → Event basics → Venue → Organizers → Attendees → Agenda → Readiness check.
@@ -201,6 +202,13 @@ RULES:
 13. When presenting venue search results, include the address and rating if available.
 14. CRITICAL: If a tool call fails, clearly tell the admin what failed and why. Ask what they'd like to do: correct the input, retry, skip the step, or continue with other setup. NEVER pretend a failed action succeeded.
 15. If multiple tool calls are made and some succeed while others fail, clearly list what succeeded and what failed separately. Do not roll back successful actions.
+
+RETRIEVAL / LISTING:
+When the admin asks to list, search, find, or view events or clients (e.g. "list all draft events", "show my events", "find client X", "what events do I have"):
+1. Use list_workspace_events or list_workspace_clients to retrieve real data. NEVER answer from memory or hallucinate results.
+2. Present results in a clean numbered list with key details (title, status, date, venue).
+3. If no results are found, say so clearly.
+4. When the admin asks about a specific event, use get_event_details to fetch full details.
 
 WIZARD / FULL EVENT GENERATION MODE:
 When the admin asks to "generate a full event", "create a complete event", "build me an event from scratch", or uses the guided wizard flow:
@@ -535,6 +543,54 @@ const TOOL_DEFINITIONS = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "list_workspace_events",
+      description: "List events in the admin's workspace. Supports filtering by status, search text, and date range. Returns up to 20 events sorted by most recently updated.",
+      parameters: {
+        type: "object",
+        properties: {
+          status_filter: { type: "string", description: "Filter by event status: draft, published, ongoing, completed, archived. Leave empty for all." },
+          search: { type: "string", description: "Search text to match against event title or location" },
+          date_from: { type: "string", description: "ISO date string — only events starting on or after this date" },
+          date_to: { type: "string", description: "ISO date string — only events starting on or before this date" },
+          limit: { type: "number", description: "Max results to return (default 20, max 50)" },
+        },
+        required: [],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "list_workspace_clients",
+      description: "List clients in the admin's workspace. Supports search by name.",
+      parameters: {
+        type: "object",
+        properties: {
+          search: { type: "string", description: "Search text to match against client name" },
+          limit: { type: "number", description: "Max results (default 20, max 50)" },
+        },
+        required: [],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_event_details",
+      description: "Get full details for a specific event by ID or by searching title. Returns event info, venue, counts of attendees/agenda/organizers, and readiness status.",
+      parameters: {
+        type: "object",
+        properties: {
+          event_id: { type: "string", description: "Event UUID" },
+          title_search: { type: "string", description: "Search by event title if ID is not known" },
+        },
+        required: [],
+      },
+    },
+  },
 ];
 
 // ─── Tool Executor ─────────────────────────────────────────
@@ -586,6 +642,12 @@ async function executeTool(
         return await toolSaveEventProposal(db, userId, args as any, correlationId);
       case "apply_template":
         return await toolApplyTemplate(db, userId, args as any, correlationId);
+      case "list_workspace_events":
+        return await toolListWorkspaceEvents(db, userId, args as any);
+      case "list_workspace_clients":
+        return await toolListWorkspaceClients(db, userId, args as any);
+      case "get_event_details":
+        return await toolGetEventDetails(db, userId, args as any);
       default:
         return { success: false, result: {}, error: `Unknown tool: ${toolName}`, category: "internal" };
     }
@@ -1423,6 +1485,184 @@ async function toolApplyTemplate(
   };
 }
 
+// ─── Retrieval Tool Implementations ────────────────────────
+
+async function toolListWorkspaceEvents(
+  db: SupabaseClient, userId: string,
+  args: { status_filter?: string; search?: string; date_from?: string; date_to?: string; limit?: number }
+): Promise<ToolResult> {
+  const isPrivileged = await isAdminOrOwnerRole(db, userId);
+  const maxResults = Math.min(args.limit || 20, 50);
+
+  let query = db.from("events")
+    .select("id, title, slug, status, start_date, end_date, location, venue_name, event_date, client_id, clients(name)")
+    .order("updated_at", { ascending: false })
+    .limit(maxResults);
+
+  // Workspace scoping: admin/owner see all, regular users see their own
+  if (!isPrivileged) {
+    query = query.eq("created_by", userId);
+  }
+
+  if (args.status_filter) {
+    query = query.eq("status", args.status_filter);
+  }
+
+  if (args.search) {
+    query = query.or(`title.ilike.%${args.search}%,location.ilike.%${args.search}%,venue_name.ilike.%${args.search}%`);
+  }
+
+  if (args.date_from) {
+    query = query.gte("start_date", args.date_from);
+  }
+  if (args.date_to) {
+    query = query.lte("start_date", args.date_to);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    const classified = classifyError(error, error.code);
+    return { success: false, result: {}, error: classified.userMessage, category: classified.category };
+  }
+
+  const events = (data || []).map((e: any) => ({
+    id: e.id,
+    title: e.title,
+    status: e.status,
+    date: e.event_date || e.start_date,
+    end_date: e.end_date,
+    location: e.location || e.venue_name || null,
+    client_name: e.clients?.name || null,
+    slug: e.slug,
+  }));
+
+  return {
+    success: true,
+    result: {
+      events,
+      total: events.length,
+      message: events.length === 0
+        ? `No events found${args.status_filter ? ` with status "${args.status_filter}"` : ""}${args.search ? ` matching "${args.search}"` : ""}.`
+        : `Found ${events.length} event${events.length !== 1 ? "s" : ""}.`,
+    },
+  };
+}
+
+async function toolListWorkspaceClients(
+  db: SupabaseClient, userId: string,
+  args: { search?: string; limit?: number }
+): Promise<ToolResult> {
+  const isPrivileged = await isAdminOrOwnerRole(db, userId);
+  const maxResults = Math.min(args.limit || 20, 50);
+
+  let query = db.from("clients")
+    .select("id, name, slug, created_at")
+    .order("created_at", { ascending: false })
+    .limit(maxResults);
+
+  if (!isPrivileged) {
+    query = query.eq("created_by", userId);
+  }
+
+  if (args.search) {
+    query = query.ilike("name", `%${args.search}%`);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    const classified = classifyError(error, error.code);
+    return { success: false, result: {}, error: classified.userMessage, category: classified.category };
+  }
+
+  const clients = (data || []).map((c: any) => ({
+    id: c.id,
+    name: c.name,
+    slug: c.slug,
+  }));
+
+  return {
+    success: true,
+    result: {
+      clients,
+      total: clients.length,
+      message: clients.length === 0
+        ? `No clients found${args.search ? ` matching "${args.search}"` : ""}.`
+        : `Found ${clients.length} client${clients.length !== 1 ? "s" : ""}.`,
+    },
+  };
+}
+
+async function toolGetEventDetails(
+  db: SupabaseClient, userId: string,
+  args: { event_id?: string; title_search?: string }
+): Promise<ToolResult> {
+  if (!args.event_id && !args.title_search) {
+    return { success: false, result: {}, error: "Provide either event_id or title_search", category: "validation" };
+  }
+
+  let eventData: any = null;
+
+  if (args.event_id) {
+    const check = await canManageEvent(db, userId, args.event_id);
+    if (!check.allowed) return { success: false, result: {}, error: "Event not found or access denied", category: "permission" };
+    eventData = check.event;
+  } else {
+    // Search by title
+    const isPrivileged = await isAdminOrOwnerRole(db, userId);
+    let query = db.from("events").select("*").ilike("title", `%${args.title_search}%`).limit(1);
+    if (!isPrivileged) query = query.eq("created_by", userId);
+    const { data } = await query.single();
+    if (!data) return { success: true, result: { found: false, message: `No event found matching "${args.title_search}".` } };
+    eventData = data;
+  }
+
+  // Get counts
+  const eid = eventData.id;
+  const [attRes, agdRes, orgRes, spkRes] = await Promise.all([
+    db.from("attendees").select("id", { count: "exact", head: true }).eq("event_id", eid),
+    db.from("agenda_items").select("id", { count: "exact", head: true }).eq("event_id", eid),
+    db.from("organizers").select("id", { count: "exact", head: true }).eq("event_id", eid),
+    db.from("speakers" as any).select("id", { count: "exact", head: true }).eq("event_id", eid),
+  ]);
+
+  // Get client name
+  let clientName: string | null = null;
+  if (eventData.client_id) {
+    const { data: cl } = await db.from("clients").select("name").eq("id", eventData.client_id).single();
+    if (cl) clientName = cl.name;
+  }
+
+  return {
+    success: true,
+    result: {
+      found: true,
+      event: {
+        id: eventData.id,
+        title: eventData.title,
+        slug: eventData.slug,
+        status: eventData.status,
+        description: eventData.description,
+        date: eventData.event_date || eventData.start_date,
+        end_date: eventData.end_date,
+        location: eventData.location,
+        venue_name: eventData.venue_name,
+        venue_address: eventData.venue_address,
+        theme: eventData.theme_id,
+        client_name: clientName,
+        max_attendees: eventData.max_attendees,
+      },
+      counts: {
+        attendees: attRes.count ?? 0,
+        agenda_items: agdRes.count ?? 0,
+        organizers: orgRes.count ?? 0,
+        speakers: (spkRes as any).count ?? 0,
+      },
+    },
+  };
+}
+
 // ─── Draft State Builder ───────────────────────────────────
 
 async function buildDraftState(
@@ -1857,6 +2097,9 @@ function formatToolDisplayName(toolName: string): string {
     generate_full_event_proposal: "Generate Event Proposal",
     save_event_proposal: "Save Event Proposal",
     apply_template: "Apply Template",
+    list_workspace_events: "List Events",
+    list_workspace_clients: "List Clients",
+    get_event_details: "Get Event Details",
   };
   return names[toolName] || toolName;
 }
@@ -1868,13 +2111,16 @@ function resolveToolTarget(toolName: string, args: Record<string, unknown>): str
   if (toolName === "generate_full_event_proposal") return (args.description as string)?.substring(0, 40) || "proposal";
   if (toolName === "save_event_proposal") return "full proposal";
   if (toolName === "apply_template") return (args.search_query as string) || "template";
+  if (toolName === "list_workspace_events") return (args.status_filter as string) || "workspace events";
+  if (toolName === "list_workspace_clients") return (args.search as string) || "workspace clients";
+  if (toolName === "get_event_details") return (args.title_search as string) || (args.event_id as string)?.slice(0, 8) || "event";
   if (args.event_id) return `event:${(args.event_id as string).slice(0, 8)}`;
   return toolName;
 }
 
 function filterSafeMetadata(result: Record<string, unknown>): Record<string, unknown> {
   const safe: Record<string, unknown> = {};
-  const allowed = ["client_id", "event_id", "action", "name", "title", "slug", "added", "score", "ready", "saved_count", "updated_fields", "venue_name", "template_name", "templates", "cloned"];
+  const allowed = ["client_id", "event_id", "action", "name", "title", "slug", "added", "score", "ready", "saved_count", "updated_fields", "venue_name", "template_name", "templates", "cloned", "events", "clients", "total", "message", "found", "event", "counts"];
   for (const k of allowed) {
     if (result[k] !== undefined) safe[k] = result[k];
   }
@@ -1945,6 +2191,12 @@ function formatToolLabel(toolName: string, result: Record<string, unknown>): str
       if (result.action === "templates_found") return `Found ${(result.templates as any[])?.length || 0} matching templates`;
       if (result.action === "no_templates_found") return `No templates found for "${result.query}"`;
       return `Applied template "${result.template_name}" → created "${result.event_title}"`;
+    case "list_workspace_events":
+      return (result.message as string) || `Listed ${result.total} events`;
+    case "list_workspace_clients":
+      return (result.message as string) || `Listed ${result.total} clients`;
+    case "get_event_details":
+      return result.found ? `Retrieved details for "${(result.event as any)?.title}"` : (result.message as string) || "Event not found";
     default:
       return toolName;
   }
