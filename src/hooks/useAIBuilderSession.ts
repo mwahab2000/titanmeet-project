@@ -28,7 +28,31 @@ export interface ActionLogEntry {
   metadata?: Record<string, unknown>;
 }
 
+export interface EventContext {
+  clientId?: string;
+  clientName?: string;
+  eventId?: string;
+  eventName?: string;
+  eventStatus?: "draft" | "published" | "ongoing" | "completed" | "archived";
+  mode?: "new_event" | "existing_draft";
+}
+
+export interface CompletedField {
+  key: string;
+  label: string;
+  value: string;
+}
+
+export interface MissingField {
+  key: string;
+  label: string;
+  priority: "required" | "recommended";
+}
+
 export interface DraftState {
+  // Event context
+  eventContext: EventContext;
+  // Section statuses (legacy compat + enriched)
   client: { name?: string; slug?: string; id?: string; status: "empty" | "partial" | "done" };
   eventBasics: { title?: string; date?: string; location?: string; status: "empty" | "partial" | "done" };
   venue: { name?: string; address?: string; lat?: number; lng?: number; place_id?: string; photo_count?: number; status: "empty" | "partial" | "done" };
@@ -37,9 +61,14 @@ export interface DraftState {
   agenda: { items: number; status: "empty" | "partial" | "done" };
   communications: { status: "empty" | "partial" | "done" };
   publishReadiness: { score: number; missing: string[]; status: "empty" | "partial" | "done" };
+  // Enriched data
+  speakers?: { count: number };
+  description?: string;
+  themeId?: string;
 }
 
 const emptyDraft: DraftState = {
+  eventContext: {},
   client: { status: "empty" },
   eventBasics: { status: "empty" },
   venue: { status: "empty" },
@@ -52,7 +81,18 @@ const emptyDraft: DraftState = {
 
 function mapDraftState(raw: Record<string, any> | undefined): DraftState {
   if (!raw) return emptyDraft;
+
+  const eventContext: EventContext = {
+    clientId: raw.client_id || raw.eventContext?.clientId,
+    clientName: raw.client?.name || raw.eventContext?.clientName,
+    eventId: raw.event_id || raw.eventContext?.eventId,
+    eventName: raw.eventBasics?.title || raw.eventContext?.eventName,
+    eventStatus: raw.event_status || raw.eventContext?.eventStatus,
+    mode: raw.event_mode || raw.eventContext?.mode,
+  };
+
   return {
+    eventContext,
     client: raw.client ?? emptyDraft.client,
     eventBasics: raw.eventBasics ?? emptyDraft.eventBasics,
     venue: raw.venue ?? emptyDraft.venue,
@@ -61,6 +101,9 @@ function mapDraftState(raw: Record<string, any> | undefined): DraftState {
     agenda: raw.agenda ?? emptyDraft.agenda,
     communications: raw.communications ?? emptyDraft.communications,
     publishReadiness: raw.publishReadiness ?? emptyDraft.publishReadiness,
+    speakers: raw.speakers,
+    description: raw.description,
+    themeId: raw.themeId,
   };
 }
 
@@ -94,7 +137,6 @@ export function useAIBuilderSession() {
       });
 
       if (error) {
-        // Check if it's a rate limit error from the response body
         if (data?.rateLimited) {
           const assistantMsg: ChatMessage = {
             id: crypto.randomUUID(),
@@ -117,10 +159,7 @@ export function useAIBuilderSession() {
         setSessionId(data.sessionId);
       }
 
-      // Determine if there were any failures in the action log
       const actionLog: ActionLogEntry[] = data?.actionLog || [];
-      const hasFailures = actionLog.some((e: ActionLogEntry) => e.status === "failed");
-      const hasSuccesses = actionLog.some((e: ActionLogEntry) => e.status === "success");
 
       const assistantMsg: ChatMessage = {
         id: crypto.randomUUID(),
@@ -133,7 +172,6 @@ export function useAIBuilderSession() {
 
       setMessages((prev) => [...prev, assistantMsg]);
 
-      // Always update draft — it reflects real DB state including partial successes
       if (data?.draft) {
         setDraft(mapDraftState(data.draft));
       }
