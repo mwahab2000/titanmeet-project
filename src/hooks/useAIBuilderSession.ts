@@ -10,15 +10,16 @@ export interface ChatMessage {
 }
 
 export interface AIAction {
-  type: "created" | "updated" | "added" | "warning" | "info";
+  type: "created" | "updated" | "added" | "warning" | "info" | "venue_search" | "venue_photos";
   label: string;
   detail?: string;
+  data?: any;
 }
 
 export interface DraftState {
   client: { name?: string; slug?: string; id?: string; status: "empty" | "partial" | "done" };
   eventBasics: { title?: string; date?: string; location?: string; status: "empty" | "partial" | "done" };
-  venue: { name?: string; address?: string; status: "empty" | "partial" | "done" };
+  venue: { name?: string; address?: string; lat?: number; lng?: number; place_id?: string; photo_count?: number; status: "empty" | "partial" | "done" };
   organizers: { count: number; status: "empty" | "partial" | "done" };
   attendees: { count: number; status: "empty" | "partial" | "done" };
   agenda: { items: number; status: "empty" | "partial" | "done" };
@@ -82,7 +83,6 @@ export function useAIBuilderSession() {
 
       if (error) throw error;
 
-      // Update session ID from backend
       if (data?.sessionId && !sessionId) {
         setSessionId(data.sessionId);
       }
