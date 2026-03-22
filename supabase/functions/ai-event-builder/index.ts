@@ -1468,7 +1468,7 @@ async function toolCheckPublishReadiness(
   if (!(attendeeCount || 0)) nextSteps.push("Add attendees");
   if (!(agendaCount || 0)) nextSteps.push("Create an agenda");
   if (!evt.description?.trim()) nextSteps.push("Add a description");
-  if (!(Array.isArray(evt.hero_images) && evt.hero_images.length > 0)) nextSteps.push("Upload a hero image");
+  if (!(Array.isArray(evt.hero_images) && evt.hero_images.length > 0)) nextSteps.push("Upload a hero image (via Hero Section in workspace)");
 
   return {
     success: true,
