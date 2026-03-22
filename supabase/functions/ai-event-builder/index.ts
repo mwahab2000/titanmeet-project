@@ -3008,6 +3008,9 @@ serve(async (req) => {
       }
     }
 
+    // ── Extract numbered options from assistant response for next-turn resolution ──
+    extractAndStoreOptions(assistantContent, stateJson);
+
     await db.from("ai_chat_messages").insert({ session_id: session.id, role: "assistant", content: assistantContent });
     await db.from("ai_chat_sessions").update({ state_json: stateJson }).eq("id", session.id);
 
