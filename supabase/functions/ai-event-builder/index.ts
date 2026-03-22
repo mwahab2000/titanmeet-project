@@ -1884,6 +1884,10 @@ function formatToolLabel(toolName: string, result: Record<string, unknown>): str
       return `Generated event proposal — review before saving`;
     case "save_event_proposal":
       return `Saved event "${result.event_title}" with ${result.agenda_count || 0} agenda items`;
+    case "apply_template":
+      if (result.action === "templates_found") return `Found ${(result.templates as any[])?.length || 0} matching templates`;
+      if (result.action === "no_templates_found") return `No templates found for "${result.query}"`;
+      return `Applied template "${result.template_name}" → created "${result.event_title}"`;
     default:
       return toolName;
   }
