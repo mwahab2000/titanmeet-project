@@ -68,7 +68,8 @@ export const PublicDressCodeSection: React.FC<Props> = ({ data, className = "" }
                       <Maximize2 className="h-4 w-4 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </MotionRevealItem>
