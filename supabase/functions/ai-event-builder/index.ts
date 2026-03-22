@@ -1719,6 +1719,10 @@ function formatToolLabel(toolName: string, result: Record<string, unknown>): str
       return `Added ${result.added} agenda items`;
     case "check_publish_readiness":
       return result.ready ? `Event is ready to publish (${result.score}%)` : `Readiness: ${result.score}% — ${(result.missing as string[])?.length} items missing`;
+    case "generate_full_event_proposal":
+      return `Generated event proposal — review before saving`;
+    case "save_event_proposal":
+      return `Saved event "${result.event_title}" with ${result.agenda_count || 0} agenda items`;
     default:
       return toolName;
   }
