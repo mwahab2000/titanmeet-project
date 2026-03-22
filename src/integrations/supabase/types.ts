@@ -553,6 +553,65 @@ export type Database = {
           },
         ]
       }
+      brand_kits: {
+        Row: {
+          accent_color: string | null
+          client_id: string | null
+          created_at: string | null
+          created_by: string
+          id: string
+          logo_url: string | null
+          name: string
+          primary_color: string | null
+          secondary_color: string | null
+          style_tags: Json | null
+          typography_preference: string | null
+          updated_at: string | null
+          visual_mood: string[] | null
+          workspace_id: string | null
+        }
+        Insert: {
+          accent_color?: string | null
+          client_id?: string | null
+          created_at?: string | null
+          created_by: string
+          id?: string
+          logo_url?: string | null
+          name: string
+          primary_color?: string | null
+          secondary_color?: string | null
+          style_tags?: Json | null
+          typography_preference?: string | null
+          updated_at?: string | null
+          visual_mood?: string[] | null
+          workspace_id?: string | null
+        }
+        Update: {
+          accent_color?: string | null
+          client_id?: string | null
+          created_at?: string | null
+          created_by?: string
+          id?: string
+          logo_url?: string | null
+          name?: string
+          primary_color?: string | null
+          secondary_color?: string | null
+          style_tags?: Json | null
+          typography_preference?: string | null
+          updated_at?: string | null
+          visual_mood?: string[] | null
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_kits_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clients: {
         Row: {
           created_at: string
@@ -1241,6 +1300,7 @@ export type Database = {
         Row: {
           approved: boolean | null
           attribution: string | null
+          brand_kit_id: string | null
           client_id: string | null
           created_at: string | null
           created_by: string
@@ -1255,11 +1315,13 @@ export type Database = {
           thumbnail_url: string | null
           title: string | null
           updated_at: string | null
+          visual_pack_name: string | null
           workspace_id: string | null
         }
         Insert: {
           approved?: boolean | null
           attribution?: string | null
+          brand_kit_id?: string | null
           client_id?: string | null
           created_at?: string | null
           created_by: string
@@ -1274,11 +1336,13 @@ export type Database = {
           thumbnail_url?: string | null
           title?: string | null
           updated_at?: string | null
+          visual_pack_name?: string | null
           workspace_id?: string | null
         }
         Update: {
           approved?: boolean | null
           attribution?: string | null
+          brand_kit_id?: string | null
           client_id?: string | null
           created_at?: string | null
           created_by?: string
@@ -1293,9 +1357,17 @@ export type Database = {
           thumbnail_url?: string | null
           title?: string | null
           updated_at?: string | null
+          visual_pack_name?: string | null
           workspace_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "media_assets_brand_kit_id_fkey"
+            columns: ["brand_kit_id"]
+            isOneToOne: false
+            referencedRelation: "brand_kits"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "media_assets_client_id_fkey"
             columns: ["client_id"]
