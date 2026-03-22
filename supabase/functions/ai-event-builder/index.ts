@@ -2499,8 +2499,21 @@ serve(async (req) => {
       if (!stateJson.event_id) stateJson.event_id = context.eventId;
     }
 
+    // ── Confirmation detection: check if user is confirming a pending action ──
+    const confirmationPatterns = /^\s*(yes|yeah|yep|yup|sure|confirm|proceed|do it|go ahead|okay|ok|approved?|absolutely|please do|let'?s do it|update it|save it|go for it)\s*[.!]?\s*$/i;
+    const isConfirmation = confirmationPatterns.test(message.trim());
+    const pendingAction = stateJson.pending_action;
+    let confirmationInjection = "";
+
+    if (isConfirmation && pendingAction && pendingAction.awaiting_confirmation) {
+      console.log(`[${correlationId}] Confirmation detected for pending action: ${pendingAction.tool}`);
+      confirmationInjection = `\n\n⚠️ PENDING ACTION CONFIRMED — The user just confirmed the following action. Execute it NOW by calling the tool. Do NOT ask again.\nTool: ${pendingAction.tool}\nArguments: ${JSON.stringify(pendingAction.arguments)}\nAction: ${pendingAction.summary}`;
+      // Clear pending action from state (will be persisted after execution)
+      delete stateJson.pending_action;
+    }
+
     const aiMessages: Array<{ role: string; content: string }> = [
-      { role: "system", content: SYSTEM_PROMPT + (contextStr ? `\n\nCurrent context:${contextStr}` : "") },
+      { role: "system", content: SYSTEM_PROMPT + (contextStr ? `\n\nCurrent context:${contextStr}` : "") + confirmationInjection },
     ];
 
     for (const msg of (history || [])) {
