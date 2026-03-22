@@ -10,6 +10,34 @@ const corsHeaders = {
 const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
 const MAX_HISTORY = 30;
 
+// ─── Failure Classification ───────────────────────────────
+type FailureCategory = "validation" | "permission" | "external_api" | "parsing" | "duplicate_conflict" | "internal";
+
+function classifyError(error: any, pgCode?: string): { category: FailureCategory; userMessage: string } {
+  if (pgCode === "42501") return { category: "permission", userMessage: "Permission denied. You may not have access to this resource." };
+  if (pgCode === "23505") return { category: "duplicate_conflict", userMessage: "A record with this identifier already exists. Try a different name or slug." };
+  if (pgCode === "23503") return { category: "validation", userMessage: "A referenced record was not found. Please check the linked data." };
+  if (pgCode === "23514") return { category: "validation", userMessage: "A validation rule was not met." };
+
+  const msg = typeof error === "string" ? error : error?.message || "";
+  if (msg.includes("required") || msg.includes("No fields")) return { category: "validation", userMessage: msg };
+  if (msg.includes("access denied") || msg.includes("permission") || msg.includes("not found or access")) return { category: "permission", userMessage: msg };
+  if (msg.includes("temporarily unavailable") || msg.includes("Google") || msg.includes("API")) return { category: "external_api", userMessage: msg };
+  if (msg.includes("parse") || msg.includes("No valid")) return { category: "parsing", userMessage: msg };
+  return { category: "internal", userMessage: msg || "An unexpected error occurred." };
+}
+
+// ─── Action Log Entry ─────────────────────────────────────
+interface ActionLogEntry {
+  action: string;
+  target: string;
+  status: "pending" | "success" | "failed" | "skipped";
+  message: string;
+  category?: FailureCategory;
+  timestamp: string;
+  metadata?: Record<string, unknown>;
+}
+
 // ─── System Prompt ─────────────────────────────────────────
 const SYSTEM_PROMPT = `You are the TitanMeet AI Builder — an expert event management assistant for administrators.
 
@@ -29,8 +57,8 @@ RULES:
 11. When the admin mentions a venue by name, use search_venue_on_maps to find it. Present the top results and ask the admin to confirm which one.
 12. After saving a venue, automatically fetch venue photos using get_venue_photos and tell the admin photos are available for selection.
 13. When presenting venue search results, include the address and rating if available.
-
-You have access to tools for: finding/creating clients, creating event drafts, updating event details, setting venues, searching venues on maps, fetching venue photos, saving venue photos, adding attendees, adding agenda items, and checking publish readiness.`;
+14. CRITICAL: If a tool call fails, clearly tell the admin what failed and why. Ask what they'd like to do: correct the input, retry, skip the step, or continue with other setup. NEVER pretend a failed action succeeded.
+15. If multiple tool calls are made and some succeed while others fail, clearly list what succeeded and what failed separately. Do not roll back successful actions.`;
 
 // ─── Tool Definitions for OpenAI ───────────────────────────
 const TOOL_DEFINITIONS = [
@@ -249,13 +277,20 @@ const TOOL_DEFINITIONS = [
 // ─── Tool Executor ─────────────────────────────────────────
 type SupabaseClient = ReturnType<typeof createClient>;
 
+interface ToolResult {
+  success: boolean;
+  result: Record<string, unknown>;
+  error?: string;
+  category?: FailureCategory;
+}
+
 async function executeTool(
   toolName: string,
   args: Record<string, unknown>,
   db: SupabaseClient,
   userId: string,
   correlationId: string,
-): Promise<{ success: boolean; result: Record<string, unknown>; error?: string }> {
+): Promise<ToolResult> {
   console.log(`[${correlationId}] tool=${toolName} args=${JSON.stringify(args)}`);
 
   try {
@@ -283,11 +318,12 @@ async function executeTool(
       case "check_publish_readiness":
         return await toolCheckPublishReadiness(db, userId, args as any);
       default:
-        return { success: false, result: {}, error: `Unknown tool: ${toolName}` };
+        return { success: false, result: {}, error: `Unknown tool: ${toolName}`, category: "internal" };
     }
   } catch (err) {
     console.error(`[${correlationId}] tool error:`, err);
-    return { success: false, result: {}, error: err instanceof Error ? err.message : "Tool execution failed" };
+    const classified = classifyError(err);
+    return { success: false, result: {}, error: classified.userMessage, category: classified.category };
   }
 }
 
@@ -326,9 +362,9 @@ async function canManageEvent(db: SupabaseClient, userId: string, eventId: strin
 async function toolFindOrCreateClient(
   db: SupabaseClient, userId: string,
   args: { name: string; slug?: string }
-) {
+): Promise<ToolResult> {
   const { name, slug } = args;
-  if (!name?.trim()) return { success: false, result: {}, error: "Client name is required" };
+  if (!name?.trim()) return { success: false, result: {}, error: "Client name is required", category: "validation" };
 
   const isPrivileged = await isAdminOrOwnerRole(db, userId);
 
@@ -350,12 +386,8 @@ async function toolFindOrCreateClient(
 
   if (error) {
     console.error(`[toolFindOrCreateClient] insert error: ${error.code} ${error.message}`);
-    const friendlyMsg = error.code === "42501"
-      ? "Permission denied when creating client. Please contact support."
-      : error.code === "23505"
-      ? "A client with this slug already exists. Try a different name."
-      : `Failed to create client: ${error.message}`;
-    return { success: false, result: {}, error: friendlyMsg };
+    const classified = classifyError(error, error.code);
+    return { success: false, result: {}, error: classified.userMessage, category: classified.category };
   }
   return { success: true, result: { client_id: created.id, name: created.name, slug: created.slug, action: "created_new" } };
 }
@@ -363,12 +395,12 @@ async function toolFindOrCreateClient(
 async function toolCreateEventDraft(
   db: SupabaseClient, userId: string,
   args: { title: string; client_id?: string; description?: string; start_date?: string; end_date?: string; location?: string; slug?: string }
-) {
-  if (!args.title?.trim()) return { success: false, result: {}, error: "Event title is required" };
+): Promise<ToolResult> {
+  if (!args.title?.trim()) return { success: false, result: {}, error: "Event title is required", category: "validation" };
 
   if (args.client_id) {
     const canManage = await canManageClient(db, userId, args.client_id);
-    if (!canManage) return { success: false, result: {}, error: "You don't have permission to create events for this client" };
+    if (!canManage) return { success: false, result: {}, error: "You don't have permission to create events for this client", category: "permission" };
   }
 
   const startDate = args.start_date || new Date().toISOString();
@@ -393,18 +425,21 @@ async function toolCreateEventDraft(
     .select("id, title, slug, status, start_date, end_date, client_id")
     .single();
 
-  if (error) return { success: false, result: {}, error: `Failed to create event: ${error.message}` };
+  if (error) {
+    const classified = classifyError(error, error.code);
+    return { success: false, result: {}, error: classified.userMessage, category: classified.category };
+  }
   return { success: true, result: { event_id: data.id, title: data.title, slug: data.slug, status: data.status } };
 }
 
 async function toolUpdateEventBasics(
   db: SupabaseClient, userId: string,
   args: { event_id: string; [key: string]: unknown }
-) {
-  if (!args.event_id) return { success: false, result: {}, error: "event_id is required" };
+): Promise<ToolResult> {
+  if (!args.event_id) return { success: false, result: {}, error: "event_id is required", category: "validation" };
 
   const { allowed, event: evt } = await canManageEvent(db, userId, args.event_id);
-  if (!allowed || !evt) return { success: false, result: {}, error: "Event not found or access denied" };
+  if (!allowed || !evt) return { success: false, result: {}, error: "Event not found or access denied", category: "permission" };
 
   const updateFields: Record<string, unknown> = {};
   const allowedFields = ["title", "description", "start_date", "end_date", "location", "theme_id", "max_attendees"];
@@ -412,10 +447,13 @@ async function toolUpdateEventBasics(
     if (args[k] !== undefined) updateFields[k] = args[k];
   }
 
-  if (Object.keys(updateFields).length === 0) return { success: false, result: {}, error: "No fields to update" };
+  if (Object.keys(updateFields).length === 0) return { success: false, result: {}, error: "No fields to update", category: "validation" };
 
   const { error } = await db.from("events").update(updateFields).eq("id", args.event_id);
-  if (error) return { success: false, result: {}, error: `Update failed: ${error.message}` };
+  if (error) {
+    const classified = classifyError(error, error.code);
+    return { success: false, result: {}, error: classified.userMessage, category: classified.category };
+  }
 
   return { success: true, result: { event_id: args.event_id, updated_fields: Object.keys(updateFields) } };
 }
@@ -423,11 +461,11 @@ async function toolUpdateEventBasics(
 async function toolSetEventVenue(
   db: SupabaseClient, userId: string,
   args: { event_id: string; venue_name?: string; venue_address?: string; venue_map_link?: string; venue_notes?: string }
-) {
-  if (!args.event_id) return { success: false, result: {}, error: "event_id is required" };
+): Promise<ToolResult> {
+  if (!args.event_id) return { success: false, result: {}, error: "event_id is required", category: "validation" };
 
   const { allowed } = await canManageEvent(db, userId, args.event_id);
-  if (!allowed) return { success: false, result: {}, error: "Event not found or access denied" };
+  if (!allowed) return { success: false, result: {}, error: "Event not found or access denied", category: "permission" };
 
   const updateFields: Record<string, unknown> = {};
   if (args.venue_name) updateFields.venue_name = args.venue_name.trim();
@@ -435,10 +473,13 @@ async function toolSetEventVenue(
   if (args.venue_map_link) updateFields.venue_map_link = args.venue_map_link.trim();
   if (args.venue_notes) updateFields.venue_notes = args.venue_notes.trim();
 
-  if (Object.keys(updateFields).length === 0) return { success: false, result: {}, error: "No venue fields provided" };
+  if (Object.keys(updateFields).length === 0) return { success: false, result: {}, error: "No venue fields provided", category: "validation" };
 
   const { error } = await db.from("events").update(updateFields).eq("id", args.event_id);
-  if (error) return { success: false, result: {}, error: `Venue update failed: ${error.message}` };
+  if (error) {
+    const classified = classifyError(error, error.code);
+    return { success: false, result: {}, error: classified.userMessage, category: classified.category };
+  }
 
   return { success: true, result: { event_id: args.event_id, venue: updateFields } };
 }
@@ -451,16 +492,15 @@ async function toolSearchVenueOnMaps(
   db: SupabaseClient, userId: string,
   args: { query: string; event_id?: string },
   correlationId: string,
-) {
-  if (!args.query?.trim()) return { success: false, result: {}, error: "Search query is required" };
+): Promise<ToolResult> {
+  if (!args.query?.trim()) return { success: false, result: {}, error: "Search query is required", category: "validation" };
 
   const apiKey = Deno.env.get("GOOGLE_MAPS_API_KEY");
-  if (!apiKey) return { success: false, result: {}, error: "Google Maps integration is not configured. Please add GOOGLE_MAPS_API_KEY." };
+  if (!apiKey) return { success: false, result: {}, error: "Google Maps integration is not configured. Please add GOOGLE_MAPS_API_KEY.", category: "external_api" };
 
-  // If event_id provided, validate access
   if (args.event_id) {
     const { allowed } = await canManageEvent(db, userId, args.event_id);
-    if (!allowed) return { success: false, result: {}, error: "Event not found or access denied" };
+    if (!allowed) return { success: false, result: {}, error: "Event not found or access denied", category: "permission" };
   }
 
   try {
@@ -470,7 +510,7 @@ async function toolSearchVenueOnMaps(
     const resp = await fetch(url);
     if (!resp.ok) {
       console.error(`[${correlationId}] Google Places API error: ${resp.status}`);
-      return { success: false, result: {}, error: "Venue search service temporarily unavailable" };
+      return { success: false, result: {}, error: "Venue search service temporarily unavailable", category: "external_api" };
     }
 
     const data = await resp.json();
@@ -494,19 +534,19 @@ async function toolSearchVenueOnMaps(
     return { success: true, result: { venues, query: args.query } };
   } catch (err) {
     console.error(`[${correlationId}] venue search error:`, err);
-    return { success: false, result: {}, error: "Failed to search for venues. Please try again." };
+    return { success: false, result: {}, error: "Failed to search for venues. Please try again.", category: "external_api" };
   }
 }
 
 async function toolSaveSelectedVenue(
   db: SupabaseClient, userId: string,
   args: { event_id: string; place_id: string; name: string; address: string; lat: number; lng: number; map_url?: string }
-) {
-  if (!args.event_id) return { success: false, result: {}, error: "event_id is required" };
-  if (!args.place_id || !args.name) return { success: false, result: {}, error: "place_id and name are required" };
+): Promise<ToolResult> {
+  if (!args.event_id) return { success: false, result: {}, error: "event_id is required", category: "validation" };
+  if (!args.place_id || !args.name) return { success: false, result: {}, error: "place_id and name are required", category: "validation" };
 
   const { allowed } = await canManageEvent(db, userId, args.event_id);
-  if (!allowed) return { success: false, result: {}, error: "Event not found or access denied" };
+  if (!allowed) return { success: false, result: {}, error: "Event not found or access denied", category: "permission" };
 
   const updateFields: Record<string, unknown> = {
     venue_name: args.name.trim(),
@@ -518,7 +558,10 @@ async function toolSaveSelectedVenue(
   if (args.map_url) updateFields.venue_map_link = args.map_url;
 
   const { error } = await db.from("events").update(updateFields).eq("id", args.event_id);
-  if (error) return { success: false, result: {}, error: `Failed to save venue: ${error.message}` };
+  if (error) {
+    const classified = classifyError(error, error.code);
+    return { success: false, result: {}, error: classified.userMessage, category: classified.category };
+  }
 
   return {
     success: true,
@@ -536,16 +579,15 @@ async function toolGetVenuePhotos(
   db: SupabaseClient, userId: string,
   args: { place_id: string; event_id?: string },
   correlationId: string,
-) {
-  if (!args.place_id) return { success: false, result: {}, error: "place_id is required" };
+): Promise<ToolResult> {
+  if (!args.place_id) return { success: false, result: {}, error: "place_id is required", category: "validation" };
 
   const apiKey = Deno.env.get("GOOGLE_MAPS_API_KEY");
-  if (!apiKey) return { success: false, result: {}, error: "Google Maps integration is not configured." };
+  if (!apiKey) return { success: false, result: {}, error: "Google Maps integration is not configured.", category: "external_api" };
 
-  // Validate access if event_id provided
   if (args.event_id) {
     const { allowed } = await canManageEvent(db, userId, args.event_id);
-    if (!allowed) return { success: false, result: {}, error: "Event not found or access denied" };
+    if (!allowed) return { success: false, result: {}, error: "Event not found or access denied", category: "permission" };
   }
 
   try {
@@ -553,7 +595,7 @@ async function toolGetVenuePhotos(
     console.log(`[${correlationId}] Google Places details for photos: ${args.place_id}`);
 
     const resp = await fetch(url);
-    if (!resp.ok) return { success: false, result: {}, error: "Photo service temporarily unavailable" };
+    if (!resp.ok) return { success: false, result: {}, error: "Photo service temporarily unavailable", category: "external_api" };
 
     const data = await resp.json();
 
@@ -567,26 +609,25 @@ async function toolGetVenuePhotos(
       width: p.width,
       height: p.height,
       attributions: p.html_attributions || [],
-      // Build a proxied photo URL for preview
       preview_url: `${GOOGLE_PLACES_BASE}/photo?maxwidth=800&photo_reference=${p.photo_reference}&key=${apiKey}`,
     }));
 
     return { success: true, result: { photos, place_id: args.place_id, total: data.result.photos.length } };
   } catch (err) {
     console.error(`[${correlationId}] venue photos error:`, err);
-    return { success: false, result: {}, error: "Failed to fetch venue photos." };
+    return { success: false, result: {}, error: "Failed to fetch venue photos.", category: "external_api" };
   }
 }
 
 async function toolSaveSelectedVenuePhotos(
   db: SupabaseClient, userId: string,
   args: { event_id: string; selected_photos: Array<{ photo_reference: string; width?: number; height?: number; attributions?: string[] }> }
-) {
-  if (!args.event_id) return { success: false, result: {}, error: "event_id is required" };
-  if (!args.selected_photos?.length) return { success: false, result: {}, error: "No photos selected" };
+): Promise<ToolResult> {
+  if (!args.event_id) return { success: false, result: {}, error: "event_id is required", category: "validation" };
+  if (!args.selected_photos?.length) return { success: false, result: {}, error: "No photos selected", category: "validation" };
 
   const { allowed } = await canManageEvent(db, userId, args.event_id);
-  if (!allowed) return { success: false, result: {}, error: "Event not found or access denied" };
+  if (!allowed) return { success: false, result: {}, error: "Event not found or access denied", category: "permission" };
 
   const photoRefs = args.selected_photos.map(p => ({
     photo_reference: p.photo_reference,
@@ -596,7 +637,10 @@ async function toolSaveSelectedVenuePhotos(
   }));
 
   const { error } = await db.from("events").update({ venue_photo_refs: photoRefs }).eq("id", args.event_id);
-  if (error) return { success: false, result: {}, error: `Failed to save photos: ${error.message}` };
+  if (error) {
+    const classified = classifyError(error, error.code);
+    return { success: false, result: {}, error: classified.userMessage, category: classified.category };
+  }
 
   return { success: true, result: { event_id: args.event_id, saved_count: photoRefs.length, action: "photos_saved" } };
 }
@@ -606,11 +650,11 @@ async function toolSaveSelectedVenuePhotos(
 async function toolAddAttendeesFromText(
   db: SupabaseClient, userId: string,
   args: { event_id: string; text: string }
-) {
-  if (!args.event_id || !args.text?.trim()) return { success: false, result: {}, error: "event_id and text are required" };
+): Promise<ToolResult> {
+  if (!args.event_id || !args.text?.trim()) return { success: false, result: {}, error: "event_id and text are required", category: "validation" };
 
   const { allowed } = await canManageEvent(db, userId, args.event_id);
-  if (!allowed) return { success: false, result: {}, error: "Event not found or access denied" };
+  if (!allowed) return { success: false, result: {}, error: "Event not found or access denied", category: "permission" };
 
   const lines = args.text.split(/[\n,;]+/).map(l => l.trim()).filter(Boolean);
   const attendees: Array<{ name: string; email: string; event_id: string }> = [];
@@ -640,10 +684,13 @@ async function toolAddAttendeesFromText(
     }
   }
 
-  if (attendees.length === 0) return { success: false, result: { skipped }, error: "No valid attendees parsed from text" };
+  if (attendees.length === 0) return { success: false, result: { skipped }, error: "No valid attendees parsed from text", category: "parsing" };
 
   const { error } = await db.from("attendees").insert(attendees);
-  if (error) return { success: false, result: {}, error: `Insert failed: ${error.message}` };
+  if (error) {
+    const classified = classifyError(error, error.code);
+    return { success: false, result: {}, error: classified.userMessage, category: classified.category };
+  }
 
   return { success: true, result: { added: attendees.length, skipped: skipped.length, names: attendees.map(a => a.name) } };
 }
@@ -651,11 +698,11 @@ async function toolAddAttendeesFromText(
 async function toolAddAgendaItems(
   db: SupabaseClient, userId: string,
   args: { event_id: string; items: Array<{ title: string; description?: string; start_time?: string; end_time?: string; day_number?: number }> }
-) {
-  if (!args.event_id || !args.items?.length) return { success: false, result: {}, error: "event_id and items are required" };
+): Promise<ToolResult> {
+  if (!args.event_id || !args.items?.length) return { success: false, result: {}, error: "event_id and items are required", category: "validation" };
 
   const { allowed } = await canManageEvent(db, userId, args.event_id);
-  if (!allowed) return { success: false, result: {}, error: "Event not found or access denied" };
+  if (!allowed) return { success: false, result: {}, error: "Event not found or access denied", category: "permission" };
 
   const { data: existing } = await db
     .from("agenda_items")
@@ -676,7 +723,10 @@ async function toolAddAgendaItems(
   }));
 
   const { error } = await db.from("agenda_items").insert(rows);
-  if (error) return { success: false, result: {}, error: `Insert failed: ${error.message}` };
+  if (error) {
+    const classified = classifyError(error, error.code);
+    return { success: false, result: {}, error: classified.userMessage, category: classified.category };
+  }
 
   return { success: true, result: { added: rows.length, titles: rows.map(r => r.title) } };
 }
@@ -684,11 +734,11 @@ async function toolAddAgendaItems(
 async function toolCheckPublishReadiness(
   db: SupabaseClient, userId: string,
   args: { event_id: string }
-) {
-  if (!args.event_id) return { success: false, result: {}, error: "event_id is required" };
+): Promise<ToolResult> {
+  if (!args.event_id) return { success: false, result: {}, error: "event_id is required", category: "validation" };
 
   const { allowed, event: evt } = await canManageEvent(db, userId, args.event_id);
-  if (!allowed || !evt) return { success: false, result: {}, error: "Event not found or access denied" };
+  if (!allowed || !evt) return { success: false, result: {}, error: "Event not found or access denied", category: "permission" };
 
   const { count: attendeeCount } = await db.from("attendees").select("id", { count: "exact", head: true }).eq("event_id", args.event_id);
   const { count: agendaCount } = await db.from("agenda_items").select("id", { count: "exact", head: true }).eq("event_id", args.event_id);
@@ -929,7 +979,9 @@ serve(async (req) => {
 
     const aiResult = await openaiResp.json();
     const choice = aiResult.choices?.[0];
-    const executedActions: Array<{ type: string; label: string; detail?: string; data?: any }> = [];
+
+    // ── Action log for this request ──
+    const actionLog: ActionLogEntry[] = [];
 
     // ── Handle tool calls ──
     if (choice?.finish_reason === "tool_calls" && choice?.message?.tool_calls) {
@@ -954,10 +1006,25 @@ serve(async (req) => {
           toolArgs.event_id = stateJson.event_id;
         }
 
+        // Add pending entry
+        const logEntry: ActionLogEntry = {
+          action: toolName,
+          target: resolveToolTarget(toolName, toolArgs),
+          status: "pending",
+          message: `Executing ${formatToolDisplayName(toolName)}...`,
+          timestamp: new Date().toISOString(),
+        };
+        actionLog.push(logEntry);
+
         const toolResult = await executeTool(toolName, toolArgs, db, user.id, correlationId);
 
-        // Track state changes
+        // Update log entry based on result
         if (toolResult.success) {
+          logEntry.status = "success";
+          logEntry.message = formatToolLabel(toolName, toolResult.result);
+          logEntry.metadata = filterSafeMetadata(toolResult.result);
+
+          // Track state changes — preserve partial progress
           if (toolName === "find_or_create_client" && toolResult.result.client_id) {
             stateJson.client_id = toolResult.result.client_id;
           }
@@ -965,37 +1032,17 @@ serve(async (req) => {
             stateJson.event_id = toolResult.result.event_id;
             await db.from("ai_chat_sessions").update({ event_id: toolResult.result.event_id as string }).eq("id", session.id);
           }
-
-          const action: any = {
-            type: toolName.startsWith("check") ? "info" : toolName === "search_venue_on_maps" ? "venue_search" : toolName === "get_venue_photos" ? "venue_photos" : "created",
-            label: formatToolLabel(toolName, toolResult.result),
-          };
-
-          // Attach structured data for venue search results and photos
-          if (toolName === "search_venue_on_maps") {
-            action.data = { venues: toolResult.result.venues };
-          } else if (toolName === "get_venue_photos") {
-            action.data = { photos: toolResult.result.photos, place_id: toolResult.result.place_id };
-          } else if (toolName === "save_selected_venue") {
-            action.data = { venue_saved: toolResult.result };
-          } else {
-            action.detail = JSON.stringify(toolResult.result);
-          }
-
-          executedActions.push(action);
         } else {
-          executedActions.push({
-            type: "warning",
-            label: `Failed: ${toolName}`,
-            detail: toolResult.error,
-          });
+          logEntry.status = "failed";
+          logEntry.message = toolResult.error || "Action failed";
+          logEntry.category = toolResult.category;
         }
 
         await db.from("ai_chat_messages").insert({
           session_id: session.id,
           role: "tool",
           content: JSON.stringify(toolResult),
-          metadata: { tool_name: toolName, tool_call_id: tc.id },
+          metadata: { tool_name: toolName, tool_call_id: tc.id, status: logEntry.status, category: logEntry.category },
         });
 
         toolCallMessages.push({
@@ -1003,7 +1050,23 @@ serve(async (req) => {
           content: JSON.stringify(toolResult),
           tool_call_id: tc.id,
         });
+
+        // Always persist state after each tool — partial progress is kept
+        await db.from("ai_chat_sessions").update({ state_json: stateJson }).eq("id", session.id);
       }
+
+      // Build frontend-compatible actions from action log
+      const executedActions = actionLog.map(entry => ({
+        type: entry.status === "failed" ? "warning" as const
+            : entry.action === "search_venue_on_maps" ? "venue_search" as const
+            : entry.action === "get_venue_photos" ? "venue_photos" as const
+            : entry.action.startsWith("check") ? "info" as const
+            : "created" as const,
+        label: entry.message,
+        detail: entry.status === "failed" ? (entry.category || "error") : undefined,
+        status: entry.status,
+        data: resolveActionData(entry, actionLog, toolCalls, toolCallMessages),
+      }));
 
       // ── Second OpenAI call for summary ──
       const summaryResp = await fetch(OPENAI_API_URL, {
@@ -1022,7 +1085,6 @@ serve(async (req) => {
         const summaryContent = summaryResult.choices?.[0]?.message?.content || "Actions completed.";
 
         await db.from("ai_chat_messages").insert({ session_id: session.id, role: "assistant", content: summaryContent });
-        await db.from("ai_chat_sessions").update({ state_json: stateJson }).eq("id", session.id);
 
         const draftState = await buildDraftState(db, user.id, stateJson);
 
@@ -1031,6 +1093,7 @@ serve(async (req) => {
             sessionId: session.id,
             reply: summaryContent,
             actions: executedActions,
+            actionLog,
             draft: draftState,
             correlationId,
           }),
@@ -1051,7 +1114,12 @@ serve(async (req) => {
       JSON.stringify({
         sessionId: session.id,
         reply: assistantContent,
-        actions: executedActions.length > 0 ? executedActions : undefined,
+        actions: actionLog.length > 0 ? actionLog.map(e => ({
+          type: e.status === "failed" ? "warning" : "info",
+          label: e.message,
+          status: e.status,
+        })) : undefined,
+        actionLog: actionLog.length > 0 ? actionLog : undefined,
         draft: draftState,
         correlationId,
       }),
@@ -1067,6 +1135,68 @@ serve(async (req) => {
 });
 
 // ─── Helpers ───────────────────────────────────────────────
+
+function formatToolDisplayName(toolName: string): string {
+  const names: Record<string, string> = {
+    find_or_create_client: "Find/Create Client",
+    create_event_draft: "Create Event Draft",
+    update_event_basics: "Update Event",
+    set_event_venue: "Set Venue",
+    search_venue_on_maps: "Search Venue",
+    save_selected_venue: "Save Venue",
+    get_venue_photos: "Fetch Venue Photos",
+    save_selected_venue_photos: "Save Photos",
+    add_attendees_from_text: "Add Attendees",
+    add_agenda_items: "Add Agenda",
+    check_publish_readiness: "Check Readiness",
+  };
+  return names[toolName] || toolName;
+}
+
+function resolveToolTarget(toolName: string, args: Record<string, unknown>): string {
+  if (toolName === "find_or_create_client") return (args.name as string) || "client";
+  if (toolName === "create_event_draft") return (args.title as string) || "event";
+  if (toolName === "search_venue_on_maps") return (args.query as string) || "venue";
+  if (args.event_id) return `event:${(args.event_id as string).slice(0, 8)}`;
+  return toolName;
+}
+
+function filterSafeMetadata(result: Record<string, unknown>): Record<string, unknown> {
+  const safe: Record<string, unknown> = {};
+  const allowed = ["client_id", "event_id", "action", "name", "title", "slug", "added", "score", "ready", "saved_count", "updated_fields", "venue_name"];
+  for (const k of allowed) {
+    if (result[k] !== undefined) safe[k] = result[k];
+  }
+  return safe;
+}
+
+function resolveActionData(
+  entry: ActionLogEntry,
+  _actionLog: ActionLogEntry[],
+  toolCalls: any[],
+  toolCallMessages: any[],
+): any {
+  // Find the tool result for this action from toolCallMessages
+  const tc = toolCalls.find((t: any) => t.function.name === entry.action);
+  if (!tc) return undefined;
+
+  const resultMsg = toolCallMessages.find(
+    (m: any) => m.role === "tool" && m.tool_call_id === tc.id
+  );
+  if (!resultMsg) return undefined;
+
+  try {
+    const parsed = JSON.parse(resultMsg.content);
+    if (!parsed.success) return undefined;
+
+    if (entry.action === "search_venue_on_maps") return { venues: parsed.result.venues };
+    if (entry.action === "get_venue_photos") return { photos: parsed.result.photos, place_id: parsed.result.place_id };
+    if (entry.action === "save_selected_venue") return { venue_saved: parsed.result };
+    return undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 function formatToolLabel(toolName: string, result: Record<string, unknown>): string {
   switch (toolName) {
