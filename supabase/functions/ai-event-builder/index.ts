@@ -920,6 +920,58 @@ const TOOL_DEFINITIONS = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "generate_event_image",
+      description: "Generate an AI image for an event (hero image, banner, gallery visual). Returns a preview URL. Does NOT save until confirmed.",
+      parameters: {
+        type: "object",
+        properties: {
+          event_id: { type: "string", description: "Event UUID" },
+          media_type: { type: "string", enum: ["hero_image", "banner", "gallery", "background"], description: "Type of image to generate" },
+          prompt: { type: "string", description: "Description of the desired image" },
+          style: { type: "string", enum: ["business", "premium", "futuristic", "minimal", "elegant", "creative", "nature", "tech"], description: "Visual style" },
+          aspect_ratio: { type: "string", enum: ["16:9", "1:1", "9:16", "4:3", "3:2"], description: "Aspect ratio (default 16:9 for hero/banner)" },
+        },
+        required: ["event_id", "prompt", "media_type"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "save_media_to_event",
+      description: "Save a generated or selected media asset to an event. Sets it as the hero image, banner, or adds to gallery.",
+      parameters: {
+        type: "object",
+        properties: {
+          event_id: { type: "string", description: "Event UUID" },
+          media_asset_id: { type: "string", description: "Media asset UUID from generate_event_image result" },
+          media_type: { type: "string", enum: ["hero_image", "banner", "gallery"], description: "Where to apply the image" },
+        },
+        required: ["event_id", "media_asset_id", "media_type"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "list_media_library",
+      description: "Browse the media library for previously saved/generated images. Filter by client, event, or media type.",
+      parameters: {
+        type: "object",
+        properties: {
+          event_id: { type: "string", description: "Filter by event" },
+          client_id: { type: "string", description: "Filter by client" },
+          media_type: { type: "string", description: "Filter by type: hero_image, banner, gallery, background, logo" },
+          source_type: { type: "string", description: "Filter by source: ai_generated, uploaded, venue" },
+          limit: { type: "number", description: "Max results (default 10)" },
+        },
+        required: [],
+      },
+    },
+  },
 ];
 
 // ─── Tool Executor ─────────────────────────────────────────
