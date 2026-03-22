@@ -2758,6 +2758,8 @@ function resolveToolTarget(toolName: string, args: Record<string, unknown>): str
   if (toolName === "list_events_by_client") return (args.client_name as string) || "client events";
   if (toolName === "publish_event" || toolName === "unpublish_event" || toolName === "archive_event" || toolName === "rename_event") return `event:${(args.event_id as string)?.slice(0, 8) || ""}`;
   if (toolName === "duplicate_event") return (args.new_title as string) || `event:${(args.event_id as string)?.slice(0, 8) || ""}`;
+  if (toolName === "get_missing_fields") return `event:${(args.event_id as string)?.slice(0, 8) || ""}`;
+  if (toolName === "recommend_next_actions") return args.event_id ? `event:${(args.event_id as string)?.slice(0, 8) || ""}` : "workspace";
   if (args.event_id) return `event:${(args.event_id as string).slice(0, 8)}`;
   return toolName;
 }
