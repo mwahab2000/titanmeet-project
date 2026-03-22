@@ -80,11 +80,13 @@ const CommunicationsSection = () => {
       case "log":
         return <CommsLogView />;
       case "scheduled":
+        return <ScheduledMessagesPanel />;
+      case "checkin":
+        return <CheckinPanel />;
       case "templates":
       case "settings":
         return (
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-3 p-8">
-            {activeView === "scheduled" && <Clock className="h-8 w-8" />}
             {activeView === "templates" && <FileText className="h-8 w-8" />}
             {activeView === "settings" && <Settings className="h-8 w-8" />}
             <p className="text-sm font-medium capitalize">{activeView}</p>
