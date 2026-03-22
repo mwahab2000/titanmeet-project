@@ -1829,7 +1829,7 @@ function resolveToolTarget(toolName: string, args: Record<string, unknown>): str
 
 function filterSafeMetadata(result: Record<string, unknown>): Record<string, unknown> {
   const safe: Record<string, unknown> = {};
-  const allowed = ["client_id", "event_id", "action", "name", "title", "slug", "added", "score", "ready", "saved_count", "updated_fields", "venue_name"];
+  const allowed = ["client_id", "event_id", "action", "name", "title", "slug", "added", "score", "ready", "saved_count", "updated_fields", "venue_name", "template_name", "templates", "cloned"];
   for (const k of allowed) {
     if (result[k] !== undefined) safe[k] = result[k];
   }
