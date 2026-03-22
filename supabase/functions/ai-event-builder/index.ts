@@ -414,8 +414,8 @@ async function toolAddAgendaItems(
 ) {
   if (!args.event_id || !args.items?.length) return { success: false, result: {}, error: "event_id and items are required" };
 
-  const { data: evt } = await db.from("events").select("id, created_by").eq("id", args.event_id).single();
-  if (!evt || evt.created_by !== userId) return { success: false, result: {}, error: "Event not found or access denied" };
+  const { allowed } = await canManageEvent(db, userId, args.event_id);
+  if (!allowed) return { success: false, result: {}, error: "Event not found or access denied" };
 
   // Get current max order_index
   const { data: existing } = await db
