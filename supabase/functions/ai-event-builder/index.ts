@@ -1141,6 +1141,16 @@ async function executeTool(
         return await toolSaveMediaToEvent(db, userId, args as any, correlationId);
       case "list_media_library":
         return await toolListMediaLibrary(db, userId, args as any);
+      case "register_uploaded_media":
+        return await toolRegisterUploadedMedia(db, userId, args as any, correlationId);
+      case "create_brand_kit":
+        return await toolCreateBrandKit(db, userId, args as any);
+      case "get_brand_kit":
+        return await toolGetBrandKit(db, userId, args as any);
+      case "save_visual_pack":
+        return await toolSaveVisualPack(db, userId, args as any, correlationId);
+      case "apply_visual_pack":
+        return await toolApplyVisualPack(db, userId, args as any, correlationId);
       default:
         return { success: false, result: {}, error: `Unknown tool: ${toolName}`, category: "internal" };
     }
