@@ -2375,6 +2375,19 @@ async function buildDraftState(
       const { count: attCount } = await db.from("attendees").select("id", { count: "exact", head: true }).eq("event_id", eventId);
       const { count: agdCount } = await db.from("agenda_items").select("id", { count: "exact", head: true }).eq("event_id", eventId);
       const { count: orgCount } = await db.from("organizers").select("id", { count: "exact", head: true }).eq("event_id", eventId);
+      const { count: spkCount } = await db.from("speakers").select("id", { count: "exact", head: true }).eq("event_id", eventId);
+
+      // Event context for the panel
+      state.eventContext = {
+        clientId: (evt.clients as any)?.id,
+        clientName: (evt.clients as any)?.name,
+        eventId: evt.id,
+        eventName: evt.title,
+        eventStatus: evt.status,
+        mode: "existing_draft",
+      };
+      state.event_status = evt.status;
+      state.event_mode = "existing_draft";
 
       state.client = evt.clients ? { name: (evt.clients as any).name, slug: (evt.clients as any).slug, id: (evt.clients as any).id, status: "done" } : { status: "empty" };
       state.eventBasics = { title: evt.title, date: evt.event_date || evt.start_date, location: evt.location, status: evt.title ? "done" : "empty" };
@@ -2390,6 +2403,41 @@ async function buildDraftState(
       state.organizers = { count: orgCount || 0, status: (orgCount || 0) > 0 ? "done" : "empty" };
       state.attendees = { count: attCount || 0, status: (attCount || 0) > 0 ? "done" : "empty" };
       state.agenda = { items: agdCount || 0, status: (agdCount || 0) > 0 ? "done" : "empty" };
+      state.speakers = { count: spkCount || 0 };
+      state.description = evt.description || undefined;
+      state.themeId = evt.theme_id || undefined;
+
+      // Compute readiness
+      const missing: string[] = [];
+      if (!evt.client_id) missing.push("Client");
+      if (!evt.title?.trim()) missing.push("Title");
+      if (!evt.event_date && !evt.start_date) missing.push("Date");
+      if (!evt.slug?.trim()) missing.push("Public URL");
+      if (!evt.description?.trim()) missing.push("Description");
+      if (!(Array.isArray(evt.hero_images) && evt.hero_images.length > 0)) missing.push("Cover image");
+      if (!(evt.venue_name?.trim() || evt.location?.trim())) missing.push("Venue/Location");
+      if ((attCount || 0) === 0) missing.push("Attendees");
+      if ((agdCount || 0) === 0) missing.push("Agenda");
+
+      const totalChecks = 9;
+      const passedChecks = totalChecks - missing.length;
+      const score = Math.round((passedChecks / totalChecks) * 100);
+
+      state.publishReadiness = {
+        score,
+        missing,
+        status: missing.length === 0 ? "done" : score >= 50 ? "partial" : "empty",
+      };
+    }
+  } else if (state.client_id) {
+    // Client selected but no event yet
+    const { data: client } = await db.from("clients").select("id, name, slug").eq("id", state.client_id as string).single();
+    if (client) {
+      state.eventContext = {
+        clientId: client.id,
+        clientName: client.name,
+      };
+      state.client = { name: client.name, slug: client.slug, id: client.id, status: "done" };
     }
   }
 
