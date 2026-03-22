@@ -2604,6 +2604,20 @@ function formatToolLabel(toolName: string, result: Record<string, unknown>): str
       return (result.message as string) || `Listed ${result.total} clients`;
     case "get_event_details":
       return result.found ? `Retrieved details for "${(result.event as any)?.title}"` : (result.message as string) || "Event not found";
+    case "get_client_details":
+      return result.found ? `Retrieved client "${(result.client as any)?.name}" (${result.event_count} events)` : (result.message as string) || "Client not found";
+    case "list_events_by_client":
+      return (result.message as string) || `Listed ${result.total} client events`;
+    case "publish_event":
+      return (result.message as string) || `Published event`;
+    case "unpublish_event":
+      return (result.message as string) || `Unpublished event`;
+    case "archive_event":
+      return (result.message as string) || `Archived event`;
+    case "duplicate_event":
+      return (result.message as string) || `Duplicated event`;
+    case "rename_event":
+      return (result.message as string) || `Renamed event`;
     default:
       return toolName;
   }
