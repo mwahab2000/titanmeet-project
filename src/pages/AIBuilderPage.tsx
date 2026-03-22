@@ -88,6 +88,9 @@ const AIBuilderPage = () => {
           </div>
         </div>
 
+        {/* Usage warning */}
+        <AIBuilderUsageBanner />
+
         {/* Messages */}
         <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 sm:px-4">
           {messages.length === 0 ? (
