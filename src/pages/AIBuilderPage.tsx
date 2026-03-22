@@ -44,6 +44,14 @@ const AIBuilderPage = () => {
     );
   };
 
+  const handleProposalApprove = (proposal: EventProposal) => {
+    sendMessage(`I approve this proposal. Please save it now. Here is the proposal: ${JSON.stringify(proposal)}`);
+  };
+
+  const handleProposalReject = () => {
+    sendMessage("I'd like to make some changes to the proposal before saving. What would you like to adjust?");
+  };
+
   const effectiveShowPanel = !isMobile && showPanel;
 
   return (
