@@ -2857,6 +2857,10 @@ function formatToolLabel(toolName: string, result: Record<string, unknown>): str
       return (result.message as string) || `Duplicated event`;
     case "rename_event":
       return (result.message as string) || `Renamed event`;
+    case "get_missing_fields":
+      return result.ready ? `Event is complete (${result.score}%)` : `${(result.missing as any[])?.length || 0} fields missing (${result.score}% complete)`;
+    case "recommend_next_actions":
+      return `${(result.recommendations as any[])?.length || 0} recommendations`;
     default:
       return toolName;
   }
