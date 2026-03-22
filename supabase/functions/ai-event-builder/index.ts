@@ -2763,6 +2763,13 @@ async function buildDraftState(
       state.description = evt.description || undefined;
       state.themeId = evt.theme_id || undefined;
 
+      // Media section
+      const heroCount = Array.isArray(evt.hero_images) ? evt.hero_images.length : 0;
+      const galleryCount = Array.isArray(evt.gallery_images) ? evt.gallery_images.length : 0;
+      const hasBanner = !!evt.cover_image;
+      const mediaStatus = heroCount > 0 ? "done" : (galleryCount > 0 || hasBanner) ? "partial" : "empty";
+      state.media = { heroCount, galleryCount, hasBanner, status: mediaStatus };
+
       // Compute readiness
       const missing: string[] = [];
       if (!evt.client_id) missing.push("Client");
