@@ -1685,6 +1685,8 @@ function resolveActionData(
     if (entry.action === "search_venue_on_maps") return { venues: parsed.result.venues };
     if (entry.action === "get_venue_photos") return { photos: parsed.result.photos, place_id: parsed.result.place_id };
     if (entry.action === "save_selected_venue") return { venue_saved: parsed.result };
+    if (entry.action === "generate_full_event_proposal") return { proposal: parsed.result.proposal };
+    if (entry.action === "save_event_proposal") return { saved: parsed.result };
     return undefined;
   } catch {
     return undefined;
