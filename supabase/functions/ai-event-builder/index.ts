@@ -2627,6 +2627,52 @@ serve(async (req) => {
       if (!stateJson.event_id) stateJson.event_id = context.eventId;
     }
 
+    // ── Numbered option resolution ──
+    // If the assistant previously presented numbered options, resolve numeric/spoken replies
+    const activeOptions = stateJson.active_options as { options: string[]; context: string } | undefined;
+    let resolvedMessage = message;
+
+    if (activeOptions?.options?.length) {
+      const trimmed = message.trim().toLowerCase();
+      const spokenNumbers: Record<string, number> = {
+        "one": 1, "first": 1, "the first": 1, "the first one": 1, "option one": 1, "option 1": 1, "number 1": 1, "number one": 1, "#1": 1,
+        "two": 2, "second": 2, "the second": 2, "the second one": 2, "option two": 2, "option 2": 2, "number 2": 2, "number two": 2, "#2": 2,
+        "three": 3, "third": 3, "the third": 3, "the third one": 3, "option three": 3, "option 3": 3, "number 3": 3, "number three": 3, "#3": 3,
+        "four": 4, "fourth": 4, "the fourth": 4, "the fourth one": 4, "option four": 4, "option 4": 4, "number 4": 4, "number four": 4, "#4": 4,
+        "five": 5, "fifth": 5, "the fifth": 5, "option five": 5, "option 5": 5, "number 5": 5, "#5": 5,
+        "six": 6, "sixth": 6, "option six": 6, "option 6": 6, "number 6": 6, "#6": 6,
+        "seven": 7, "seventh": 7, "option seven": 7, "option 7": 7, "#7": 7,
+        "eight": 8, "eighth": 8, "option eight": 8, "option 8": 8, "#8": 8,
+        "other": -1, "something else": -1, "none of these": -1, "none": -1, "custom": -1,
+      };
+
+      let resolvedIdx: number | null = null;
+
+      // Check direct number
+      const numMatch = trimmed.match(/^(\d+)\.?\s*$/);
+      if (numMatch) resolvedIdx = parseInt(numMatch[1], 10);
+
+      // Check spoken equivalents
+      if (resolvedIdx === null && spokenNumbers[trimmed] !== undefined) {
+        resolvedIdx = spokenNumbers[trimmed];
+      }
+
+      if (resolvedIdx !== null) {
+        const opts = activeOptions.options;
+        if (resolvedIdx === -1 || resolvedIdx === opts.length) {
+          // "Other" selected
+          resolvedMessage = `Other (custom answer for: ${activeOptions.context})`;
+          console.log(`[${correlationId}] Option resolved: Other`);
+        } else if (resolvedIdx >= 1 && resolvedIdx <= opts.length) {
+          resolvedMessage = opts[resolvedIdx - 1];
+          console.log(`[${correlationId}] Option resolved: ${resolvedIdx} → "${resolvedMessage}"`);
+        }
+      }
+
+      // Clear active options after resolution (will be re-set if AI presents new ones)
+      delete stateJson.active_options;
+    }
+
     // ── Confirmation detection: check if user is confirming a pending action ──
     const confirmationPatterns = /^\s*(yes|yeah|yep|yup|sure|confirm|proceed|do it|go ahead|okay|ok|approved?|absolutely|please do|let'?s do it|update it|save it|go for it)\s*[.!]?\s*$/i;
     const isConfirmation = confirmationPatterns.test(message.trim());
@@ -2636,7 +2682,6 @@ serve(async (req) => {
     if (isConfirmation && pendingAction && pendingAction.awaiting_confirmation) {
       console.log(`[${correlationId}] Confirmation detected for pending action: ${pendingAction.tool}`);
       confirmationInjection = `\n\n⚠️ PENDING ACTION CONFIRMED — The user just confirmed the following action. Execute it NOW by calling the tool. Do NOT ask again.\nTool: ${pendingAction.tool}\nArguments: ${JSON.stringify(pendingAction.arguments)}\nAction: ${pendingAction.summary}`;
-      // Clear pending action from state (will be persisted after execution)
       delete stateJson.pending_action;
     }
 
