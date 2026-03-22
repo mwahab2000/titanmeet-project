@@ -16,7 +16,7 @@ export interface AIAction {
 }
 
 export interface DraftState {
-  client: { name?: string; slug?: string; status: "empty" | "partial" | "done" };
+  client: { name?: string; slug?: string; id?: string; status: "empty" | "partial" | "done" };
   eventBasics: { title?: string; date?: string; location?: string; status: "empty" | "partial" | "done" };
   venue: { name?: string; address?: string; status: "empty" | "partial" | "done" };
   organizers: { count: number; status: "empty" | "partial" | "done" };
@@ -37,11 +37,25 @@ const emptyDraft: DraftState = {
   publishReadiness: { score: 0, missing: [], status: "empty" },
 };
 
+function mapDraftState(raw: Record<string, any> | undefined): DraftState {
+  if (!raw) return emptyDraft;
+  return {
+    client: raw.client ?? emptyDraft.client,
+    eventBasics: raw.eventBasics ?? emptyDraft.eventBasics,
+    venue: raw.venue ?? emptyDraft.venue,
+    organizers: raw.organizers ?? emptyDraft.organizers,
+    attendees: raw.attendees ?? emptyDraft.attendees,
+    agenda: raw.agenda ?? emptyDraft.agenda,
+    communications: raw.communications ?? emptyDraft.communications,
+    publishReadiness: raw.publishReadiness ?? emptyDraft.publishReadiness,
+  };
+}
+
 export function useAIBuilderSession() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState<DraftState>(emptyDraft);
   const [isLoading, setIsLoading] = useState(false);
-  const [sessionId] = useState(() => crypto.randomUUID());
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   const sendMessage = useCallback(async (content: string, eventId?: string, clientId?: string) => {
@@ -63,11 +77,15 @@ export function useAIBuilderSession() {
           sessionId,
           message: content,
           context: { eventId, clientId },
-          history: messages.slice(-20).map((m) => ({ role: m.role, content: m.content })),
         },
       });
 
       if (error) throw error;
+
+      // Update session ID from backend
+      if (data?.sessionId && !sessionId) {
+        setSessionId(data.sessionId);
+      }
 
       const assistantMsg: ChatMessage = {
         id: crypto.randomUUID(),
@@ -80,27 +98,27 @@ export function useAIBuilderSession() {
       setMessages((prev) => [...prev, assistantMsg]);
 
       if (data?.draft) {
-        setDraft(data.draft);
+        setDraft(mapDraftState(data.draft));
       }
     } catch (err: any) {
-      // If the edge function doesn't exist yet, provide a helpful fallback
       const assistantMsg: ChatMessage = {
         id: crypto.randomUUID(),
         role: "assistant",
-        content: "I'm currently being set up. The AI Event Builder backend (`ai-event-builder` edge function) needs to be deployed. Once connected, I'll be able to help you create clients, events, agendas, and manage your entire workflow conversationally.",
+        content: "I encountered an issue connecting to the AI service. Please try again in a moment.",
         timestamp: new Date(),
-        actions: [{ type: "info", label: "Backend not connected", detail: "Deploy the ai-event-builder edge function to enable full functionality." }],
+        actions: [{ type: "warning", label: "Connection error", detail: err?.message || "Unknown error" }],
       };
       setMessages((prev) => [...prev, assistantMsg]);
     } finally {
       setIsLoading(false);
     }
-  }, [messages, sessionId]);
+  }, [sessionId]);
 
   const clearSession = useCallback(() => {
     setMessages([]);
     setDraft(emptyDraft);
+    setSessionId(null);
   }, []);
 
-  return { messages, draft, isLoading, sessionId, sendMessage, clearSession };
+  return { messages, draft, isLoading, sessionId: sessionId || "", sendMessage, clearSession };
 }
