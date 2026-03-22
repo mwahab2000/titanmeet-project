@@ -4,7 +4,7 @@ import { DashboardSidebar, GroupedWorkspaceSections } from "./DashboardSidebar";
 import { NotificationBell } from "./NotificationBell";
 import { useAuth } from "@/contexts/AuthContext";
 import { useIsMobile, useIsTablet } from "@/hooks/use-mobile";
-import { LayoutDashboard, Building2, Calendar, CreditCard, Settings, Menu } from "lucide-react";
+import { LayoutDashboard, Building2, Calendar, CreditCard, Settings, Menu, Bot } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import { useEventWorkspaceOptional } from "@/contexts/EventWorkspaceContext";
 import { FirstLoginTour } from "@/components/onboarding/FirstLoginTour";
@@ -12,6 +12,7 @@ import UsageWarningBanner from "@/components/billing/UsageWarningBanner";
 
 const mobileNavItems = [
   { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
+  { to: "/dashboard/ai-builder", icon: Bot, label: "AI Builder" },
   { to: "/dashboard/clients", icon: Building2, label: "Clients" },
   { to: "/dashboard/events", icon: Calendar, label: "Events" },
   { to: "/dashboard/billing", icon: CreditCard, label: "Billing" },

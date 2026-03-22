@@ -44,6 +44,7 @@ const SupportPage = lazy(() => import("./pages/SupportPage"));
 const SupportTicketDetail = lazy(() => import("./pages/SupportTicketDetail"));
 const AdminSupportPage = lazy(() => import("./pages/AdminSupportPage"));
 const NotificationsPage = lazy(() => import("./pages/NotificationsPage"));
+const AIBuilderPage = lazy(() => import("./pages/AIBuilderPage"));
 
 // ── Event workspace sections (lazy — deep workspace pages) ────
 const HeroSection = lazy(() => import("./pages/workspace/HeroSection"));
@@ -99,6 +100,7 @@ const App = () => (
                     <Route path="/login" element={<Login />} />
                     <Route path="/dashboard" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
                       <Route index element={<Dashboard />} />
+                      <Route path="ai-builder" element={<AIBuilderPage />} />
                       <Route path="events" element={<Events />} />
                       <Route path="events/new" element={<CreateEvent />} />
                       <Route path="events/quick-setup" element={<QuickEventWizard />} />

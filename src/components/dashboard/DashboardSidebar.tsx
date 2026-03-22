@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { Calendar, LayoutDashboard, Settings, LogOut, Plus, Building2, Image, Images, Info, ListOrdered, UserCog, UsersRound, Layers, Bus, MapPin, Megaphone, ClipboardList, MessageSquare, Users, Mic, Globe, Shirt, CreditCard, LifeBuoy, Shield, FileEdit, Copy, MailPlus, ChevronDown, ChevronRight as ChevronRightIcon, Palette, UserCheck, Truck, Sparkles, Send, type LucideIcon } from "lucide-react";
+import { Calendar, LayoutDashboard, Settings, LogOut, Plus, Building2, Image, Images, Info, ListOrdered, UserCog, UsersRound, Layers, Bus, MapPin, Megaphone, ClipboardList, MessageSquare, Users, Mic, Globe, Shirt, CreditCard, LifeBuoy, Shield, FileEdit, Copy, MailPlus, ChevronDown, ChevronRight as ChevronRightIcon, Palette, UserCheck, Truck, Sparkles, Send, Bot, type LucideIcon } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -303,6 +303,7 @@ export const DashboardSidebar = () => {
 
   const navLinks = [
     { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard", active: isActive("/dashboard") },
+    { to: "/dashboard/ai-builder", icon: Bot, label: "AI Builder", active: isActive("/dashboard/ai-builder") },
     { to: "/dashboard/clients", icon: Building2, label: "Clients", active: location.pathname.startsWith("/dashboard/clients") },
     { to: "/dashboard/events", icon: Calendar, label: "Events", active: isActive("/dashboard/events") || !!activeEventId },
     { to: "/dashboard/events/drafts", icon: FileEdit, label: "Drafts", active: isActive("/dashboard/events/drafts") },
