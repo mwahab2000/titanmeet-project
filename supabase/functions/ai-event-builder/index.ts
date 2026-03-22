@@ -1810,6 +1810,7 @@ function resolveToolTarget(toolName: string, args: Record<string, unknown>): str
   if (toolName === "search_venue_on_maps") return (args.query as string) || "venue";
   if (toolName === "generate_full_event_proposal") return (args.description as string)?.substring(0, 40) || "proposal";
   if (toolName === "save_event_proposal") return "full proposal";
+  if (toolName === "apply_template") return (args.search_query as string) || "template";
   if (args.event_id) return `event:${(args.event_id as string).slice(0, 8)}`;
   return toolName;
 }
