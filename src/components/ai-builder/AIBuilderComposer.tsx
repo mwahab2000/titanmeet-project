@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface AIBuilderComposerProps {
   onSend: (message: string) => void;
