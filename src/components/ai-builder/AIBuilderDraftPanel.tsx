@@ -77,6 +77,14 @@ export const AIBuilderDraftPanel = ({ draft, onApplyRecommendation, isLoading }:
           </div>
         )}
       </ScrollArea>
+
+      {onApplyRecommendation && (
+        <AIBuilderRecommendations
+          draft={draft}
+          onApply={onApplyRecommendation}
+          disabled={isLoading}
+        />
+      )}
     </div>
   );
 };
