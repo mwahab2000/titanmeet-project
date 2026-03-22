@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
@@ -35,6 +36,12 @@ function formatValue(key: ResourceKey, value: number, limit: number): string {
   return `${displayVal}${suffix} / ${limit}${suffix}`;
 }
 
+function remaining(value: number, limit: number): string | null {
+  if (limit === Infinity) return null;
+  const rem = Math.max(0, limit - value);
+  return `${Math.round(rem)} remaining`;
+}
+
 interface UsageMetersProps {
   compact?: boolean;
 }
@@ -61,7 +68,6 @@ export default function UsageMeters({ compact = false }: UsageMetersProps) {
 
   const isNoPlan = !limits.loading && limits.planId === "starter" && limits.clients.limit === 0;
 
-  // Map resource keys to the plan limits result
   const getStatus = (key: ResourceKey): ResourceStatus => {
     const map: Record<ResourceKey, ResourceStatus> = {
       clients: limits.clients,
@@ -114,14 +120,21 @@ export default function UsageMeters({ compact = false }: UsageMetersProps) {
           </div>
         ) : (
           <TooltipProvider>
-            {RESOURCE_KEYS.map((key) => {
+            {RESOURCE_KEYS.map((key, idx) => {
               const status = getStatus(key);
-              if (!status || status.limit === Infinity) return null; // Skip unlimited resources
+              if (!status || status.limit === Infinity) return null;
               const meta = RESOURCE_META[key];
               const displayPercent = Math.min(status.percent, 100);
+              const rem = remaining(status.used, status.limit);
 
               const bar = (
-                <div key={key} className={compact ? "space-y-1" : "space-y-1.5"}>
+                <motion.div
+                  key={key}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: idx * 0.05, duration: 0.3 }}
+                  className={compact ? "space-y-1" : "space-y-1.5"}
+                >
                   <div className="flex justify-between text-sm">
                     <span className={`font-medium ${compact ? "text-xs" : ""}`}>{meta.label}</span>
                     <span
@@ -141,9 +154,14 @@ export default function UsageMeters({ compact = false }: UsageMetersProps) {
                     className={`${compact ? "h-1.5" : "h-2"} ${barColor(status)}`}
                   />
                   {!compact && (
-                    <p className="text-[11px] text-muted-foreground">{meta.description}</p>
+                    <div className="flex justify-between">
+                      <p className="text-[11px] text-muted-foreground">{meta.description}</p>
+                      {rem && status.percent < 100 && (
+                        <p className="text-[11px] text-muted-foreground">{rem}</p>
+                      )}
+                    </div>
                   )}
-                </div>
+                </motion.div>
               );
 
               if (status.grandfathered) {
