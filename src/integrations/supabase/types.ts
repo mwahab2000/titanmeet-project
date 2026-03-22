@@ -2079,14 +2079,23 @@ export type Database = {
       subscription_plans: {
         Row: {
           burst_per_minute: number
+          campaign_tier: string | null
           created_at: string
           display_order: number
+          has_ai_concierge: string | null
+          has_live_dashboard: boolean | null
+          has_segmentation: boolean | null
+          has_workspace_analytics: boolean | null
           id: string
           is_active: boolean
           max_active_events: number
+          max_admin_users: number | null
           max_ai_heavy: number
+          max_ai_images: number | null
           max_ai_requests: number
           max_attendees: number
+          max_attendees_per_event: number | null
+          max_brand_kits: number | null
           max_clients: number
           max_emails: number
           max_maps_photos: number
@@ -2105,14 +2114,23 @@ export type Database = {
         }
         Insert: {
           burst_per_minute?: number
+          campaign_tier?: string | null
           created_at?: string
           display_order?: number
+          has_ai_concierge?: string | null
+          has_live_dashboard?: boolean | null
+          has_segmentation?: boolean | null
+          has_workspace_analytics?: boolean | null
           id: string
           is_active?: boolean
           max_active_events: number
+          max_admin_users?: number | null
           max_ai_heavy?: number
+          max_ai_images?: number | null
           max_ai_requests?: number
           max_attendees: number
+          max_attendees_per_event?: number | null
+          max_brand_kits?: number | null
           max_clients: number
           max_emails: number
           max_maps_photos?: number
@@ -2131,14 +2149,23 @@ export type Database = {
         }
         Update: {
           burst_per_minute?: number
+          campaign_tier?: string | null
           created_at?: string
           display_order?: number
+          has_ai_concierge?: string | null
+          has_live_dashboard?: boolean | null
+          has_segmentation?: boolean | null
+          has_workspace_analytics?: boolean | null
           id?: string
           is_active?: boolean
           max_active_events?: number
+          max_admin_users?: number | null
           max_ai_heavy?: number
+          max_ai_images?: number | null
           max_ai_requests?: number
           max_attendees?: number
+          max_attendees_per_event?: number | null
+          max_brand_kits?: number | null
           max_clients?: number
           max_emails?: number
           max_maps_photos?: number
