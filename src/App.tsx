@@ -111,7 +111,7 @@ const App = () => (
                       <Route path="clients" element={<ClientsPage />} />
                       <Route path="clients/new" element={<CreateClient />} />
                       <Route path="clients/:clientId/edit" element={<EditClient />} />
-                      <Route path="templates" element={<TemplatesPage />} />
+                      <Route path="templates" element={<TemplateMarketplacePage />} />
                       <Route path="attendees" element={<Attendees />} />
                       <Route path="settings" element={<DashboardSettings />} />
                       <Route path="billing" element={<BillingPage />} />
