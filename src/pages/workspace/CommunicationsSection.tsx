@@ -165,7 +165,7 @@ const CommunicationsSection = () => {
       </div>
 
       {/* Right pane - only for views that support thread selection */}
-      {!["overview", "log", "scheduled", "checkin", "templates", "settings"].includes(activeView) && (
+      {!["overview", "campaigns", "log", "scheduled", "checkin", "templates", "settings"].includes(activeView) && (
         <div className="flex-1 min-w-0 overflow-hidden">
           {renderRightPane()}
         </div>
