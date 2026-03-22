@@ -7,13 +7,25 @@ export interface ChatMessage {
   content: string;
   timestamp: Date;
   actions?: AIAction[];
+  actionLog?: ActionLogEntry[];
 }
 
 export interface AIAction {
   type: "created" | "updated" | "added" | "warning" | "info" | "venue_search" | "venue_photos";
   label: string;
   detail?: string;
+  status?: "pending" | "success" | "failed" | "skipped";
   data?: any;
+}
+
+export interface ActionLogEntry {
+  action: string;
+  target: string;
+  status: "pending" | "success" | "failed" | "skipped";
+  message: string;
+  category?: string;
+  timestamp: string;
+  metadata?: Record<string, unknown>;
 }
 
 export interface DraftState {
@@ -87,16 +99,23 @@ export function useAIBuilderSession() {
         setSessionId(data.sessionId);
       }
 
+      // Determine if there were any failures in the action log
+      const actionLog: ActionLogEntry[] = data?.actionLog || [];
+      const hasFailures = actionLog.some((e: ActionLogEntry) => e.status === "failed");
+      const hasSuccesses = actionLog.some((e: ActionLogEntry) => e.status === "success");
+
       const assistantMsg: ChatMessage = {
         id: crypto.randomUUID(),
         role: "assistant",
         content: data?.reply || "I'm ready to help you build your event. What would you like to start with?",
         timestamp: new Date(),
         actions: data?.actions,
+        actionLog,
       };
 
       setMessages((prev) => [...prev, assistantMsg]);
 
+      // Always update draft — it reflects real DB state including partial successes
       if (data?.draft) {
         setDraft(mapDraftState(data.draft));
       }
