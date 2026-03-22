@@ -19,18 +19,20 @@ export const LandingCta = () => {
           transition={{ duration: 0.6 }}
           className="mx-auto max-w-3xl rounded-2xl gradient-titan p-12 text-center"
         >
-          <h2 className="mb-4 font-display text-3xl font-bold text-white">Ready to launch your next event?</h2>
+          <h2 className="mb-4 font-display text-3xl font-bold text-white">Run your next event with AI — not spreadsheets.</h2>
           <p className="mb-8 text-white/80">
-            See how a real event site looks — built entirely with TitanMeet.
+            Create, communicate, and track attendance — all from one platform.
           </p>
           <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
             <Button size="lg" className="bg-white text-[hsl(222,47%,11%)] hover:bg-white/90 px-8 font-semibold border-0" asChild>
+              <Link to="/login?tab=signup">
+                Create Your First Event
+              </Link>
+            </Button>
+            <Button size="lg" variant="outline" className="border-white/30 bg-transparent text-white hover:bg-white/10 px-8" asChild>
               <a href={DEMO_SITE_URL} target="_blank" rel="noopener noreferrer">
                 View Demo Site <ExternalLink className="ml-2 h-4 w-4" />
               </a>
-            </Button>
-            <Button size="lg" variant="outline" className="border-white/30 bg-transparent text-white hover:bg-white/10 px-8" asChild>
-              <a href="#pricing">Compare Plans</a>
             </Button>
           </div>
         </motion.div>
