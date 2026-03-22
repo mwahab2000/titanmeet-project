@@ -120,6 +120,20 @@ export const AIBuilderDraftPanel = ({
     missingItems.push({ label: "Agenda", priority: "recommended" });
   }
 
+  if (draft.media.heroCount > 0) {
+    completedItems.push({ label: "Hero Image", value: `${draft.media.heroCount} image(s)` });
+  } else {
+    missingItems.push({ label: "Hero Image", priority: "recommended" });
+  }
+
+  if (draft.media.galleryCount > 0) {
+    completedItems.push({ label: "Gallery", value: `${draft.media.galleryCount} photos` });
+  }
+
+  if (draft.media.hasBanner) {
+    completedItems.push({ label: "Banner", value: "Set" });
+  }
+
   if (draft.description) {
     completedItems.push({ label: "Description", value: "Set" });
   }
