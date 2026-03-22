@@ -642,6 +642,12 @@ async function executeTool(
         return await toolSaveEventProposal(db, userId, args as any, correlationId);
       case "apply_template":
         return await toolApplyTemplate(db, userId, args as any, correlationId);
+      case "list_workspace_events":
+        return await toolListWorkspaceEvents(db, userId, args as any);
+      case "list_workspace_clients":
+        return await toolListWorkspaceClients(db, userId, args as any);
+      case "get_event_details":
+        return await toolGetEventDetails(db, userId, args as any);
       default:
         return { success: false, result: {}, error: `Unknown tool: ${toolName}`, category: "internal" };
     }
