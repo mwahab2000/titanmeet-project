@@ -364,8 +364,8 @@ async function toolAddAttendeesFromText(
 ) {
   if (!args.event_id || !args.text?.trim()) return { success: false, result: {}, error: "event_id and text are required" };
 
-  const { data: evt } = await db.from("events").select("id, created_by").eq("id", args.event_id).single();
-  if (!evt || evt.created_by !== userId) return { success: false, result: {}, error: "Event not found or access denied" };
+  const { allowed } = await canManageEvent(db, userId, args.event_id);
+  if (!allowed) return { success: false, result: {}, error: "Event not found or access denied" };
 
   // Parse: support "Name <email>", "Name, email", or just names
   const lines = args.text.split(/[\n,;]+/).map(l => l.trim()).filter(Boolean);
