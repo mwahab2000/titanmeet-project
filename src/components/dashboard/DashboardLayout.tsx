@@ -12,6 +12,7 @@ import UsageWarningBanner from "@/components/billing/UsageWarningBanner";
 
 const mobileNavItems = [
   { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
+  { to: "/dashboard/ai-builder", icon: Bot, label: "AI Builder" },
   { to: "/dashboard/clients", icon: Building2, label: "Clients" },
   { to: "/dashboard/events", icon: Calendar, label: "Events" },
   { to: "/dashboard/billing", icon: CreditCard, label: "Billing" },
