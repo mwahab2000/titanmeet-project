@@ -4420,6 +4420,18 @@ function formatToolLabel(toolName: string, result: Record<string, unknown>): str
       return `Analytics: ${(result.metrics as any)?.rsvpRate ?? 0}% RSVP, ${(result.metrics as any)?.attendanceRate ?? 0}% attendance`;
     case "get_workspace_analytics_summary":
       return `Workspace: ${result.totalEvents} events, ${result.totalAttendees} attendees`;
+    case "prepare_communication_campaign":
+      return (result.message as string) || `Prepared ${result.campaign_type} campaign for ${result.audience_count} recipients`;
+    case "send_communication_campaign":
+      return (result.message as string) || `Sent campaign: ${result.sent_email ?? 0} emails, ${result.sent_whatsapp ?? 0} WhatsApp`;
+    case "get_event_confirmation_stats":
+      return `Confirmed: ${result.confirmed ?? 0}/${result.invited ?? 0} (${result.confirmation_rate ?? 0}%)`;
+    case "list_confirmation_segments":
+      return (result.message as string) || `Segments retrieved`;
+    case "get_communication_performance":
+      return (result.message as string) || `Communication performance retrieved`;
+    case "list_event_campaigns":
+      return (result.message as string) || `Listed ${(result.campaigns as any[])?.length ?? 0} campaigns`;
     default:
       return toolName;
   }

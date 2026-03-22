@@ -222,7 +222,7 @@ export async function sendCampaign(
   failed_whatsapp: number;
   total: number;
 }> {
-  // Get campaign details
+  // Re-fetch campaign status to prevent race conditions from stale UI state
   const { data: campaign, error: campErr } = await supabase
     .from("communication_campaigns" as any)
     .select("*")
@@ -231,6 +231,11 @@ export async function sendCampaign(
 
   if (campErr || !campaign) throw campErr || new Error("Campaign not found");
   const camp = campaign as any;
+
+  // Idempotency guard: only draft campaigns can be sent
+  if (camp.status !== "draft") {
+    throw new Error(`Campaign cannot be sent — current status is "${camp.status}". Only draft campaigns can be sent.`);
+  }
 
   // Update campaign status to sending
   await supabase
