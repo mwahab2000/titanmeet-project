@@ -2359,7 +2359,7 @@ async function toolRecommendNextActions(
     if (attCount === 0) recommendations.push({ action: "Add attendees", reason: "No attendees added yet", priority: "high", tool: "add_attendees_from_text" });
     if (agdCount === 0) recommendations.push({ action: "Create agenda", reason: "Structured agenda improves event quality", priority: "medium", tool: "add_agenda_items" });
     if (orgCount === 0) recommendations.push({ action: "Add organizers", reason: "Shows who is running the event", priority: "low" });
-    if (!(Array.isArray(evt.hero_images) && evt.hero_images.length > 0)) recommendations.push({ action: "Upload hero image", reason: "Visual appeal for the public page", priority: "medium" });
+    if (!(Array.isArray(evt.hero_images) && evt.hero_images.length > 0)) recommendations.push({ action: "Upload hero image via Hero Section in workspace", reason: "Visual appeal for the public page — upload in the event workspace", priority: "medium" });
     if (attCount > 0 && invCount === 0) recommendations.push({ action: "Send invitations", reason: `${attCount} attendees added but no invitations sent`, priority: "high" });
     if (evt.status === "draft" && !evt.description?.trim()) {
       // Don't recommend publish if basics are missing
