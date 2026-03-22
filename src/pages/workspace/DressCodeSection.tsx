@@ -162,7 +162,7 @@ const DressCodeSection = () => {
           reference_images: entry.reference_images,
         };
         if (entry.id) {
-          console.log("Updating dress code:", entry.id, payload);
+          
           const { error } = await supabase.from("dress_codes").update(payload).eq("id", entry.id);
           if (error) { console.error("Update error:", error); toast.error("Save failed: " + error.message); setSaving(false); return; }
         } else {
