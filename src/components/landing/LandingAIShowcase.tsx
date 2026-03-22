@@ -347,12 +347,13 @@ export const LandingAIShowcase = () => {
 
               {/* Hero image placeholder */}
               <motion.div
-                initial={{ opacity: 0, scale: 0.97 }}
+                initial={{ opacity: 0, scale: 0.97, filter: "blur(8px)" }}
                 animate={{
                   opacity: preview.heroVisible ? 1 : 0.12,
                   scale: preview.heroVisible ? 1 : 0.97,
+                  filter: preview.heroVisible ? "blur(0px)" : "blur(8px)",
                 }}
-                transition={{ duration: 0.6 }}
+                transition={{ duration: reducedMotion ? 0.2 : 0.7, ease: "easeOut" }}
                 className="rounded-xl overflow-hidden border border-[hsl(var(--landing-border)/0.2)]"
               >
                 <div className="aspect-[16/7] bg-gradient-to-br from-[hsl(var(--titan-green)/0.15)] via-[hsl(var(--titan-blue)/0.1)] to-[hsl(var(--landing-fg)/0.04)] flex items-center justify-center relative">
