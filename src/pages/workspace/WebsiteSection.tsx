@@ -1,7 +1,7 @@
 import { useEventWorkspace } from "@/contexts/EventWorkspaceContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Check, X, ExternalLink, Globe, Eye, Copy, Sparkles, Loader2, ArrowRight, ClipboardCheck } from "lucide-react";
+import { Check, X, ExternalLink, Globe, Eye, Copy, Sparkles, Loader2, ArrowRight, ClipboardCheck, AlertTriangle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
@@ -197,6 +197,41 @@ const WebsiteSection = () => {
         </CardContent>
       </Card>
 
+      {/* Privacy: Attendee Visibility */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Public Attendee Visibility</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <p className="text-sm font-medium">Show attendee names on public event page</p>
+              <p className="text-xs text-muted-foreground">
+                When enabled, attendee names will appear as scrolling marquee bars on the public event website.
+                No emails, phone numbers, or other personal data is ever shown publicly.
+              </p>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                className="sr-only peer"
+                checked={!!(event as any).show_attendees_publicly}
+                disabled={isArchived}
+                onChange={(e) => autosave({ show_attendees_publicly: e.target.checked } as any)}
+              />
+              <div className="w-11 h-6 bg-muted rounded-full peer peer-checked:after:translate-x-full peer-checked:bg-primary after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
+            </label>
+          </div>
+          {!!(event as any).show_attendees_publicly && (
+            <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+              <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+              <p className="text-xs text-amber-600 dark:text-amber-400">
+                Attendee names will be visible to anyone who visits this event's public page. Make sure your attendees are comfortable with this.
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
 
       {/* AI SEO Optimizer */}

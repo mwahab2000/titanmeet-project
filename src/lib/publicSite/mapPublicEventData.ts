@@ -88,8 +88,9 @@ export function mapPublicEventData(
       id: o.id,
       name: o.name,
       role: o.role ?? null,
-      email: o.email ?? null,
-      mobile: o.mobile ?? null,
+      // Intentionally omit email and mobile from public payloads — PII
+      email: null,
+      mobile: null,
       photoUrl: o.photo_url ? getPublicAssetUrl("event-assets", o.photo_url) : null,
     })),
     announcements: announcements.map((a) => ({ id: a.id, text: a.text })),

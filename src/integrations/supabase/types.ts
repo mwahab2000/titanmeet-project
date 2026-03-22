@@ -757,6 +757,7 @@ export type Database = {
           id: string
           location: string | null
           max_attendees: number | null
+          show_attendees_publicly: boolean
           slug: string | null
           start_date: string
           status: Database["public"]["Enums"]["event_status"]
@@ -786,6 +787,7 @@ export type Database = {
           id?: string
           location?: string | null
           max_attendees?: number | null
+          show_attendees_publicly?: boolean
           slug?: string | null
           start_date: string
           status?: Database["public"]["Enums"]["event_status"]
@@ -815,6 +817,7 @@ export type Database = {
           id?: string
           location?: string | null
           max_attendees?: number | null
+          show_attendees_publicly?: boolean
           slug?: string | null
           start_date?: string
           status?: Database["public"]["Enums"]["event_status"]
