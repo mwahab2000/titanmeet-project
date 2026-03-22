@@ -554,6 +554,10 @@ async function executeTool(
         return await toolAddAgendaItems(db, userId, args as any);
       case "check_publish_readiness":
         return await toolCheckPublishReadiness(db, userId, args as any);
+      case "generate_full_event_proposal":
+        return await toolGenerateFullEventProposal(db, userId, args as any, correlationId);
+      case "save_event_proposal":
+        return await toolSaveEventProposal(db, userId, args as any, correlationId);
       default:
         return { success: false, result: {}, error: `Unknown tool: ${toolName}`, category: "internal" };
     }
