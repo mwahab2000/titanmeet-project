@@ -44,6 +44,7 @@ const SupportPage = lazy(() => import("./pages/SupportPage"));
 const SupportTicketDetail = lazy(() => import("./pages/SupportTicketDetail"));
 const AdminSupportPage = lazy(() => import("./pages/AdminSupportPage"));
 const NotificationsPage = lazy(() => import("./pages/NotificationsPage"));
+const AIBuilderPage = lazy(() => import("./pages/AIBuilderPage"));
 
 // ── Event workspace sections (lazy — deep workspace pages) ────
 const HeroSection = lazy(() => import("./pages/workspace/HeroSection"));
