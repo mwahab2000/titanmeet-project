@@ -2792,6 +2792,267 @@ async function toolListMediaLibrary(
   };
 }
 
+// ─── Phase 2 Tool Implementations ──────────────────────────
+
+async function toolRegisterUploadedMedia(
+  db: SupabaseClient, userId: string,
+  args: { event_id?: string; file_path: string; file_name: string; media_type?: string },
+  correlationId: string,
+): Promise<ToolResult> {
+  if (!args.file_path) return { success: false, result: {}, error: "file_path is required", category: "validation" };
+
+  let eventId = args.event_id;
+  let clientId: string | null = null;
+
+  if (eventId) {
+    const { allowed, event: evt } = await canManageEvent(db, userId, eventId);
+    if (!allowed) return { success: false, result: {}, error: "Event not found or access denied", category: "permission" };
+    clientId = evt?.client_id || null;
+  }
+
+  // Get a signed URL for preview
+  const { data: urlData } = await db.storage.from("media-library").createSignedUrl(args.file_path, 3600);
+  const previewUrl = urlData?.signedUrl || "";
+
+  const { data: asset, error: assetErr } = await db.from("media_assets").insert({
+    workspace_id: null,
+    client_id: clientId,
+    event_id: eventId || null,
+    media_type: args.media_type || "hero_image",
+    source_type: "uploaded",
+    title: args.file_name,
+    file_url: args.file_path,
+    thumbnail_url: args.file_path,
+    approved: false,
+    created_by: userId,
+  }).select("id").single();
+
+  if (assetErr) {
+    console.error(`[${correlationId}] Register upload error:`, assetErr);
+    return { success: false, result: {}, error: "Failed to register uploaded image", category: "internal" };
+  }
+
+  return {
+    success: true,
+    result: {
+      media_asset_id: asset?.id || "",
+      preview_url: previewUrl,
+      file_path: args.file_path,
+      media_type: args.media_type || "hero_image",
+      message: `Image "${args.file_name}" uploaded and registered. What would you like to do with it?`,
+    },
+  };
+}
+
+async function toolCreateBrandKit(
+  db: SupabaseClient, userId: string,
+  args: { name: string; client_id?: string; primary_color?: string; secondary_color?: string; accent_color?: string; typography_preference?: string; visual_mood?: string[] },
+): Promise<ToolResult> {
+  if (!args.name?.trim()) return { success: false, result: {}, error: "Brand kit name is required", category: "validation" };
+
+  if (args.client_id) {
+    const canManage = await canManageClient(db, userId, args.client_id);
+    if (!canManage) return { success: false, result: {}, error: "Client not found or access denied", category: "permission" };
+  }
+
+  const { data, error } = await db.from("brand_kits").insert({
+    name: args.name.trim(),
+    client_id: args.client_id || null,
+    primary_color: args.primary_color || null,
+    secondary_color: args.secondary_color || null,
+    accent_color: args.accent_color || null,
+    typography_preference: args.typography_preference || "modern",
+    visual_mood: args.visual_mood || [],
+    style_tags: args.visual_mood ? args.visual_mood : [],
+    created_by: userId,
+  }).select("id, name").single();
+
+  if (error) {
+    const classified = classifyError(error, error.code);
+    return { success: false, result: {}, error: classified.userMessage, category: classified.category };
+  }
+
+  return {
+    success: true,
+    result: {
+      brand_kit_id: data.id,
+      name: data.name,
+      primary_color: args.primary_color,
+      secondary_color: args.secondary_color,
+      accent_color: args.accent_color,
+      typography: args.typography_preference,
+      mood: args.visual_mood,
+      message: `Brand kit "${data.name}" created.`,
+    },
+  };
+}
+
+async function toolGetBrandKit(
+  db: SupabaseClient, userId: string,
+  args: { client_id?: string; name_search?: string },
+): Promise<ToolResult> {
+  if (!args.client_id && !args.name_search) {
+    return { success: false, result: {}, error: "Provide either client_id or name_search", category: "validation" };
+  }
+
+  const isPrivileged = await isAdminOrOwnerRole(db, userId);
+  let query = db.from("brand_kits").select("*").limit(5).order("created_at", { ascending: false });
+  if (!isPrivileged) query = query.eq("created_by", userId);
+  if (args.client_id) query = query.eq("client_id", args.client_id);
+  if (args.name_search) query = query.ilike("name", `%${args.name_search}%`);
+
+  const { data, error } = await query;
+  if (error) return { success: false, result: {}, error: "Failed to query brand kits", category: "internal" };
+
+  if (!data?.length) {
+    return { success: true, result: { found: false, message: "No brand kits found. Would you like to create one?" } };
+  }
+
+  return {
+    success: true,
+    result: {
+      found: true,
+      brand_kits: data.map(bk => ({
+        id: bk.id,
+        name: bk.name,
+        primary_color: bk.primary_color,
+        secondary_color: bk.secondary_color,
+        accent_color: bk.accent_color,
+        typography: bk.typography_preference,
+        mood: bk.visual_mood,
+        client_id: bk.client_id,
+      })),
+    },
+  };
+}
+
+async function toolSaveVisualPack(
+  db: SupabaseClient, userId: string,
+  args: { event_id: string; pack_name: string },
+  correlationId: string,
+): Promise<ToolResult> {
+  if (!args.event_id || !args.pack_name?.trim()) return { success: false, result: {}, error: "event_id and pack_name are required", category: "validation" };
+
+  const { allowed, event: evt } = await canManageEvent(db, userId, args.event_id);
+  if (!allowed || !evt) return { success: false, result: {}, error: "Event not found or access denied", category: "permission" };
+
+  // Get existing media for this event
+  const { data: mediaAssets } = await db.from("media_assets")
+    .select("id, media_type, source_type, file_url, title, prompt_used, style_tags")
+    .eq("event_id", args.event_id)
+    .eq("approved", true)
+    .limit(20);
+
+  // Tag existing media with pack name
+  if (mediaAssets?.length) {
+    for (const asset of mediaAssets) {
+      await db.from("media_assets").update({ visual_pack_name: args.pack_name.trim() }).eq("id", asset.id);
+    }
+  }
+
+  // Also save event visual state as metadata
+  const visualState = {
+    hero_images: evt.hero_images,
+    gallery_images: evt.gallery_images,
+    cover_image: evt.cover_image,
+    theme_id: evt.theme_id,
+  };
+
+  console.log(`[${correlationId}] Saved visual pack "${args.pack_name}" with ${mediaAssets?.length || 0} assets from event ${args.event_id}`);
+
+  return {
+    success: true,
+    result: {
+      pack_name: args.pack_name,
+      asset_count: mediaAssets?.length || 0,
+      visual_state: visualState,
+      message: `Visual pack "${args.pack_name}" saved with ${mediaAssets?.length || 0} media assets.`,
+    },
+  };
+}
+
+async function toolApplyVisualPack(
+  db: SupabaseClient, userId: string,
+  args: { event_id: string; pack_name: string },
+  correlationId: string,
+): Promise<ToolResult> {
+  if (!args.event_id || !args.pack_name?.trim()) return { success: false, result: {}, error: "event_id and pack_name are required", category: "validation" };
+
+  const { allowed, event: evt } = await canManageEvent(db, userId, args.event_id);
+  if (!allowed || !evt) return { success: false, result: {}, error: "Event not found or access denied", category: "permission" };
+
+  // Find media assets with this pack name
+  const isPrivileged = await isAdminOrOwnerRole(db, userId);
+  let query = db.from("media_assets")
+    .select("*")
+    .eq("visual_pack_name", args.pack_name.trim())
+    .limit(20);
+  if (!isPrivileged) query = query.eq("created_by", userId);
+
+  const { data: packAssets } = await query;
+
+  if (!packAssets?.length) {
+    return { success: true, result: { applied: false, message: `No visual pack found with name "${args.pack_name}".` } };
+  }
+
+  // Copy files from library to event-assets and update event
+  const heroImages: string[] = Array.isArray(evt.hero_images) ? [...evt.hero_images] : [];
+  const galleryImages: string[] = Array.isArray(evt.gallery_images) ? [...evt.gallery_images] : [];
+  let coverImage = evt.cover_image;
+  let copied = 0;
+
+  for (const asset of packAssets) {
+    try {
+      const destPath = `events/${args.event_id}/${asset.media_type}/${Date.now()}-pack.png`;
+      const { data: fileData } = await db.storage.from("media-library").download(asset.file_url);
+      if (!fileData) continue;
+
+      const arrayBuffer = await fileData.arrayBuffer();
+      const { error: uploadErr } = await db.storage
+        .from("event-assets")
+        .upload(destPath, new Uint8Array(arrayBuffer), { contentType: "image/png", upsert: false });
+      if (uploadErr) continue;
+
+      if (asset.media_type === "hero_image") heroImages.push(destPath);
+      else if (asset.media_type === "gallery") galleryImages.push(destPath);
+      else if (asset.media_type === "banner") coverImage = destPath;
+
+      // Create a new media_assets record for this event
+      await db.from("media_assets").insert({
+        event_id: args.event_id,
+        client_id: evt.client_id,
+        media_type: asset.media_type,
+        source_type: "visual_pack",
+        title: asset.title,
+        file_url: destPath,
+        approved: true,
+        created_by: userId,
+        visual_pack_name: args.pack_name,
+      });
+      copied++;
+    } catch (err) {
+      console.error(`[${correlationId}] Pack asset copy error:`, err);
+    }
+  }
+
+  // Update event
+  await db.from("events").update({
+    hero_images: heroImages,
+    gallery_images: galleryImages,
+    cover_image: coverImage,
+  }).eq("id", args.event_id);
+
+  return {
+    success: true,
+    result: {
+      applied: true,
+      pack_name: args.pack_name,
+      assets_copied: copied,
+      message: `Applied visual pack "${args.pack_name}" — ${copied} assets copied to "${evt.title}".`,
+    },
+  };
+}
+
 // ─── Action Log Persistence ────────────────────────────────
 
 async function persistActionLog(
