@@ -1879,6 +1879,9 @@ async function toolGetEventDetails(
         theme: eventData.theme_id,
         client_name: clientName,
         max_attendees: eventData.max_attendees,
+        readiness: eventData.readiness ?? false,
+        readiness_score: (eventData.readiness_details as any)?.score ?? null,
+        readiness_missing: (eventData.readiness_details as any)?.missing ?? [],
       },
       counts: {
         attendees: attRes.count ?? 0,
