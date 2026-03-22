@@ -79,13 +79,14 @@ const PageLoader = () => (
 );
 
 const App = () => (
-  <ThemeProvider attribute="class" defaultTheme="dark" storageKey="titanmeet-theme">
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Suspense fallback={<PageLoader />}>
+  <ErrorBoundary>
+    <ThemeProvider attribute="class" defaultTheme="dark" storageKey="titanmeet-theme">
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Suspense fallback={<PageLoader />}>
             {subdomainClient ? (
               <Routes>
                 <Route path="/" element={<ClientLandingPage clientSlug={subdomainClient} />} />
