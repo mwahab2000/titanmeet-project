@@ -1081,6 +1081,32 @@ const TOOL_DEFINITIONS = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "get_event_analytics_summary",
+      description: "Get analytics summary for a specific event: RSVP rate, attendance rate, no-show %, check-in count, message performance, and auto-generated insights.",
+      parameters: {
+        type: "object",
+        properties: {
+          event_id: { type: "string", description: "Event UUID" },
+        },
+        required: ["event_id"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_workspace_analytics_summary",
+      description: "Get workspace-level analytics: total events, total attendees, average RSVP rate, average attendance rate, average no-show rate, and top-performing events.",
+      parameters: {
+        type: "object",
+        properties: {},
+        required: [],
+      },
+    },
+  },
 ];
 
 // ─── Tool Executor ─────────────────────────────────────────
