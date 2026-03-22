@@ -593,7 +593,10 @@ const BillingPage = () => {
                       Current Plan
                     </Button>
                   ) : !plan.paddlePriceIdMonthly ? (
-                    <p className="text-sm text-muted-foreground text-center py-2">Plan not configured</p>
+                    <div className="text-center py-2 space-y-1">
+                      <p className="text-sm text-muted-foreground">Checkout not available</p>
+                      <p className="text-xs text-muted-foreground/60">Paddle price ID not configured for this plan.</p>
+                    </div>
                   ) : (() => {
                     const isDowngrade = (PLAN_ORDER_IDX[planId] ?? 0) < (PLAN_ORDER_IDX[subscription?.plan_id || "starter"] ?? 0);
                     if (isDowngrade) {
