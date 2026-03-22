@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface AIBuilderComposerProps {
   onSend: (message: string) => void;
@@ -63,17 +64,24 @@ export const AIBuilderComposer = ({ onSend, onFileUpload, isLoading, pendingUplo
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file && onFileUpload) {
-      // Validate file type
-      if (!file.type.startsWith("image/")) {
-        return; // Only images for now
+      const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp", "image/svg+xml"];
+      if (!allowedTypes.includes(file.type) && !file.type.startsWith("image/")) {
+        toast.error("Only image files are supported (JPEG, PNG, GIF, WebP)");
+        if (fileInputRef.current) fileInputRef.current.value = "";
+        return;
       }
-      // Validate file size (10MB max)
       if (file.size > 10 * 1024 * 1024) {
+        toast.error(`File is too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Maximum is 10MB.`);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+        return;
+      }
+      if (file.size < 100) {
+        toast.error("File appears to be empty or corrupted. Please try another image.");
+        if (fileInputRef.current) fileInputRef.current.value = "";
         return;
       }
       onFileUpload(file);
     }
-    // Reset input so the same file can be selected again
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 

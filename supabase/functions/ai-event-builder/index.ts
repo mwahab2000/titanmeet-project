@@ -412,15 +412,34 @@ AI GENERATION:
 
 After generating, ALWAYS show the image and ask for confirmation before saving.
 
+MEDIA OVERWRITE RULES (CRITICAL):
+- Hero image: save_media_to_event REPLACES all existing hero images. Always warn the admin if a hero image already exists.
+  Example: "This event already has a hero image. Setting a new one will replace it. Proceed?"
+- Banner: save_media_to_event REPLACES the existing banner. Warn if one exists.
+- Gallery: save_media_to_event APPENDS. No replacement. Safe to add without warning.
+- NEVER silently overwrite hero or banner. Always mention the replacement in your response.
+
 BRANDING:
 When the admin mentions "brand kit", "branding", "client colors", "brand guidance":
 - Use get_brand_kit or create_brand_kit to manage branding
 - When generating images, optionally include brand kit colors/mood in the prompt
-- Say things like: "I'll use the Titan Cement brand kit colors for this design."
+- When using a brand kit for generation, briefly mention it: "Using the [Kit Name] brand colors for this design."
+- Do NOT repeat brand kit details on every message — mention it once when generating.
 
 VISUAL PACKS:
 - save_visual_pack: saves the current event's media + branding as a reusable pack
-- apply_visual_pack: applies a previously saved visual pack to an event
+- apply_visual_pack: ALWAYS call with preview_only first to show what will change
+  - Hero: REPLACES existing
+  - Banner: REPLACES existing
+  - Gallery: APPENDS, skips duplicates
+- After showing the preview summary, ask for confirmation
+- Only call apply_visual_pack with confirmed=true after admin approves
+- If the same pack has been applied before, duplicates are automatically skipped
+
+UPLOAD VALIDATION (handled client-side, but you should also validate):
+- Only image files are accepted (JPEG, PNG, GIF, WebP)
+- Maximum file size: 10MB
+- If the uploaded file seems invalid, tell the admin clearly and suggest re-uploading
 
 ════════════════════════════════════════
 GOAL
@@ -1049,12 +1068,14 @@ const TOOL_DEFINITIONS = [
     type: "function",
     function: {
       name: "apply_visual_pack",
-      description: "Apply a previously saved visual pack to an event. Copies hero images, gallery, banner, and branding.",
+      description: "Apply a previously saved visual pack to an event. First call with preview_only=true to show what will change, then call again with confirmed=true after admin approval.",
       parameters: {
         type: "object",
         properties: {
           event_id: { type: "string", description: "Target event UUID" },
           pack_name: { type: "string", description: "Visual pack name to apply" },
+          preview_only: { type: "boolean", description: "If true, return a summary of changes without applying. Default true." },
+          confirmed: { type: "boolean", description: "Set to true only after admin confirms the preview. Executes the actual copy." },
         },
         required: ["event_id", "pack_name"],
       },
@@ -2696,7 +2717,6 @@ async function toolSaveMediaToEvent(
   const { allowed, event: evt } = await canManageEvent(db, userId, args.event_id);
   if (!allowed || !evt) return { success: false, result: {}, error: "Event not found or access denied", category: "permission" };
 
-  // Get the media asset
   const { data: asset, error: assetErr } = await db.from("media_assets")
     .select("*")
     .eq("id", args.media_asset_id)
@@ -2705,16 +2725,15 @@ async function toolSaveMediaToEvent(
   if (assetErr || !asset) return { success: false, result: {}, error: "Media asset not found", category: "validation" };
 
   // Copy from media-library to event-assets bucket
-  const destPath = `events/${args.event_id}/hero/${Date.now()}-ai-generated.png`;
+  const subfolder = args.media_type === "gallery" ? "gallery" : args.media_type === "banner" ? "banner" : "hero";
+  const destPath = `events/${args.event_id}/${subfolder}/${Date.now()}-media.png`;
 
-  // Download from media-library
   const { data: fileData, error: dlErr } = await db.storage.from("media-library").download(asset.file_url);
   if (dlErr || !fileData) {
     console.error(`[${correlationId}] Download error:`, dlErr);
-    return { success: false, result: {}, error: "Failed to retrieve generated image", category: "internal" };
+    return { success: false, result: {}, error: "Failed to retrieve image from library", category: "internal" };
   }
 
-  // Upload to event-assets
   const arrayBuffer = await fileData.arrayBuffer();
   const { error: uploadErr } = await db.storage
     .from("event-assets")
@@ -2725,33 +2744,38 @@ async function toolSaveMediaToEvent(
     return { success: false, result: {}, error: "Failed to save image to event", category: "internal" };
   }
 
-  // Update event based on media type
+  // Determine overwrite vs append behavior
+  let overwriteNote = "";
+
   if (args.media_type === "hero_image") {
+    // REPLACE: hero image is the primary visual — replace existing
     const currentHero = Array.isArray(evt.hero_images) ? evt.hero_images : [];
-    const updatedHero = [...currentHero, destPath];
-    const { error: updateErr } = await db.from("events").update({ hero_images: updatedHero }).eq("id", args.event_id);
+    overwriteNote = currentHero.length > 0 ? ` (replaced ${currentHero.length} previous hero image${currentHero.length > 1 ? "s" : ""})` : "";
+    const { error: updateErr } = await db.from("events").update({ hero_images: [destPath] }).eq("id", args.event_id);
     if (updateErr) return { success: false, result: {}, error: "Failed to update event hero images", category: "internal" };
   } else if (args.media_type === "gallery") {
+    // APPEND: gallery accumulates images
     const currentGallery = Array.isArray(evt.gallery_images) ? evt.gallery_images : [];
     const updatedGallery = [...currentGallery, destPath];
     const { error: updateErr } = await db.from("events").update({ gallery_images: updatedGallery }).eq("id", args.event_id);
     if (updateErr) return { success: false, result: {}, error: "Failed to update event gallery", category: "internal" };
+    overwriteNote = ` (gallery now has ${updatedGallery.length} image${updatedGallery.length > 1 ? "s" : ""})`;
   } else if (args.media_type === "banner") {
-    // Store banner as cover_image
+    overwriteNote = evt.cover_image ? " (replaced previous banner)" : "";
     const { error: updateErr } = await db.from("events").update({ cover_image: destPath }).eq("id", args.event_id);
     if (updateErr) return { success: false, result: {}, error: "Failed to update event banner", category: "internal" };
   }
 
-  // Mark asset as approved
-  await db.from("media_assets").update({ approved: true }).eq("id", args.media_asset_id);
+  await db.from("media_assets").update({ approved: true, event_id: args.event_id }).eq("id", args.media_asset_id);
 
   return {
     success: true,
     result: {
-      message: `Image saved as ${args.media_type} for "${evt.title}"`,
+      message: `Image saved as ${args.media_type} for "${evt.title}"${overwriteNote}`,
       event_id: args.event_id,
       media_type: args.media_type,
       file_path: destPath,
+      overwrite_note: overwriteNote,
     },
   };
 }
@@ -2973,7 +2997,7 @@ async function toolSaveVisualPack(
 
 async function toolApplyVisualPack(
   db: SupabaseClient, userId: string,
-  args: { event_id: string; pack_name: string },
+  args: { event_id: string; pack_name: string; preview_only?: boolean; confirmed?: boolean },
   correlationId: string,
 ): Promise<ToolResult> {
   if (!args.event_id || !args.pack_name?.trim()) return { success: false, result: {}, error: "event_id and pack_name are required", category: "validation" };
@@ -2995,15 +3019,84 @@ async function toolApplyVisualPack(
     return { success: true, result: { applied: false, message: `No visual pack found with name "${args.pack_name}".` } };
   }
 
-  // Copy files from library to event-assets and update event
-  const heroImages: string[] = Array.isArray(evt.hero_images) ? [...evt.hero_images] : [];
+  // Categorize pack assets
+  const packHero = packAssets.filter(a => a.media_type === "hero_image");
+  const packGallery = packAssets.filter(a => a.media_type === "gallery");
+  const packBanner = packAssets.filter(a => a.media_type === "banner");
+
+  const currentHeroCount = Array.isArray(evt.hero_images) ? evt.hero_images.length : 0;
+  const currentGalleryCount = Array.isArray(evt.gallery_images) ? evt.gallery_images.length : 0;
+  const currentHasBanner = !!evt.cover_image;
+
+  // ── Preview mode (default) ──
+  if (args.preview_only !== false && !args.confirmed) {
+    const changes: string[] = [];
+    if (packHero.length > 0) {
+      changes.push(currentHeroCount > 0
+        ? `Hero image: REPLACE current (${currentHeroCount}) with ${packHero.length} from pack`
+        : `Hero image: Add ${packHero.length} from pack`);
+    }
+    if (packBanner.length > 0) {
+      changes.push(currentHasBanner
+        ? `Banner: REPLACE current banner with pack banner`
+        : `Banner: Set from pack`);
+    }
+    if (packGallery.length > 0) {
+      // Check for duplicates by title
+      const existingTitles = new Set<string>();
+      const { data: existingMedia } = await db.from("media_assets")
+        .select("title, visual_pack_name")
+        .eq("event_id", args.event_id)
+        .eq("source_type", "visual_pack");
+      existingMedia?.forEach(m => { if (m.title) existingTitles.add(m.title); });
+      const newGallery = packGallery.filter(a => !a.title || !existingTitles.has(a.title));
+      const dupeCount = packGallery.length - newGallery.length;
+      if (newGallery.length > 0) changes.push(`Gallery: Add ${newGallery.length} images`);
+      if (dupeCount > 0) changes.push(`Gallery: ${dupeCount} duplicate(s) will be skipped`);
+    }
+
+    if (changes.length === 0) {
+      return { success: true, result: { preview: true, message: "This visual pack has no applicable assets for this event." } };
+    }
+
+    return {
+      success: true,
+      result: {
+        preview: true,
+        pack_name: args.pack_name,
+        event_name: evt.title,
+        changes,
+        total_assets: packAssets.length,
+        message: `Visual pack "${args.pack_name}" will make these changes to "${evt.title}":\n${changes.map((c, i) => `${i + 1}. ${c}`).join("\n")}\n\nDo you want to proceed?`,
+      },
+    };
+  }
+
+  // ── Confirmed execution ──
+  // For hero/banner: REPLACE (clean overwrite), for gallery: APPEND (skip duplicates)
+  const heroImages: string[] = [];  // Replace, not append
   const galleryImages: string[] = Array.isArray(evt.gallery_images) ? [...evt.gallery_images] : [];
   let coverImage = evt.cover_image;
   let copied = 0;
+  let skipped = 0;
+
+  // Get existing pack media for this event to detect duplicates
+  const { data: existingPackMedia } = await db.from("media_assets")
+    .select("title, visual_pack_name")
+    .eq("event_id", args.event_id)
+    .eq("source_type", "visual_pack");
+  const existingTitles = new Set<string>();
+  existingPackMedia?.forEach(m => { if (m.title) existingTitles.add(m.title); });
 
   for (const asset of packAssets) {
+    // Skip gallery duplicates
+    if (asset.media_type === "gallery" && asset.title && existingTitles.has(asset.title)) {
+      skipped++;
+      continue;
+    }
+
     try {
-      const destPath = `events/${args.event_id}/${asset.media_type}/${Date.now()}-pack.png`;
+      const destPath = `events/${args.event_id}/${asset.media_type}/${Date.now()}-pack-${copied}.png`;
       const { data: fileData } = await db.storage.from("media-library").download(asset.file_url);
       if (!fileData) continue;
 
@@ -3017,7 +3110,6 @@ async function toolApplyVisualPack(
       else if (asset.media_type === "gallery") galleryImages.push(destPath);
       else if (asset.media_type === "banner") coverImage = destPath;
 
-      // Create a new media_assets record for this event
       await db.from("media_assets").insert({
         event_id: args.event_id,
         client_id: evt.client_id,
@@ -3035,12 +3127,15 @@ async function toolApplyVisualPack(
     }
   }
 
-  // Update event
-  await db.from("events").update({
-    hero_images: heroImages,
-    gallery_images: galleryImages,
-    cover_image: coverImage,
-  }).eq("id", args.event_id);
+  // Update event — hero replaces, gallery appends, banner replaces
+  const updatePayload: Record<string, unknown> = { gallery_images: galleryImages };
+  if (heroImages.length > 0) updatePayload.hero_images = heroImages;
+  if (packBanner.length > 0) updatePayload.cover_image = coverImage;
+
+  await db.from("events").update(updatePayload).eq("id", args.event_id);
+
+  const summary = [`${copied} asset(s) applied`];
+  if (skipped > 0) summary.push(`${skipped} duplicate(s) skipped`);
 
   return {
     success: true,
@@ -3048,7 +3143,8 @@ async function toolApplyVisualPack(
       applied: true,
       pack_name: args.pack_name,
       assets_copied: copied,
-      message: `Applied visual pack "${args.pack_name}" — ${copied} assets copied to "${evt.title}".`,
+      duplicates_skipped: skipped,
+      message: `Visual pack "${args.pack_name}" applied to "${evt.title}" — ${summary.join(", ")}.`,
     },
   };
 }
