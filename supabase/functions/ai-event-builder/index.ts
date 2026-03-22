@@ -3751,6 +3751,11 @@ function formatToolDisplayName(toolName: string): string {
     rename_event: "Rename Event",
     get_missing_fields: "Check Missing Fields",
     recommend_next_actions: "Get Recommendations",
+    register_uploaded_media: "Register Upload",
+    create_brand_kit: "Create Brand Kit",
+    get_brand_kit: "Get Brand Kit",
+    save_visual_pack: "Save Visual Pack",
+    apply_visual_pack: "Apply Visual Pack",
   };
   return names[toolName] || toolName;
 }
