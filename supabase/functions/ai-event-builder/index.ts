@@ -752,6 +752,20 @@ async function executeTool(
         return await toolListWorkspaceClients(db, userId, args as any);
       case "get_event_details":
         return await toolGetEventDetails(db, userId, args as any);
+      case "get_client_details":
+        return await toolGetClientDetails(db, userId, args as any);
+      case "list_events_by_client":
+        return await toolListEventsByClient(db, userId, args as any);
+      case "publish_event":
+        return await toolPublishEvent(db, userId, args as any);
+      case "unpublish_event":
+        return await toolUnpublishEvent(db, userId, args as any);
+      case "archive_event":
+        return await toolArchiveEvent(db, userId, args as any);
+      case "duplicate_event":
+        return await toolDuplicateEvent(db, userId, args as any);
+      case "rename_event":
+        return await toolRenameEvent(db, userId, args as any);
       default:
         return { success: false, result: {}, error: `Unknown tool: ${toolName}`, category: "internal" };
     }
