@@ -11,14 +11,24 @@ import { differenceInDays, parseISO } from "date-fns";
 import { useSignedUrl } from "@/hooks/useSignedUrls";
 import { SectionHint } from "@/components/ui/section-hint";
 
-/** Small component to display a signed dress-code reference image */
+/** Small component to display a signed dress-code reference image with WebP support */
 const DressCodeRefImage = ({ path, alt }: { path: string; alt: string }) => {
-  // If it's a local public path (default images), use directly
+  const imgClass = "w-full h-full object-cover rounded-lg border border-border";
+  // If it's a local public path (default images), use <picture> with WebP + PNG fallback
+  if (path.startsWith("/images/") && path.endsWith(".png")) {
+    const webpPath = path.replace(/\.png$/, ".webp");
+    return (
+      <picture>
+        <source srcSet={webpPath} type="image/webp" />
+        <img src={path} alt={alt} className={imgClass} loading="lazy" />
+      </picture>
+    );
+  }
   if (path.startsWith("/images/")) {
-    return <img src={path} alt={alt} className="w-full h-full object-cover rounded-lg border border-border" />;
+    return <img src={path} alt={alt} className={imgClass} loading="lazy" />;
   }
   const url = useSignedUrl("dress-code-images", path);
-  return <img src={url || ""} alt={alt} className="w-full h-full object-cover rounded-lg border border-border" />;
+  return <img src={url || ""} alt={alt} className={imgClass} loading="lazy" />;
 };
 
 const DRESS_TYPES = [

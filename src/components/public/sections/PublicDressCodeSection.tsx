@@ -51,9 +51,19 @@ export const PublicDressCodeSection: React.FC<Props> = ({ data, className = "" }
             {dc.customInstructions && <p className="text-sm text-muted-foreground leading-relaxed">{dc.customInstructions}</p>}
             {dc.referenceImages.length > 0 && (
               <div className="grid grid-cols-3 gap-2 pt-1">
-                {dc.referenceImages.map((img, j) => (
+                {dc.referenceImages.map((img, j) => {
+                  const isLocalPng = img.startsWith("/images/") && img.endsWith(".png");
+                  const webpSrc = isLocalPng ? img.replace(/\.png$/, ".webp") : null;
+                  return (
                   <div key={j} className="relative group cursor-pointer rounded-xl overflow-hidden" onClick={() => openLightbox(dc.referenceImages, j)}>
-                    <img src={img} alt={`Dress code ${j + 1}`} className="w-full h-20 sm:h-24 object-cover transition-transform duration-300 group-hover:scale-105" onError={(e) => { (e.target as HTMLImageElement).src = fallback; }} />
+                    {webpSrc ? (
+                      <picture>
+                        <source srcSet={webpSrc} type="image/webp" />
+                        <img src={img} alt={`Dress code ${j + 1}`} className="w-full h-20 sm:h-24 object-cover transition-transform duration-300 group-hover:scale-105" loading="lazy" onError={(e) => { (e.target as HTMLImageElement).src = fallback; }} />
+                      </picture>
+                    ) : (
+                      <img src={img} alt={`Dress code ${j + 1}`} className="w-full h-20 sm:h-24 object-cover transition-transform duration-300 group-hover:scale-105" loading="lazy" onError={(e) => { (e.target as HTMLImageElement).src = fallback; }} />
+                    )}
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
                       <Maximize2 className="h-4 w-4 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
                     </div>
