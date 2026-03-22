@@ -145,10 +145,16 @@ export const LandingAIShowcase = () => {
       // Merge preview slice
       setPreview((prev) => ({ ...prev, ...stage.preview }));
 
-      // Reveal chat messages with stagger
+      // Reveal chat messages with stagger, show typing before AI replies
       stage.chat.forEach((msg, mi) => {
         const delay = reducedMotion ? 0 : msg.offset * 1000;
+        // Show typing indicator before AI messages
+        if (msg.role === "ai" && !reducedMotion) {
+          const typingDelay = Math.max(0, delay - 600);
+          setTimeout(() => setShowTyping(true), typingDelay);
+        }
         setTimeout(() => {
+          if (msg.role === "ai") setShowTyping(false);
           setVisibleMsgs((prev) => new Set(prev).add(idx * 10 + mi));
         }, delay);
       });
