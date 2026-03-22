@@ -1,4 +1,5 @@
 import { useState } from "react";
+import ReactMarkdown from "react-markdown";
 import { Bot, User, CheckCircle2, AlertTriangle, Info, Plus, Pencil, MapPin, ImageIcon, XCircle, Clock, ChevronDown, ChevronUp, Sparkles } from "lucide-react";
 import type { ChatMessage, AIAction, ActionLogEntry } from "@/hooks/useAIBuilderSession";
 import { cn } from "@/lib/utils";
@@ -95,7 +96,13 @@ export const AIBuilderChatMessage = ({ message, onVenueSelect, onPhotosConfirm, 
             ? "bg-primary text-primary-foreground rounded-br-md"
             : "bg-card border border-border text-card-foreground rounded-bl-md"
         )}>
-          <p className="whitespace-pre-wrap break-words">{message.content}</p>
+          {isUser ? (
+            <p className="whitespace-pre-wrap break-words">{message.content}</p>
+          ) : (
+            <div className="prose prose-sm dark:prose-invert prose-p:my-1 prose-ol:my-1.5 prose-ul:my-1.5 prose-li:my-0.5 prose-headings:my-2 max-w-none break-words [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:list-disc [&_ul]:pl-5">
+              <ReactMarkdown>{message.content}</ReactMarkdown>
+            </div>
+          )}
         </div>
 
         {/* ── Structured Action Log ── */}

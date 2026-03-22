@@ -180,10 +180,52 @@ interface ActionLogEntry {
   metadata?: Record<string, unknown>;
 }
 
-// ─── System Prompt v3 (Guided Context + Production) ────────
+// ─── System Prompt v4 (Guided Context + Numbered Choices) ────────
 const SYSTEM_PROMPT = `You are TitanMeet AI Builder — an execution partner for workspace administrators to create, manage, and operate events.
 
 You operate within a single workspace context. You are operational, not conversational.
+
+════════════════════════════════════════
+NUMBERED CHOICES (MANDATORY FORMAT)
+════════════════════════════════════════
+
+Whenever you present a set of known options for the admin to choose from, you MUST format them as a numbered list with "Other" as the final option.
+
+Format:
+1. First option
+2. Second option
+3. Other
+
+Rules:
+- Always start numbering at 1.
+- The LAST option must always be "Other" — this lets the admin provide a custom answer.
+- Keep option text concise (one line each).
+- After the list, add a brief note: "Reply with a number, name, or choose Other."
+- Use this pattern for ALL choice points: client selection, event mode, draft selection, venue matches, next-step recommendations, confirmation paths, missing-field fixes, and any multi-option question.
+- When presenting search results (clients, events, venues), number them the same way with "Other" or "None of these" as the last option.
+- Do NOT use this format for yes/no confirmations — those remain simple questions.
+- Keep the tone natural and helpful, not robotic.
+
+Example — Client Selection:
+"Which client is this event for?
+
+1. Titan Cement
+2. Acme Corp
+3. GlobalTech Industries
+4. Other
+
+Reply with a number or name."
+
+Example — Event Mode:
+"What would you like to do?
+
+1. Create a new event
+2. Continue an existing draft
+3. Other
+
+Reply with a number or tell me what you need."
+
+When the admin replies with a number (1, 2, 3), a spoken number (one, two, first, second), or the option text itself, resolve it to the matching choice and proceed immediately. If they pick "Other", ask them to specify.
 
 ════════════════════════════════════════
 GUIDED OPENING WORKFLOW (CRITICAL)
@@ -194,16 +236,19 @@ When a new session starts (no active client or event in context), you MUST guide
 **Step 1: Client**
 - If no client is set, ask the admin to choose a client.
 - Use list_workspace_clients to show available clients.
+- Present results as numbered options with "Other" as the last choice.
 - If the admin names a client directly, use find_or_create_client.
 - Once a client is established, move to Step 2.
 
 **Step 2: Event Mode**
-- Ask: "Would you like to create a new event, or continue working on an existing draft?"
-- If the admin asks to list events or mentions a specific event, use list_events_by_client or get_event_details.
+- Present numbered options:
+  1. Create a new event
+  2. Continue an existing draft
+  3. Other
 
 **Step 3: Event Selection**
 - If creating new: use create_event_draft (ask for title at minimum).
-- If continuing draft: use list_events_by_client with status_filter "draft" to show options, then get_event_details once selected.
+- If continuing draft: use list_events_by_client with status_filter "draft", present as numbered list with "Other".
 
 After Steps 1-3 are complete (client + event are set in context), proceed with normal event setup.
 
@@ -239,7 +284,7 @@ RESPONSE QUALITY (MANDATORY)
 ════════════════════════════════════════
 
 - Write like a polished product assistant, not a developer console.
-- After a successful action, confirm briefly and suggest the next useful step.
+- After a successful action, confirm briefly and suggest the next step.
 - After a failed action, explain what went wrong simply and suggest a fix.
 - Never dump raw JSON, tool names, or internal status codes in user-facing text.
 - Use natural language: "Done — updated the location to New Cairo." not "update_event_basics executed successfully with fields: location".
@@ -283,7 +328,7 @@ VENUE SEARCH
 
 When the admin mentions a venue by name:
 1. Use search_venue_on_maps to find it.
-2. Present top results with address and rating.
+2. Present top results as numbered options with "None of these" as the last option.
 3. Ask admin to confirm which one.
 4. After saving, fetch photos with get_venue_photos automatically.
 
@@ -303,7 +348,7 @@ TEMPLATE MARKETPLACE
 
 When admin mentions templates:
 1. Use apply_template with search_query to find matches.
-2. If multiple found, present them and ask admin to pick.
+2. If multiple found, present as numbered list with "Other" at the end.
 3. Once selected, ask for event title and date if not provided.
 4. Apply and summarize what was created.
 
@@ -314,7 +359,7 @@ INTELLIGENCE
 When admin asks "what should I do next", "what's missing", "is this ready":
 1. Use get_missing_fields to check what the event still needs.
 2. Use recommend_next_actions to suggest practical next steps.
-3. Present recommendations as a prioritized numbered list.
+3. Present recommendations as a prioritized numbered list with "Other" as the last option.
 
 ════════════════════════════════════════
 ERROR HANDLING
@@ -334,7 +379,7 @@ COMMUNICATION STYLE
 - No long explanations or filler
 - No technical jargon
 - Use bullet points and numbered lists
-- Example: "Here are your draft events:\\n1. Sales Kickoff — March 10\\n2. Tech Summit — April 5"
+- Example: "Here are your draft events:\\n1. Sales Kickoff — March 10\\n2. Tech Summit — April 5\\n3. Other\\n\\nReply with a number or name."
 
 ════════════════════════════════════════
 GOAL
@@ -2582,6 +2627,52 @@ serve(async (req) => {
       if (!stateJson.event_id) stateJson.event_id = context.eventId;
     }
 
+    // ── Numbered option resolution ──
+    // If the assistant previously presented numbered options, resolve numeric/spoken replies
+    const activeOptions = stateJson.active_options as { options: string[]; context: string } | undefined;
+    let resolvedMessage = message;
+
+    if (activeOptions?.options?.length) {
+      const trimmed = message.trim().toLowerCase();
+      const spokenNumbers: Record<string, number> = {
+        "one": 1, "first": 1, "the first": 1, "the first one": 1, "option one": 1, "option 1": 1, "number 1": 1, "number one": 1, "#1": 1,
+        "two": 2, "second": 2, "the second": 2, "the second one": 2, "option two": 2, "option 2": 2, "number 2": 2, "number two": 2, "#2": 2,
+        "three": 3, "third": 3, "the third": 3, "the third one": 3, "option three": 3, "option 3": 3, "number 3": 3, "number three": 3, "#3": 3,
+        "four": 4, "fourth": 4, "the fourth": 4, "the fourth one": 4, "option four": 4, "option 4": 4, "number 4": 4, "number four": 4, "#4": 4,
+        "five": 5, "fifth": 5, "the fifth": 5, "option five": 5, "option 5": 5, "number 5": 5, "#5": 5,
+        "six": 6, "sixth": 6, "option six": 6, "option 6": 6, "number 6": 6, "#6": 6,
+        "seven": 7, "seventh": 7, "option seven": 7, "option 7": 7, "#7": 7,
+        "eight": 8, "eighth": 8, "option eight": 8, "option 8": 8, "#8": 8,
+        "other": -1, "something else": -1, "none of these": -1, "none": -1, "custom": -1,
+      };
+
+      let resolvedIdx: number | null = null;
+
+      // Check direct number
+      const numMatch = trimmed.match(/^(\d+)\.?\s*$/);
+      if (numMatch) resolvedIdx = parseInt(numMatch[1], 10);
+
+      // Check spoken equivalents
+      if (resolvedIdx === null && spokenNumbers[trimmed] !== undefined) {
+        resolvedIdx = spokenNumbers[trimmed];
+      }
+
+      if (resolvedIdx !== null) {
+        const opts = activeOptions.options;
+        if (resolvedIdx === -1 || resolvedIdx === opts.length) {
+          // "Other" selected
+          resolvedMessage = `Other (custom answer for: ${activeOptions.context})`;
+          console.log(`[${correlationId}] Option resolved: Other`);
+        } else if (resolvedIdx >= 1 && resolvedIdx <= opts.length) {
+          resolvedMessage = opts[resolvedIdx - 1];
+          console.log(`[${correlationId}] Option resolved: ${resolvedIdx} → "${resolvedMessage}"`);
+        }
+      }
+
+      // Clear active options after resolution (will be re-set if AI presents new ones)
+      delete stateJson.active_options;
+    }
+
     // ── Confirmation detection: check if user is confirming a pending action ──
     const confirmationPatterns = /^\s*(yes|yeah|yep|yup|sure|confirm|proceed|do it|go ahead|okay|ok|approved?|absolutely|please do|let'?s do it|update it|save it|go for it)\s*[.!]?\s*$/i;
     const isConfirmation = confirmationPatterns.test(message.trim());
@@ -2591,12 +2682,16 @@ serve(async (req) => {
     if (isConfirmation && pendingAction && pendingAction.awaiting_confirmation) {
       console.log(`[${correlationId}] Confirmation detected for pending action: ${pendingAction.tool}`);
       confirmationInjection = `\n\n⚠️ PENDING ACTION CONFIRMED — The user just confirmed the following action. Execute it NOW by calling the tool. Do NOT ask again.\nTool: ${pendingAction.tool}\nArguments: ${JSON.stringify(pendingAction.arguments)}\nAction: ${pendingAction.summary}`;
-      // Clear pending action from state (will be persisted after execution)
       delete stateJson.pending_action;
     }
 
+    // If user's message was resolved from a numbered option, inject context for the AI
+    const optionContext = resolvedMessage !== message
+      ? `\n\n[The user selected option: "${resolvedMessage}" (originally typed: "${message}")]`
+      : "";
+
     const aiMessages: Array<{ role: string; content: string }> = [
-      { role: "system", content: SYSTEM_PROMPT + (contextStr ? `\n\nCurrent context:${contextStr}` : "") + confirmationInjection },
+      { role: "system", content: SYSTEM_PROMPT + (contextStr ? `\n\nCurrent context:${contextStr}` : "") + confirmationInjection + optionContext },
     ];
 
     for (const msg of (history || [])) {
@@ -2842,6 +2937,10 @@ serve(async (req) => {
           }
         }
 
+        // Extract numbered options from summary for next-turn resolution
+        extractAndStoreOptions(summaryContent, stateJson);
+        await db.from("ai_chat_sessions").update({ state_json: stateJson }).eq("id", session.id);
+
         await db.from("ai_chat_messages").insert({ session_id: session.id, role: "assistant", content: summaryContent });
 
         const draftState = await buildDraftState(db, user.id, stateJson);
@@ -2912,6 +3011,9 @@ serve(async (req) => {
         console.log(`[${correlationId}] Stored pending action: ${pendingTool} args=${JSON.stringify(pendingArgs)}`);
       }
     }
+
+    // ── Extract numbered options from assistant response for next-turn resolution ──
+    extractAndStoreOptions(assistantContent, stateJson);
 
     await db.from("ai_chat_messages").insert({ session_id: session.id, role: "assistant", content: assistantContent });
     await db.from("ai_chat_sessions").update({ state_json: stateJson }).eq("id", session.id);
@@ -3095,5 +3197,39 @@ function formatToolLabel(toolName: string, result: Record<string, unknown>): str
       return `${(result.recommendations as any[])?.length || 0} recommendations`;
     default:
       return toolName;
+  }
+}
+
+// ─── Extract numbered options from AI response ─────────────
+function extractAndStoreOptions(content: string, stateJson: Record<string, unknown>): void {
+  // Match numbered list patterns like "1. Option text\n2. Option text\n3. Other"
+  const lines = content.split("\n");
+  const numberedLines: string[] = [];
+  let contextLine = "";
+
+  for (const line of lines) {
+    const match = line.trim().match(/^(\d+)\.\s+(.+)/);
+    if (match) {
+      numberedLines.push(match[2].trim());
+    } else if (numberedLines.length === 0 && line.trim().endsWith("?")) {
+      // Capture the question preceding the list as context
+      contextLine = line.trim();
+    }
+  }
+
+  // Only store if we found a meaningful numbered list (2+ items)
+  if (numberedLines.length >= 2) {
+    // Check if the last item is "Other" variant
+    const lastItem = numberedLines[numberedLines.length - 1].toLowerCase();
+    const isOtherLast = lastItem === "other" || lastItem.startsWith("other ") || lastItem === "none of these" || lastItem === "something else";
+
+    stateJson.active_options = {
+      options: numberedLines,
+      context: contextLine || "choice",
+      has_other: isOtherLast,
+    };
+  } else {
+    // No numbered list in this response — clear stale options
+    delete stateJson.active_options;
   }
 }
