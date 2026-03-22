@@ -85,7 +85,7 @@ const AIBuilderPage = () => {
                 </SheetTrigger>
                 <SheetContent side="bottom" className="max-h-[75dvh] overflow-y-auto p-0">
                   <SheetTitle className="sr-only">Draft Summary</SheetTitle>
-                  <AIBuilderDraftPanel draft={draft} />
+                  <AIBuilderDraftPanel draft={draft} onApplyRecommendation={(p) => sendMessage(p)} isLoading={isLoading} />
                 </SheetContent>
               </Sheet>
             )}
