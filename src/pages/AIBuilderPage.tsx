@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { RotateCcw, Bot, PanelRightClose, PanelRightOpen, ClipboardList } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
+import type { VenueResult } from "@/components/ai-builder/AIVenueSearchResults";
+import type { VenuePhoto } from "@/components/ai-builder/AIVenuePhotoBrowser";
 
 const AIBuilderPage = () => {
   const { messages, draft, isLoading, sendMessage, clearSession } = useAIBuilderSession();
@@ -21,6 +23,24 @@ const AIBuilderPage = () => {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages, isLoading]);
+
+  const handleVenueSelect = (venue: VenueResult) => {
+    sendMessage(
+      `I'd like to use "${venue.name}" at ${venue.address} as the venue. Place ID: ${venue.place_id}, coordinates: ${venue.lat}, ${venue.lng}, map: ${venue.map_url}`
+    );
+  };
+
+  const handlePhotosConfirm = (photos: VenuePhoto[]) => {
+    const photoSummary = photos.map((p, i) => `Photo ${i + 1}`).join(", ");
+    sendMessage(
+      `Please save these ${photos.length} selected venue photos: ${JSON.stringify(photos.map(p => ({
+        photo_reference: p.photo_reference,
+        width: p.width,
+        height: p.height,
+        attributions: p.attributions,
+      })))}`
+    );
+  };
 
   const effectiveShowPanel = !isMobile && showPanel;
 
@@ -46,7 +66,6 @@ const AIBuilderPage = () => {
                 <span className="hidden sm:inline">New Session</span>
               </Button>
             )}
-            {/* Mobile: draft sheet trigger */}
             {isMobile && (
               <Sheet open={draftSheetOpen} onOpenChange={setDraftSheetOpen}>
                 <SheetTrigger asChild>
@@ -60,7 +79,6 @@ const AIBuilderPage = () => {
                 </SheetContent>
               </Sheet>
             )}
-            {/* Desktop: toggle panel */}
             {!isMobile && (
               <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setShowPanel(!showPanel)}>
                 {showPanel ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
@@ -76,7 +94,13 @@ const AIBuilderPage = () => {
           ) : (
             <div className="max-w-3xl mx-auto py-3 sm:py-4">
               {messages.map((msg) => (
-                <AIBuilderChatMessage key={msg.id} message={msg} />
+                <AIBuilderChatMessage
+                  key={msg.id}
+                  message={msg}
+                  onVenueSelect={handleVenueSelect}
+                  onPhotosConfirm={handlePhotosConfirm}
+                  isProcessing={isLoading}
+                />
               ))}
               {isLoading && (
                 <div className="flex gap-3 py-4 px-2">
