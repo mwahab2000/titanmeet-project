@@ -133,6 +133,7 @@ export const LandingAIShowcase = () => {
 
   const [stageIdx, setStageIdx] = useState(0);
   const [visibleMsgs, setVisibleMsgs] = useState<Set<number>>(new Set());
+  const [showTyping, setShowTyping] = useState(false);
   // Accumulated preview state across stages
   const [preview, setPreview] = useState<PreviewSlice>({});
 
