@@ -341,8 +341,8 @@ async function toolSetEventVenue(
 ) {
   if (!args.event_id) return { success: false, result: {}, error: "event_id is required" };
 
-  const { data: evt } = await db.from("events").select("id, created_by").eq("id", args.event_id).single();
-  if (!evt || evt.created_by !== userId) return { success: false, result: {}, error: "Event not found or access denied" };
+  const { allowed } = await canManageEvent(db, userId, args.event_id);
+  if (!allowed) return { success: false, result: {}, error: "Event not found or access denied" };
 
   const updateFields: Record<string, unknown> = {};
   if (args.venue_name) updateFields.venue_name = args.venue_name.trim();
