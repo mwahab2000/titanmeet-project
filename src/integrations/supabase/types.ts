@@ -909,34 +909,55 @@ export type Database = {
       }
       event_templates: {
         Row: {
+          category: string
           client_id: string | null
+          comm_templates: Json
           created_at: string
           description: string | null
+          event_type: string | null
+          expected_attendees: number | null
           id: string
           included_sections: Json
+          is_featured: boolean
           name: string
+          preview_image: string | null
+          tags: string[]
           template_data: Json
           updated_at: string
           user_id: string
         }
         Insert: {
+          category?: string
           client_id?: string | null
+          comm_templates?: Json
           created_at?: string
           description?: string | null
+          event_type?: string | null
+          expected_attendees?: number | null
           id?: string
           included_sections?: Json
+          is_featured?: boolean
           name: string
+          preview_image?: string | null
+          tags?: string[]
           template_data?: Json
           updated_at?: string
           user_id: string
         }
         Update: {
+          category?: string
           client_id?: string | null
+          comm_templates?: Json
           created_at?: string
           description?: string | null
+          event_type?: string | null
+          expected_attendees?: number | null
           id?: string
           included_sections?: Json
+          is_featured?: boolean
           name?: string
+          preview_image?: string | null
+          tags?: string[]
           template_data?: Json
           updated_at?: string
           user_id?: string

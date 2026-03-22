@@ -41,6 +41,47 @@ export const SECTION_LABELS: Record<IncludedSection, string> = {
   surveys: "Surveys",
 };
 
+export type TemplateCategory = "general" | "corporate" | "social" | "conference" | "workshop" | "gala" | "retreat";
+
+export const CATEGORY_LABELS: Record<TemplateCategory, string> = {
+  general: "General",
+  corporate: "Corporate",
+  social: "Social",
+  conference: "Conference",
+  workshop: "Workshop",
+  gala: "Gala & Awards",
+  retreat: "Retreat & Wellness",
+};
+
+export interface CommTemplates {
+  invitation_subject?: string;
+  invitation_body?: string;
+  reminder_subject?: string;
+  reminder_body?: string;
+  followup_subject?: string;
+  followup_body?: string;
+}
+
+export interface MarketplaceTemplate {
+  id: string;
+  name: string;
+  description: string | null;
+  category: TemplateCategory;
+  tags: string[];
+  is_featured: boolean;
+  preview_image: string | null;
+  event_type: string | null;
+  expected_attendees: number | null;
+  included_sections: string[];
+  comm_templates: CommTemplates;
+  template_data: TemplateData;
+  client_id: string | null;
+  user_id: string;
+  created_at: string;
+  updated_at: string;
+  clients?: { name: string } | null;
+}
+
 /**
  * Build template_data from an existing event, fetching relational data.
  */
