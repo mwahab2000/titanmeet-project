@@ -591,6 +591,110 @@ const TOOL_DEFINITIONS = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "get_client_details",
+      description: "Get full details for a specific client including their event count and recent events.",
+      parameters: {
+        type: "object",
+        properties: {
+          client_id: { type: "string", description: "Client UUID" },
+          name_search: { type: "string", description: "Search by client name if ID is not known" },
+        },
+        required: [],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "list_events_by_client",
+      description: "List all events belonging to a specific client. Supports status filtering.",
+      parameters: {
+        type: "object",
+        properties: {
+          client_id: { type: "string", description: "Client UUID" },
+          client_name: { type: "string", description: "Client name to search for if ID is not known" },
+          status_filter: { type: "string", description: "Filter by event status: draft, published, ongoing, completed, archived" },
+          limit: { type: "number", description: "Max results (default 20, max 50)" },
+        },
+        required: [],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "publish_event",
+      description: "Publish a draft event after verifying readiness. Checks required fields before allowing publish.",
+      parameters: {
+        type: "object",
+        properties: {
+          event_id: { type: "string", description: "Event UUID" },
+        },
+        required: ["event_id"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "unpublish_event",
+      description: "Revert a published/ongoing event back to draft status.",
+      parameters: {
+        type: "object",
+        properties: {
+          event_id: { type: "string", description: "Event UUID" },
+        },
+        required: ["event_id"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "archive_event",
+      description: "Archive a completed or published event. Archived events are hidden from active views.",
+      parameters: {
+        type: "object",
+        properties: {
+          event_id: { type: "string", description: "Event UUID" },
+        },
+        required: ["event_id"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "duplicate_event",
+      description: "Create a copy of an existing event as a new draft. Copies event details, agenda, and organizers but NOT attendees.",
+      parameters: {
+        type: "object",
+        properties: {
+          event_id: { type: "string", description: "Source event UUID to duplicate" },
+          new_title: { type: "string", description: "Title for the duplicated event" },
+        },
+        required: ["event_id"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "rename_event",
+      description: "Rename an existing event.",
+      parameters: {
+        type: "object",
+        properties: {
+          event_id: { type: "string", description: "Event UUID" },
+          new_title: { type: "string", description: "New title for the event" },
+        },
+        required: ["event_id", "new_title"],
+      },
+    },
+  },
 ];
 
 // ─── Tool Executor ─────────────────────────────────────────
