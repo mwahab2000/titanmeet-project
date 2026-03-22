@@ -30,6 +30,17 @@ export const AIBuilderEmptyState = ({ onSelectPrompt }: AIBuilderEmptyStateProps
       Build complete events conversationally. I'll guide you through clients, events, attendees, agendas, and everything needed to publish.
     </p>
 
+    {/* Wizard CTA */}
+    <Button
+      onClick={() => onSelectPrompt("Generate a complete event from scratch — guide me through a wizard")}
+      className="mb-4 w-full max-w-lg gap-2 min-h-[48px] bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-primary-foreground"
+    >
+      <Wand2 className="h-4 w-4" />
+      Generate Full Event with AI
+    </Button>
+
+    <p className="text-[11px] text-muted-foreground mb-4">Or start with a specific task:</p>
+
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full max-w-lg">
       {suggestedPrompts.map((prompt) => (
         <button

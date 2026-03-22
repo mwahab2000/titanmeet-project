@@ -14,6 +14,7 @@ const actionIcons: Record<string, typeof CheckCircle2> = {
   info: Info,
   venue_search: MapPin,
   venue_photos: ImageIcon,
+  proposal: Sparkles,
 };
 
 const actionColors: Record<string, string> = {
@@ -24,6 +25,7 @@ const actionColors: Record<string, string> = {
   info: "text-muted-foreground bg-muted/50 border-border",
   venue_search: "text-primary bg-primary/10 border-primary/20",
   venue_photos: "text-primary bg-primary/10 border-primary/20",
+  proposal: "text-primary bg-primary/10 border-primary/20",
 };
 
 const logStatusConfig = {

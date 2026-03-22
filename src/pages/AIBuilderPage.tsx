@@ -112,6 +112,8 @@ const AIBuilderPage = () => {
                   message={msg}
                   onVenueSelect={handleVenueSelect}
                   onPhotosConfirm={handlePhotosConfirm}
+                  onProposalApprove={handleProposalApprove}
+                  onProposalReject={handleProposalReject}
                   isProcessing={isLoading}
                 />
               ))}
