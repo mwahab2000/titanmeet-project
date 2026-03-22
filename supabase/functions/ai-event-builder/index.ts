@@ -1168,6 +1168,41 @@ serve(async (req) => {
           toolArgs.event_id = stateJson.event_id;
         }
 
+        // ── Per-tool rate limiting for expensive external APIs ──
+        const toolResource = getToolResource(toolName);
+        if (toolResource) {
+          const toolRateLimit = await checkAndIncrementUsage(db, user.id, toolResource, correlationId);
+          if (!toolRateLimit.allowed) {
+            const reason = toolRateLimit.burstBlocked
+              ? "Too many requests — please wait a moment."
+              : `Monthly limit reached for this feature (${toolRateLimit.usage}/${toolRateLimit.limit}).`;
+
+            const logEntry: ActionLogEntry = {
+              action: toolName,
+              target: resolveToolTarget(toolName, toolArgs),
+              status: "failed",
+              message: reason,
+              category: "validation",
+              timestamp: new Date().toISOString(),
+            };
+            actionLog.push(logEntry);
+
+            toolCallMessages.push({
+              role: "tool",
+              content: JSON.stringify({ success: false, result: {}, error: reason, category: "validation" }),
+              tool_call_id: tc.id,
+            });
+
+            await db.from("ai_chat_messages").insert({
+              session_id: session.id,
+              role: "tool",
+              content: JSON.stringify({ success: false, error: reason }),
+              metadata: { tool_name: toolName, tool_call_id: tc.id, status: "failed", category: "rate_limit" },
+            });
+            continue;
+          }
+        }
+
         // Add pending entry
         const logEntry: ActionLogEntry = {
           action: toolName,
