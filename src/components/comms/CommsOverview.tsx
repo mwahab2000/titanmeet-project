@@ -239,17 +239,20 @@ export function CommsOverview({ onNavigate }: { onNavigate: (view: string) => vo
       </Card>
 
       {/* CTA Buttons */}
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         <Button variant="outline" size="sm" className="gap-1" onClick={() => onNavigate("inbox")}>
-          <Inbox className="h-3.5 w-3.5" /> Open Inbox
+          <Inbox className="h-3.5 w-3.5" /> Inbox
+        </Button>
+        <Button variant="outline" size="sm" className="gap-1" onClick={() => onNavigate("checkin")}>
+          <QrCode className="h-3.5 w-3.5" /> Check-in
         </Button>
         <Button variant="outline" size="sm" className="gap-1" asChild>
           <Link to={`/dashboard/events/${event?.id}/survey`}>
-            <ClipboardList className="h-3.5 w-3.5" /> Survey Results
+            <ClipboardList className="h-3.5 w-3.5" /> Surveys
           </Link>
         </Button>
-        <Button variant="outline" size="sm" className="gap-1" onClick={() => onNavigate("sent")}>
-          <RefreshCw className="h-3.5 w-3.5" /> Resend Failed
+        <Button variant="outline" size="sm" className="gap-1" onClick={() => onNavigate("scheduled")}>
+          <RefreshCw className="h-3.5 w-3.5" /> Scheduled
         </Button>
       </div>
     </div>
