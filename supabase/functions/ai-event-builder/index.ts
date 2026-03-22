@@ -322,8 +322,8 @@ async function toolUpdateEventBasics(
   if (!allowed || !evt) return { success: false, result: {}, error: "Event not found or access denied" };
 
   const updateFields: Record<string, unknown> = {};
-  const allowed = ["title", "description", "start_date", "end_date", "location", "theme_id", "max_attendees"];
-  for (const k of allowed) {
+  const allowedFields = ["title", "description", "start_date", "end_date", "location", "theme_id", "max_attendees"];
+  for (const k of allowedFields) {
     if (args[k] !== undefined) updateFields[k] = args[k];
   }
 
