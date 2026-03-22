@@ -216,11 +216,11 @@ async function isAdminOrOwnerRole(db: SupabaseClient, userId: string): Promise<b
 async function canManageClient(db: SupabaseClient, userId: string, clientId: string): Promise<boolean> {
   const { data } = await db
     .from("clients")
-    .select("id")
+    .select("id, created_by")
     .eq("id", clientId)
-    .or(`created_by.eq.${userId}`)
     .single();
-  if (data) return true;
+  if (!data) return false;
+  if (data.created_by === userId) return true;
   return await isAdminOrOwnerRole(db, userId);
 }
 
