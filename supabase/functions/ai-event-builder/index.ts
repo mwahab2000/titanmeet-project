@@ -753,9 +753,9 @@ async function toolSetEventVenue(
   return { success: true, result: { event_id: args.event_id, venue: updateFields } };
 }
 
-// ─── Venue Search & Photos Tools ───────────────────────────
+// ─── Venue Search & Photos Tools (Places API New) ──────────
 
-const GOOGLE_PLACES_BASE = "https://maps.googleapis.com/maps/api/place";
+const PLACES_API_NEW_BASE = "https://places.googleapis.com/v1";
 
 async function toolSearchVenueOnMaps(
   db: SupabaseClient, userId: string,
@@ -773,31 +773,56 @@ async function toolSearchVenueOnMaps(
   }
 
   try {
-    const url = `${GOOGLE_PLACES_BASE}/textsearch/json?query=${encodeURIComponent(args.query)}&key=${apiKey}`;
-    console.log(`[${correlationId}] Google Places search: "${args.query}"`);
+    // Places API (New) — Text Search
+    const url = `${PLACES_API_NEW_BASE}/places:searchText`;
+    const body = { textQuery: args.query.trim(), maxResultCount: 5 };
+    const fieldMask = "places.id,places.displayName,places.formattedAddress,places.location,places.rating,places.userRatingCount,places.photos,places.googleMapsUri";
 
-    const resp = await fetch(url);
+    console.log(`[${correlationId}] Places API (New) searchText: "${args.query}" fieldMask=${fieldMask}`);
+
+    const resp = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Goog-Api-Key": apiKey,
+        "X-Goog-FieldMask": fieldMask,
+      },
+      body: JSON.stringify(body),
+    });
+
+    const responseText = await resp.text();
+    console.log(`[${correlationId}] Places API status=${resp.status} bodyLength=${responseText.length}`);
+
     if (!resp.ok) {
-      console.error(`[${correlationId}] Google Places API error: ${resp.status}`);
-      return { success: false, result: {}, error: "Venue search service temporarily unavailable", category: "external_api" };
+      console.error(`[${correlationId}] Places API error response: ${responseText.substring(0, 500)}`);
+      if (resp.status === 403) {
+        return { success: false, result: {}, error: "Google Places API access denied. Check API key restrictions and ensure Places API (New) is enabled in Google Cloud Console.", category: "external_api" };
+      }
+      if (resp.status === 429) {
+        return { success: false, result: {}, error: "Google Places API rate limit reached. Please try again in a moment.", category: "external_api" };
+      }
+      return { success: false, result: {}, error: `Venue search service error (HTTP ${resp.status}). Please try again.`, category: "external_api" };
     }
 
-    const data = await resp.json();
+    const data = JSON.parse(responseText);
 
-    if (data.status !== "OK" || !data.results?.length) {
+    if (!data.places?.length) {
+      console.log(`[${correlationId}] No places found for query: "${args.query}"`);
       return { success: true, result: { venues: [], message: "No venues found for that query. Try a different name or add the city." } };
     }
 
-    const venues = data.results.slice(0, 5).map((r: any) => ({
-      place_id: r.place_id,
-      name: r.name,
-      address: r.formatted_address,
-      lat: r.geometry?.location?.lat,
-      lng: r.geometry?.location?.lng,
-      rating: r.rating || null,
-      user_ratings_total: r.user_ratings_total || 0,
-      map_url: `https://www.google.com/maps/place/?q=place_id:${r.place_id}`,
-      has_photos: (r.photos?.length || 0) > 0,
+    console.log(`[${correlationId}] Found ${data.places.length} places`);
+
+    const venues = data.places.map((p: any) => ({
+      place_id: p.id,
+      name: p.displayName?.text || p.displayName || "Unknown",
+      address: p.formattedAddress || "",
+      lat: p.location?.latitude ?? null,
+      lng: p.location?.longitude ?? null,
+      rating: p.rating ?? null,
+      user_ratings_total: p.userRatingCount ?? 0,
+      map_url: p.googleMapsUri || `https://www.google.com/maps/place/?q=place_id:${p.id}`,
+      has_photos: (p.photos?.length || 0) > 0,
     }));
 
     return { success: true, result: { venues, query: args.query } };
@@ -860,28 +885,48 @@ async function toolGetVenuePhotos(
   }
 
   try {
-    const url = `${GOOGLE_PLACES_BASE}/details/json?place_id=${encodeURIComponent(args.place_id)}&fields=photos&key=${apiKey}`;
-    console.log(`[${correlationId}] Google Places details for photos: ${args.place_id}`);
+    // Places API (New) — Place Details for photos
+    const url = `${PLACES_API_NEW_BASE}/places/${encodeURIComponent(args.place_id)}`;
+    const fieldMask = "photos";
 
-    const resp = await fetch(url);
-    if (!resp.ok) return { success: false, result: {}, error: "Photo service temporarily unavailable", category: "external_api" };
+    console.log(`[${correlationId}] Places API (New) getPlace photos: ${args.place_id}`);
 
-    const data = await resp.json();
+    const resp = await fetch(url, {
+      method: "GET",
+      headers: {
+        "X-Goog-Api-Key": apiKey,
+        "X-Goog-FieldMask": fieldMask,
+      },
+    });
 
-    if (data.status !== "OK" || !data.result?.photos?.length) {
+    const responseText = await resp.text();
+    console.log(`[${correlationId}] Places photos API status=${resp.status} bodyLength=${responseText.length}`);
+
+    if (!resp.ok) {
+      console.error(`[${correlationId}] Places photos API error: ${responseText.substring(0, 500)}`);
+      return { success: false, result: {}, error: "Photo service temporarily unavailable", category: "external_api" };
+    }
+
+    const data = JSON.parse(responseText);
+
+    if (!data.photos?.length) {
       return { success: true, result: { photos: [], message: "No photos available for this venue." } };
     }
 
-    const photos = data.result.photos.slice(0, 10).map((p: any, idx: number) => ({
+    console.log(`[${correlationId}] Found ${data.photos.length} photos for place ${args.place_id}`);
+
+    // Places API (New) photos have `name` field like "places/PLACE_ID/photos/PHOTO_REF"
+    const photos = data.photos.slice(0, 10).map((p: any, idx: number) => ({
       index: idx,
-      photo_reference: p.photo_reference,
-      width: p.width,
-      height: p.height,
-      attributions: p.html_attributions || [],
-      preview_url: `${GOOGLE_PLACES_BASE}/photo?maxwidth=800&photo_reference=${p.photo_reference}&key=${apiKey}`,
+      photo_reference: p.name, // full resource name e.g. "places/xxx/photos/yyy"
+      width: p.widthPx || 0,
+      height: p.heightPx || 0,
+      attributions: (p.authorAttributions || []).map((a: any) => a.displayName || a.uri || ""),
+      // Places API (New) photo media URL
+      preview_url: `${PLACES_API_NEW_BASE}/${p.name}/media?maxWidthPx=800&key=${apiKey}`,
     }));
 
-    return { success: true, result: { photos, place_id: args.place_id, total: data.result.photos.length } };
+    return { success: true, result: { photos, place_id: args.place_id, total: data.photos.length } };
   } catch (err) {
     console.error(`[${correlationId}] venue photos error:`, err);
     return { success: false, result: {}, error: "Failed to fetch venue photos.", category: "external_api" };
