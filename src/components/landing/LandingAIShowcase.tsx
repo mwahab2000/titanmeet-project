@@ -1,5 +1,6 @@
 import { useRef, useState, useEffect, useCallback } from "react";
-import { motion, useInView, useReducedMotion } from "framer-motion";
+import { motion, useInView, useReducedMotion, AnimatePresence } from "framer-motion";
+import { TypingIndicator } from "@/components/ui/typing-indicator";
 import {
   Bot,
   User,
