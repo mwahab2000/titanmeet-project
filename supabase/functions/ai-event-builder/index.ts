@@ -3990,7 +3990,8 @@ serve(async (req) => {
         // Determine tool category for action log
         const isRetrievalTool = ["list_workspace_events", "list_workspace_clients", "get_event_details", "get_client_details", "list_events_by_client"].includes(toolName);
         const isIntelligenceTool = ["get_missing_fields", "recommend_next_actions", "check_publish_readiness", "get_event_analytics_summary", "get_workspace_analytics_summary"].includes(toolName);
-        const toolCategory = isRetrievalTool ? "retrieval" : isIntelligenceTool ? "intelligence" : undefined;
+        const isCommunicationTool = ["prepare_communication_campaign", "send_communication_campaign", "get_event_confirmation_stats", "list_confirmation_segments", "get_communication_performance", "list_event_campaigns"].includes(toolName);
+        const toolCategory = isRetrievalTool ? "retrieval" : isIntelligenceTool ? "intelligence" : isCommunicationTool ? "communication" : undefined;
 
         // Add pending entry
         const logEntry: ActionLogEntry = {
@@ -4275,6 +4276,12 @@ function formatToolDisplayName(toolName: string): string {
     apply_visual_pack: "Apply Visual Pack",
     get_event_analytics_summary: "Event Analytics",
     get_workspace_analytics_summary: "Workspace Analytics",
+    prepare_communication_campaign: "Prepare Campaign",
+    send_communication_campaign: "Send Campaign",
+    get_event_confirmation_stats: "Confirmation Stats",
+    list_confirmation_segments: "Confirmation Segments",
+    get_communication_performance: "Communication Performance",
+    list_event_campaigns: "List Campaigns",
   };
   return names[toolName] || toolName;
 }
@@ -4295,13 +4302,16 @@ function resolveToolTarget(toolName: string, args: Record<string, unknown>): str
   if (toolName === "duplicate_event") return (args.new_title as string) || `event:${(args.event_id as string)?.slice(0, 8) || ""}`;
   if (toolName === "get_missing_fields") return `event:${(args.event_id as string)?.slice(0, 8) || ""}`;
   if (toolName === "recommend_next_actions") return args.event_id ? `event:${(args.event_id as string)?.slice(0, 8) || ""}` : "workspace";
+  if (toolName === "prepare_communication_campaign") return (args.campaign_type as string) || "campaign";
+  if (toolName === "send_communication_campaign") return `campaign:${(args.campaign_id as string)?.slice(0, 8) || ""}`;
+  if (toolName === "get_event_confirmation_stats" || toolName === "list_confirmation_segments" || toolName === "get_communication_performance" || toolName === "list_event_campaigns") return `event:${(args.event_id as string)?.slice(0, 8) || ""}`;
   if (args.event_id) return `event:${(args.event_id as string).slice(0, 8)}`;
   return toolName;
 }
 
 function filterSafeMetadata(result: Record<string, unknown>): Record<string, unknown> {
   const safe: Record<string, unknown> = {};
-  const allowed = ["client_id", "event_id", "action", "name", "title", "slug", "added", "score", "ready", "saved_count", "updated_fields", "venue_name", "template_name", "templates", "cloned", "events", "clients", "total", "message", "found", "event", "counts", "status", "old_title", "new_title", "source_event_id", "missing", "event_count", "recent_events", "client", "recommendations", "total_recommendations", "complete", "scope"];
+  const allowed = ["client_id", "event_id", "action", "name", "title", "slug", "added", "score", "ready", "saved_count", "updated_fields", "venue_name", "template_name", "templates", "cloned", "events", "clients", "total", "message", "found", "event", "counts", "status", "old_title", "new_title", "source_event_id", "missing", "event_count", "recent_events", "client", "recommendations", "total_recommendations", "complete", "scope", "campaign_id", "campaign_type", "channels", "audience_count", "audience_segment", "sent_email", "sent_whatsapp", "failed_email", "failed_whatsapp", "confirmation_rate", "invited", "confirmed", "pending", "segments", "campaigns"];
   for (const k of allowed) {
     if (result[k] !== undefined) safe[k] = result[k];
   }
@@ -4410,6 +4420,18 @@ function formatToolLabel(toolName: string, result: Record<string, unknown>): str
       return `Analytics: ${(result.metrics as any)?.rsvpRate ?? 0}% RSVP, ${(result.metrics as any)?.attendanceRate ?? 0}% attendance`;
     case "get_workspace_analytics_summary":
       return `Workspace: ${result.totalEvents} events, ${result.totalAttendees} attendees`;
+    case "prepare_communication_campaign":
+      return (result.message as string) || `Prepared ${result.campaign_type} campaign for ${result.audience_count} recipients`;
+    case "send_communication_campaign":
+      return (result.message as string) || `Sent campaign: ${result.sent_email ?? 0} emails, ${result.sent_whatsapp ?? 0} WhatsApp`;
+    case "get_event_confirmation_stats":
+      return `Confirmed: ${result.confirmed ?? 0}/${result.invited ?? 0} (${result.confirmation_rate ?? 0}%)`;
+    case "list_confirmation_segments":
+      return (result.message as string) || `Segments retrieved`;
+    case "get_communication_performance":
+      return (result.message as string) || `Communication performance retrieved`;
+    case "list_event_campaigns":
+      return (result.message as string) || `Listed ${(result.campaigns as any[])?.length ?? 0} campaigns`;
     default:
       return toolName;
   }

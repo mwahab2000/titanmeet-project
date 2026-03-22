@@ -233,7 +233,7 @@ export function CampaignsView() {
                       size="sm"
                       variant="default"
                       className="gap-1 shrink-0"
-                      disabled={sendingId === campaign.id}
+                      disabled={sendingId !== null}
                       onClick={() => handleSend(campaign)}
                     >
                       {sendingId === campaign.id ? (
