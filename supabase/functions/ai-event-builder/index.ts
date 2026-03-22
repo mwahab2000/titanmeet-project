@@ -1679,6 +1679,10 @@ serve(async (req) => {
             if (toolResult.result.client_id) stateJson.client_id = toolResult.result.client_id;
             await db.from("ai_chat_sessions").update({ event_id: toolResult.result.event_id as string }).eq("id", session.id);
           }
+          if (toolName === "apply_template" && toolResult.result.event_id) {
+            stateJson.event_id = toolResult.result.event_id;
+            await db.from("ai_chat_sessions").update({ event_id: toolResult.result.event_id as string }).eq("id", session.id);
+          }
         } else {
           logEntry.status = "failed";
           logEntry.message = toolResult.error || "Action failed";
