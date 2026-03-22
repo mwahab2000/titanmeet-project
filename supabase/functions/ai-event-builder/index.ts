@@ -2517,13 +2517,17 @@ function resolveToolTarget(toolName: string, args: Record<string, unknown>): str
   if (toolName === "list_workspace_events") return (args.status_filter as string) || "workspace events";
   if (toolName === "list_workspace_clients") return (args.search as string) || "workspace clients";
   if (toolName === "get_event_details") return (args.title_search as string) || (args.event_id as string)?.slice(0, 8) || "event";
+  if (toolName === "get_client_details") return (args.name_search as string) || (args.client_id as string)?.slice(0, 8) || "client";
+  if (toolName === "list_events_by_client") return (args.client_name as string) || "client events";
+  if (toolName === "publish_event" || toolName === "unpublish_event" || toolName === "archive_event" || toolName === "rename_event") return `event:${(args.event_id as string)?.slice(0, 8) || ""}`;
+  if (toolName === "duplicate_event") return (args.new_title as string) || `event:${(args.event_id as string)?.slice(0, 8) || ""}`;
   if (args.event_id) return `event:${(args.event_id as string).slice(0, 8)}`;
   return toolName;
 }
 
 function filterSafeMetadata(result: Record<string, unknown>): Record<string, unknown> {
   const safe: Record<string, unknown> = {};
-  const allowed = ["client_id", "event_id", "action", "name", "title", "slug", "added", "score", "ready", "saved_count", "updated_fields", "venue_name", "template_name", "templates", "cloned", "events", "clients", "total", "message", "found", "event", "counts"];
+  const allowed = ["client_id", "event_id", "action", "name", "title", "slug", "added", "score", "ready", "saved_count", "updated_fields", "venue_name", "template_name", "templates", "cloned", "events", "clients", "total", "message", "found", "event", "counts", "status", "old_title", "new_title", "source_event_id", "missing", "event_count", "recent_events", "client"];
   for (const k of allowed) {
     if (result[k] !== undefined) safe[k] = result[k];
   }
