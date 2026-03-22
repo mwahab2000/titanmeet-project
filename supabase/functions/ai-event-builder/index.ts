@@ -2738,6 +2738,8 @@ function formatToolDisplayName(toolName: string): string {
     archive_event: "Archive Event",
     duplicate_event: "Duplicate Event",
     rename_event: "Rename Event",
+    get_missing_fields: "Check Missing Fields",
+    recommend_next_actions: "Get Recommendations",
   };
   return names[toolName] || toolName;
 }
