@@ -60,6 +60,7 @@ export interface DraftState {
   attendees: { count: number; status: "empty" | "partial" | "done" };
   agenda: { items: number; status: "empty" | "partial" | "done" };
   communications: { status: "empty" | "partial" | "done" };
+  media: { heroCount: number; galleryCount: number; hasBanner: boolean; status: "empty" | "partial" | "done" };
   publishReadiness: { score: number; missing: string[]; status: "empty" | "partial" | "done" };
   // Enriched data
   speakers?: { count: number };
