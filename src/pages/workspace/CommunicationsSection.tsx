@@ -160,7 +160,7 @@ const CommunicationsSection = () => {
       </div>
 
       {/* Middle pane */}
-      <div className="flex-1 min-w-0 border-r border-border overflow-hidden" style={{ maxWidth: ["overview", "log", "scheduled", "checkin"].includes(activeView) ? "100%" : "380px" }}>
+      <div className="flex-1 min-w-0 border-r border-border overflow-hidden" style={{ maxWidth: ["overview", "campaigns", "log", "scheduled", "checkin"].includes(activeView) ? "100%" : "380px" }}>
         {renderMiddlePane()}
       </div>
 
