@@ -303,6 +303,7 @@ export const DashboardSidebar = () => {
 
   const navLinks = [
     { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard", active: isActive("/dashboard") },
+    { to: "/dashboard/ai-builder", icon: Bot, label: "AI Builder", active: isActive("/dashboard/ai-builder") },
     { to: "/dashboard/clients", icon: Building2, label: "Clients", active: location.pathname.startsWith("/dashboard/clients") },
     { to: "/dashboard/events", icon: Calendar, label: "Events", active: isActive("/dashboard/events") || !!activeEventId },
     { to: "/dashboard/events/drafts", icon: FileEdit, label: "Drafts", active: isActive("/dashboard/events/drafts") },

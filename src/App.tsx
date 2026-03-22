@@ -100,6 +100,7 @@ const App = () => (
                     <Route path="/login" element={<Login />} />
                     <Route path="/dashboard" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
                       <Route index element={<Dashboard />} />
+                      <Route path="ai-builder" element={<AIBuilderPage />} />
                       <Route path="events" element={<Events />} />
                       <Route path="events/new" element={<CreateEvent />} />
                       <Route path="events/quick-setup" element={<QuickEventWizard />} />
