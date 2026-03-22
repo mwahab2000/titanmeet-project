@@ -85,7 +85,7 @@ const InviteLandingPage = () => {
 
   if (state === "loading") {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+      <div className="flex min-h-[100svh] items-center justify-center bg-gray-50 px-4">
         <div className="text-center space-y-4">
           <Loader2 className="h-8 w-8 animate-spin text-emerald-600 mx-auto" />
           <p className="text-gray-500">Loading your invitation…</p>
@@ -95,29 +95,29 @@ const InviteLandingPage = () => {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
+    <div className="flex min-h-[100svh] items-center justify-center bg-gray-50 p-4 sm:p-6">
       <div className="w-full max-w-[480px] bg-white rounded-2xl shadow-lg overflow-hidden">
         {/* Header */}
-        <div className="px-6 pt-8 pb-4 text-center">
+        <div className="px-5 sm:px-6 pt-6 sm:pt-8 pb-3 sm:pb-4 text-center">
           <img
             src="/images/TitanMeetLogo.png"
             alt="TitanMeet"
-            className="h-8 mx-auto mb-6"
+            className="h-7 sm:h-8 mx-auto mb-4 sm:mb-6"
           />
         </div>
 
         {/* Content */}
-        <div className="px-8 pb-8">
+        <div className="px-5 sm:px-8 pb-6 sm:pb-8">
           {state === "invite" && invite && (
-            <div className="text-center space-y-6">
+            <div className="text-center space-y-5 sm:space-y-6">
               <div className="space-y-2">
-                <h1 className="text-2xl font-bold text-gray-900">
+                <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
                   You're Invited!
                 </h1>
-                <p className="text-gray-600 text-lg">
+                <p className="text-gray-600 text-base sm:text-lg">
                   Hi {invite.attendee_name}!
                 </p>
-                <p className="text-gray-500">
+                <p className="text-gray-500 text-sm sm:text-base">
                   You've been invited to{" "}
                   <span className="font-semibold text-gray-700">
                     {invite.event_title}
@@ -129,7 +129,7 @@ const InviteLandingPage = () => {
                 <Button
                   onClick={handleConfirm}
                   disabled={confirming}
-                  className="w-full h-14 text-lg font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-md"
+                  className="w-full h-14 sm:h-14 text-base sm:text-lg font-bold bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-xl shadow-md"
                 >
                   {confirming ? (
                     <Loader2 className="h-5 w-5 animate-spin mr-2" />
@@ -142,7 +142,7 @@ const InviteLandingPage = () => {
                   <Button
                     variant="outline"
                     onClick={() => navigate(eventUrl)}
-                    className="w-full h-11 text-gray-600 border-gray-200 rounded-xl"
+                    className="w-full h-12 sm:h-11 text-gray-600 border-gray-200 rounded-xl text-sm sm:text-base"
                   >
                     View Event Details →
                   </Button>
@@ -152,20 +152,20 @@ const InviteLandingPage = () => {
           )}
 
           {state === "confirmed" && invite && (
-            <div className="text-center space-y-6">
-              <CheckCircle2 className="h-16 w-16 text-emerald-500 mx-auto" />
+            <div className="text-center space-y-5 sm:space-y-6">
+              <CheckCircle2 className="h-14 w-14 sm:h-16 sm:w-16 text-emerald-500 mx-auto" />
               <div className="space-y-2">
-                <h1 className="text-2xl font-bold text-gray-900">
+                <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
                   You're Confirmed! 🎉
                 </h1>
-                <p className="text-gray-500">
+                <p className="text-gray-500 text-sm sm:text-base">
                   Hi {invite.attendee_name}, your attendance for{" "}
                   <span className="font-semibold text-gray-700">
                     {invite.event_title}
                   </span>{" "}
                   has been confirmed.
                 </p>
-                <p className="text-emerald-600 font-medium mt-2">
+                <p className="text-emerald-600 font-medium mt-2 text-sm sm:text-base">
                   Thank you for responding!
                 </p>
               </div>
@@ -173,7 +173,7 @@ const InviteLandingPage = () => {
               {eventUrl && (
                 <Button
                   onClick={() => navigate(eventUrl)}
-                  className="w-full h-11 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl"
+                  className="w-full h-12 sm:h-11 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl"
                 >
                   View Event Details →
                 </Button>
@@ -182,14 +182,14 @@ const InviteLandingPage = () => {
           )}
 
           {state === "error" && (
-            <div className="text-center space-y-6">
-              <AlertTriangle className="h-16 w-16 text-amber-500 mx-auto" />
+            <div className="text-center space-y-5 sm:space-y-6">
+              <AlertTriangle className="h-14 w-14 sm:h-16 sm:w-16 text-amber-500 mx-auto" />
               <div className="space-y-2">
-                <h1 className="text-2xl font-bold text-gray-900">
+                <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
                   Invalid or Expired Link
                 </h1>
-                <p className="text-gray-500">{error}</p>
-                <p className="text-gray-400 text-sm mt-2">
+                <p className="text-gray-500 text-sm sm:text-base">{error}</p>
+                <p className="text-gray-400 text-xs sm:text-sm mt-2">
                   Please contact the event organizer for a new invitation.
                 </p>
               </div>
@@ -198,7 +198,7 @@ const InviteLandingPage = () => {
         </div>
 
         {/* Footer */}
-        <div className="bg-gray-50 px-8 py-4 text-center">
+        <div className="bg-gray-50 px-5 sm:px-8 py-3 sm:py-4 text-center">
           <p className="text-gray-400 text-xs">Powered by TitanMeet</p>
         </div>
       </div>

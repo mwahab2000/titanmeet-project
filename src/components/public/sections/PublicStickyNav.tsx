@@ -61,8 +61,8 @@ export const PublicStickyNav: React.FC<Props> = ({ data, className = "" }) => {
   return (
     <nav className={`fixed top-0 left-0 right-0 z-40 animate-fade-in ${className}`}>
       <div className="backdrop-blur-xl bg-background/85 border-b border-border/40 shadow-sm">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 flex items-center h-14 gap-1">
-          <span className="font-display font-bold text-sm mr-6 shrink-0 hidden sm:block tracking-tight">{data.event.title}</span>
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 flex items-center h-12 sm:h-14 gap-1">
+          <span className="font-display font-bold text-sm mr-4 sm:mr-6 shrink-0 hidden sm:block tracking-tight truncate max-w-[200px]">{data.event.title}</span>
           <div className="flex-1 h-px bg-border/30 mr-3 hidden sm:block" />
 
           {/* Desktop nav */}
@@ -82,11 +82,12 @@ export const PublicStickyNav: React.FC<Props> = ({ data, className = "" }) => {
             ))}
           </div>
 
-          {/* Mobile hamburger */}
-          <div className="md:hidden ml-auto">
+          {/* Mobile: show event title + hamburger */}
+          <div className="md:hidden flex items-center justify-between w-full">
+            <span className="font-display font-bold text-sm truncate max-w-[70%]">{data.event.title}</span>
             <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
               <SheetTrigger asChild>
-                <button className="p-2 rounded-lg hover:bg-muted/60 text-foreground" aria-label="Open navigation">
+                <button className="p-2.5 -mr-1 rounded-lg hover:bg-muted/60 text-foreground min-h-[44px] min-w-[44px] flex items-center justify-center" aria-label="Open navigation">
                   <Menu className="h-5 w-5" />
                 </button>
               </SheetTrigger>
@@ -96,7 +97,7 @@ export const PublicStickyNav: React.FC<Props> = ({ data, className = "" }) => {
                     <button
                       key={link.id}
                       onClick={() => scrollTo(link.id)}
-                      className={`text-left text-sm px-4 py-3 rounded-lg transition-colors font-medium ${
+                      className={`text-left text-base px-4 py-3.5 rounded-lg transition-colors font-medium min-h-[48px] ${
                         active === link.id
                           ? "bg-primary/10 text-primary"
                           : "text-muted-foreground hover:text-foreground hover:bg-muted/60"

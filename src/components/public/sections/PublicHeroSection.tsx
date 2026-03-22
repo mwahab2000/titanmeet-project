@@ -44,10 +44,10 @@ function downloadIcs(hero: PublicEventData["hero"], event: PublicEventData["even
 const CalendarPill: React.FC<{ label: string; onClick: () => void; hasImages: boolean }> = ({ label, onClick, hasImages }) => (
   <button
     onClick={onClick}
-    className={`inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border transition-colors ${
+    className={`inline-flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-lg border transition-colors min-h-[36px] ${
       hasImages
-        ? "border-white/15 bg-white/10 backdrop-blur-md text-white/80 hover:bg-white/20"
-        : "border-border bg-card text-muted-foreground hover:bg-muted"
+        ? "border-white/15 bg-white/10 backdrop-blur-md text-white/80 hover:bg-white/20 active:bg-white/25"
+        : "border-border bg-card text-muted-foreground hover:bg-muted active:bg-muted/80"
     }`}
   >
     <Calendar className="h-3 w-3" />
@@ -55,7 +55,6 @@ const CalendarPill: React.FC<{ label: string; onClick: () => void; hasImages: bo
   </button>
 );
 
-/** Preload images and resolve when all are cached (or failed) */
 function preloadImages(srcs: string[]): Promise<void> {
   if (!srcs.length) return Promise.resolve();
   return new Promise((resolve) => {
@@ -68,7 +67,6 @@ function preloadImages(srcs: string[]): Promise<void> {
       img.onerror = done;
       img.src = src;
     });
-    // Safety timeout — don't block forever if an image is very slow
     setTimeout(resolve, 8000);
   });
 }
@@ -84,7 +82,6 @@ export const PublicHeroSection: React.FC<Props> = ({ data, className = "", paral
   const [transitioning, setTransitioning] = useState(false);
   const [imagesReady, setImagesReady] = useState(false);
 
-  // Preload all hero images before starting the slideshow
   useEffect(() => {
     if (!images.length) { setImagesReady(true); return; }
     setImagesReady(false);
@@ -104,7 +101,6 @@ export const PublicHeroSection: React.FC<Props> = ({ data, className = "", paral
     return () => clearInterval(iv);
   }, [goNext, images.length, imagesReady]);
 
-  // Reset transition flag after animation completes
   useEffect(() => {
     if (!transitioning) return;
     const t = setTimeout(() => setTransitioning(false), 1200);
@@ -116,7 +112,6 @@ export const PublicHeroSection: React.FC<Props> = ({ data, className = "", paral
       {/* Full-bleed slideshow background */}
       {hasImages ? (
         <div className="absolute inset-0">
-          {/* Loading shimmer while images preload */}
           {!imagesReady && (
             <div className="absolute inset-0 bg-gradient-to-br from-muted via-muted/80 to-muted animate-pulse" />
           )}
@@ -134,7 +129,6 @@ export const PublicHeroSection: React.FC<Props> = ({ data, className = "", paral
               onError={(e) => { (e.target as HTMLImageElement).src = fallbackImg; }}
             />
           ))}
-          {/* Dark gradient overlay for text readability */}
           <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/40 to-black/80" />
         </div>
       ) : (
@@ -155,9 +149,9 @@ export const PublicHeroSection: React.FC<Props> = ({ data, className = "", paral
         }}
       />
 
-      {/* Content — centered vertically & horizontally */}
+      {/* Content */}
       <div
-        className={`relative z-10 flex flex-col items-center justify-center text-center min-h-[100svh] px-6 sm:px-8 py-24 ${
+        className={`relative z-10 flex flex-col items-center justify-center text-center min-h-[100svh] px-4 sm:px-8 py-16 sm:py-24 ${
           hasImages ? "text-white" : ""
         }`}
       >
@@ -165,7 +159,7 @@ export const PublicHeroSection: React.FC<Props> = ({ data, className = "", paral
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
-          className="space-y-6 max-w-4xl"
+          className="space-y-5 sm:space-y-6 max-w-4xl w-full"
         >
           {/* Eyebrow badge */}
           <motion.div
@@ -174,7 +168,7 @@ export const PublicHeroSection: React.FC<Props> = ({ data, className = "", paral
             transition={{ duration: 0.6, delay: 0.1 }}
           >
             <span
-              className={`inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] px-4 py-1.5 rounded-full border ${
+              className={`inline-flex items-center gap-2 text-[10px] sm:text-xs font-semibold uppercase tracking-[0.2em] px-3 sm:px-4 py-1.5 rounded-full border ${
                 hasImages
                   ? "border-white/20 bg-white/10 backdrop-blur-md text-white/90"
                   : "border-primary/20 bg-primary/5 text-primary"
@@ -184,8 +178,8 @@ export const PublicHeroSection: React.FC<Props> = ({ data, className = "", paral
             </span>
           </motion.div>
 
-          {/* Title */}
-          <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold font-display leading-[1.05] tracking-tight">
+          {/* Title — responsive sizing */}
+          <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-7xl font-bold font-display leading-[1.08] tracking-tight">
             {hero.title}
           </h1>
 
@@ -195,7 +189,7 @@ export const PublicHeroSection: React.FC<Props> = ({ data, className = "", paral
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.7, delay: 0.2 }}
-              className={`text-lg md:text-xl max-w-2xl mx-auto leading-relaxed ${
+              className={`text-base sm:text-lg md:text-xl max-w-2xl mx-auto leading-relaxed ${
                 hasImages ? "text-white/80" : "text-muted-foreground"
               }`}
             >
@@ -203,38 +197,38 @@ export const PublicHeroSection: React.FC<Props> = ({ data, className = "", paral
             </motion.p>
           )}
 
-          {/* Date & Location pills */}
+          {/* Date & Location pills — stack on mobile */}
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.35 }}
-            className="flex flex-wrap justify-center gap-3 pt-2"
+            className="flex flex-col sm:flex-row flex-wrap justify-center gap-2 sm:gap-3 pt-1"
           >
             {formattedDate && (
               <span
-                className={`inline-flex items-center gap-2.5 text-sm font-medium px-5 py-2.5 rounded-xl border ${
+                className={`inline-flex items-center justify-center gap-2 text-sm font-medium px-4 sm:px-5 py-2.5 rounded-xl border min-h-[44px] ${
                   hasImages
                     ? "border-white/15 bg-white/10 backdrop-blur-md text-white/90"
                     : "border-border bg-card text-foreground"
                 }`}
               >
-                <Calendar className="h-4 w-4 opacity-70" /> {formattedDate}
+                <Calendar className="h-4 w-4 opacity-70 shrink-0" /> {formattedDate}
               </span>
             )}
             {hero.venueName && (
               <span
-                className={`inline-flex items-center gap-2.5 text-sm font-medium px-5 py-2.5 rounded-xl border ${
+                className={`inline-flex items-center justify-center gap-2 text-sm font-medium px-4 sm:px-5 py-2.5 rounded-xl border min-h-[44px] ${
                   hasImages
                     ? "border-white/15 bg-white/10 backdrop-blur-md text-white/90"
                     : "border-border bg-card text-foreground"
                 }`}
               >
-                <MapPin className="h-4 w-4 opacity-70" /> {hero.venueName}
+                <MapPin className="h-4 w-4 opacity-70 shrink-0" /> {hero.venueName}
               </span>
             )}
           </motion.div>
 
-          {/* CTA Button */}
+          {/* CTA Button — full width on mobile */}
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
@@ -247,9 +241,9 @@ export const PublicHeroSection: React.FC<Props> = ({ data, className = "", paral
                 const target = document.getElementById("invitations") || document.getElementById("about");
                 target?.scrollIntoView({ behavior: "smooth" });
               }}
-              className={`text-base px-8 py-6 rounded-xl font-semibold gap-2 ${
+              className={`w-full sm:w-auto text-base px-8 py-6 rounded-xl font-semibold gap-2 min-h-[52px] ${
                 hasImages
-                  ? "bg-white text-black hover:bg-white/90"
+                  ? "bg-white text-black hover:bg-white/90 active:bg-white/80"
                   : "bg-primary text-primary-foreground hover:bg-primary/90"
               }`}
             >
@@ -258,13 +252,13 @@ export const PublicHeroSection: React.FC<Props> = ({ data, className = "", paral
             </Button>
           </motion.div>
 
-          {/* Add to Calendar */}
+          {/* Add to Calendar — wrap on mobile */}
           {hero.date && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.5, delay: 0.55 }}
-              className="flex items-center gap-2 pt-1"
+              className="flex flex-wrap items-center justify-center gap-2 pt-1"
             >
               <span className={`text-xs font-medium ${hasImages ? "text-white/50" : "text-muted-foreground"}`}>Add to calendar:</span>
               <CalendarPill
@@ -297,7 +291,7 @@ export const PublicHeroSection: React.FC<Props> = ({ data, className = "", paral
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.8, duration: 0.8 }}
-          className="w-full max-w-5xl mt-10"
+          className="w-full max-w-5xl mt-8 sm:mt-10"
         >
           <HeroAttendeeMarquee data={data} variant={hasImages ? "glass" : "light"} />
         </motion.div>
@@ -308,7 +302,7 @@ export const PublicHeroSection: React.FC<Props> = ({ data, className = "", paral
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 1, duration: 0.6 }}
-            className="absolute bottom-20 md:bottom-24 left-1/2 -translate-x-1/2 flex gap-2"
+            className="absolute bottom-16 sm:bottom-20 md:bottom-24 left-1/2 -translate-x-1/2 flex gap-2"
           >
             {images.map((_, i) => (
               <button
@@ -318,10 +312,10 @@ export const PublicHeroSection: React.FC<Props> = ({ data, className = "", paral
                   setActiveIdx(i);
                   setTransitioning(true);
                 }}
-                className={`h-1.5 rounded-full transition-all duration-500 ${
+                className={`h-2 sm:h-1.5 rounded-full transition-all duration-500 min-w-[8px] ${
                   i === activeIdx
                     ? "w-8 bg-white/90"
-                    : "w-1.5 bg-white/30 hover:bg-white/50"
+                    : "w-2 sm:w-1.5 bg-white/30 hover:bg-white/50"
                 }`}
                 aria-label={`Go to slide ${i + 1}`}
               />
@@ -329,7 +323,7 @@ export const PublicHeroSection: React.FC<Props> = ({ data, className = "", paral
           </motion.div>
         )}
 
-        {/* Scroll indicator */}
+        {/* Scroll indicator — desktop only */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
