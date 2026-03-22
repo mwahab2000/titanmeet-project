@@ -232,7 +232,15 @@ async function toolFindOrCreateClient(
     .select("id, name, slug")
     .single();
 
-  if (error) return { success: false, result: {}, error: `Failed to create client: ${error.message}` };
+  if (error) {
+    console.error(`[toolFindOrCreateClient] insert error: ${error.code} ${error.message}`);
+    const friendlyMsg = error.code === "42501"
+      ? "Permission denied when creating client. Please contact support."
+      : error.code === "23505"
+      ? "A client with this slug already exists. Try a different name."
+      : `Failed to create client: ${error.message}`;
+    return { success: false, result: {}, error: friendlyMsg };
+  }
   return { success: true, result: { client_id: created.id, name: created.name, slug: created.slug, action: "created_new" } };
 }
 
