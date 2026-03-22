@@ -1,0 +1,1 @@
+ALTER TABLE public.events ADD COLUMN IF NOT EXISTS show_attendees_publicly boolean NOT NULL DEFAULT false;
