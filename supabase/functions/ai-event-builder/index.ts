@@ -1291,6 +1291,18 @@ async function executeTool(
         return await toolGetEventAnalytics(db, userId, args as any);
       case "get_workspace_analytics_summary":
         return await toolGetWorkspaceAnalytics(db, userId);
+      case "prepare_communication_campaign":
+        return await toolPrepareCommunicationCampaign(db, userId, args as any);
+      case "send_communication_campaign":
+        return await toolSendCommunicationCampaign(db, userId, args as any, correlationId);
+      case "get_event_confirmation_stats":
+        return await toolGetEventConfirmationStats(db, userId, args as any);
+      case "list_confirmation_segments":
+        return await toolListConfirmationSegments(db, userId, args as any);
+      case "get_communication_performance":
+        return await toolGetCommunicationPerformance(db, userId, args as any);
+      case "list_event_campaigns":
+        return await toolListEventCampaigns(db, userId, args as any);
       default:
         return { success: false, result: {}, error: `Unknown tool: ${toolName}`, category: "internal" };
     }
