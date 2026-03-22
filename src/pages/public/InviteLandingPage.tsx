@@ -22,46 +22,48 @@ const InviteLandingPage = () => {
   const [error, setError] = useState<string>("Invalid or expired link");
   const [confirming, setConfirming] = useState(false);
 
+  const handleCheckin = async (t: string) => {
+    try {
+      const url = edgeFunctionUrl("confirm-rsvp", { token: t, action: "checkin" });
+      const res = await fetch(url, { method: "GET", headers: { "Content-Type": "application/json" } });
+      const data = await res.json();
+      if (!res.ok) { setError(data?.error || "Check-in failed"); setState("error"); return; }
+      setState("checked_in");
+    } catch {
+      setError("Check-in failed. Please try again.");
+      setState("error");
+    }
+  };
+
   useEffect(() => {
     if (!token) { setError("Missing token"); setState("error"); return; }
-
-    // Check for check-in action from URL params
     const urlParams = new URLSearchParams(window.location.search);
     const action = urlParams.get("action");
 
     const validate = async () => {
       try {
-        const { data, error: fnErr } = await supabase.functions.invoke("invite-get", {
-          body: { token },
-        });
-
-        if (fnErr || data?.error) {
-          setError(data?.error || "Invalid invitation link");
-          setState("error");
-          return;
-        }
-
+        const { data, error: fnErr } = await supabase.functions.invoke("invite-get", { body: { token } });
+        if (fnErr || data?.error) { setError(data?.error || "Invalid invitation link"); setState("error"); return; }
         setInvite(data);
-
-        // Auto check-in if action=checkin
-        if (action === "checkin") {
-          await handleCheckin(token);
-          return;
-        }
-
-        if (data.status === "rsvp_yes" || data.rsvp_at) {
-          setState("confirmed");
-        } else {
-          setState("invite");
-        }
-      } catch {
-        setError("Failed to validate invitation");
-        setState("error");
-      }
+        if (action === "checkin") { await handleCheckin(token); return; }
+        if (data.status === "rsvp_yes" || data.rsvp_at) { setState("confirmed"); } else { setState("invite"); }
+      } catch { setError("Failed to validate invitation"); setState("error"); }
     };
-
     validate();
   }, [token]);
+
+  const handleConfirm = async () => {
+    if (!token) return;
+    setConfirming(true);
+    try {
+      const url = edgeFunctionUrl("confirm-rsvp", { token });
+      const res = await fetch(url, { method: "GET", headers: { "Content-Type": "application/json" } });
+      const data = await res.json();
+      if (!res.ok) { setError(data?.error || "Confirmation failed"); setState("error"); return; }
+      setState("confirmed");
+    } catch { setError("Failed to confirm. Please try again."); setState("error"); }
+    finally { setConfirming(false); }
+  };
 
   const handleConfirm = async () => {
     if (!token) return;
