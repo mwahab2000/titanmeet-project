@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { RotateCcw, Bot, PanelRightClose, PanelRightOpen, ClipboardList } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { AIBuilderUsageBanner } from "@/components/ai-builder/AIBuilderUsageBanner";
 import type { VenueResult } from "@/components/ai-builder/AIVenueSearchResults";
 import type { VenuePhoto } from "@/components/ai-builder/AIVenuePhotoBrowser";
 
@@ -86,6 +87,9 @@ const AIBuilderPage = () => {
             )}
           </div>
         </div>
+
+        {/* Usage warning */}
+        <AIBuilderUsageBanner />
 
         {/* Messages */}
         <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 sm:px-4">

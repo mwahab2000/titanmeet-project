@@ -93,7 +93,25 @@ export function useAIBuilderSession() {
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        // Check if it's a rate limit error from the response body
+        if (data?.rateLimited) {
+          const assistantMsg: ChatMessage = {
+            id: crypto.randomUUID(),
+            role: "assistant",
+            content: data.error || "You've reached your usage limit. Please upgrade your plan or wait for the next billing period.",
+            timestamp: new Date(),
+            actions: [{
+              type: "warning",
+              label: data.burstBlocked ? "Rate limited — too many requests" : "Monthly usage limit reached",
+              detail: `${data.usage}/${data.limit} ${data.resource || "requests"} used`,
+            }],
+          };
+          setMessages((prev) => [...prev, assistantMsg]);
+          return;
+        }
+        throw error;
+      }
 
       if (data?.sessionId && !sessionId) {
         setSessionId(data.sessionId);

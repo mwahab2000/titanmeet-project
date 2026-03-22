@@ -318,6 +318,45 @@ export type Database = {
           },
         ]
       }
+      api_usage_tracking: {
+        Row: {
+          burst_count: number
+          burst_window_start: string | null
+          created_at: string
+          id: string
+          last_request_at: string | null
+          period_start: string
+          resource_type: string
+          updated_at: string
+          usage_count: number
+          user_id: string
+        }
+        Insert: {
+          burst_count?: number
+          burst_window_start?: string | null
+          created_at?: string
+          id?: string
+          last_request_at?: string | null
+          period_start?: string
+          resource_type: string
+          updated_at?: string
+          usage_count?: number
+          user_id: string
+        }
+        Update: {
+          burst_count?: number
+          burst_window_start?: string | null
+          created_at?: string
+          id?: string
+          last_request_at?: string | null
+          period_start?: string
+          resource_type?: string
+          updated_at?: string
+          usage_count?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       attendee_groups: {
         Row: {
           attendee_id: string
@@ -1546,15 +1585,21 @@ export type Database = {
       }
       subscription_plans: {
         Row: {
+          burst_per_minute: number
           created_at: string
           display_order: number
           id: string
           is_active: boolean
           max_active_events: number
+          max_ai_heavy: number
+          max_ai_requests: number
           max_attendees: number
           max_clients: number
           max_emails: number
+          max_maps_photos: number
+          max_maps_searches: number
           max_storage_gb: number
+          max_whatsapp_sends: number
           monthly_price_cents: number
           name: string
           overage_attendees_per_100_cents: number
@@ -1566,15 +1611,21 @@ export type Database = {
           support_tier: string
         }
         Insert: {
+          burst_per_minute?: number
           created_at?: string
           display_order?: number
           id: string
           is_active?: boolean
           max_active_events: number
+          max_ai_heavy?: number
+          max_ai_requests?: number
           max_attendees: number
           max_clients: number
           max_emails: number
+          max_maps_photos?: number
+          max_maps_searches?: number
           max_storage_gb: number
+          max_whatsapp_sends?: number
           monthly_price_cents: number
           name: string
           overage_attendees_per_100_cents?: number
@@ -1586,15 +1637,21 @@ export type Database = {
           support_tier?: string
         }
         Update: {
+          burst_per_minute?: number
           created_at?: string
           display_order?: number
           id?: string
           is_active?: boolean
           max_active_events?: number
+          max_ai_heavy?: number
+          max_ai_requests?: number
           max_attendees?: number
           max_clients?: number
           max_emails?: number
+          max_maps_photos?: number
+          max_maps_searches?: number
           max_storage_gb?: number
+          max_whatsapp_sends?: number
           monthly_price_cents?: number
           name?: string
           overage_attendees_per_100_cents?: number
