@@ -2937,6 +2937,10 @@ serve(async (req) => {
           }
         }
 
+        // Extract numbered options from summary for next-turn resolution
+        extractAndStoreOptions(summaryContent, stateJson);
+        await db.from("ai_chat_sessions").update({ state_json: stateJson }).eq("id", session.id);
+
         await db.from("ai_chat_messages").insert({ session_id: session.id, role: "assistant", content: summaryContent });
 
         const draftState = await buildDraftState(db, user.id, stateJson);
