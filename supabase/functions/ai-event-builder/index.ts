@@ -1799,6 +1799,7 @@ function formatToolDisplayName(toolName: string): string {
     check_publish_readiness: "Check Readiness",
     generate_full_event_proposal: "Generate Event Proposal",
     save_event_proposal: "Save Event Proposal",
+    apply_template: "Apply Template",
   };
   return names[toolName] || toolName;
 }
