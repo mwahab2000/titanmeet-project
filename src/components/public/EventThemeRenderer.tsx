@@ -30,6 +30,7 @@ export const EventThemeRenderer: React.FC<Props> = ({ data }) => {
     <>
       <PublicEventSeo data={data} />
       <ThemeComponent data={data} />
+      <EventConciergeChat eventId={data.event.id} eventTitle={data.event.title} />
     </>
   );
 };
