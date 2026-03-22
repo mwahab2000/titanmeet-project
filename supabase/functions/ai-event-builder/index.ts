@@ -1198,6 +1198,10 @@ async function executeTool(
         return await toolSaveVisualPack(db, userId, args as any, correlationId);
       case "apply_visual_pack":
         return await toolApplyVisualPack(db, userId, args as any, correlationId);
+      case "get_event_analytics_summary":
+        return await toolGetEventAnalytics(db, userId, args as any);
+      case "get_workspace_analytics_summary":
+        return await toolGetWorkspaceAnalytics(db, userId);
       default:
         return { success: false, result: {}, error: `Unknown tool: ${toolName}`, category: "internal" };
     }
