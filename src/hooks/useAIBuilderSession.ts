@@ -102,6 +102,7 @@ function mapDraftState(raw: Record<string, any> | undefined): DraftState {
     attendees: raw.attendees ?? emptyDraft.attendees,
     agenda: raw.agenda ?? emptyDraft.agenda,
     communications: raw.communications ?? emptyDraft.communications,
+    media: raw.media ?? emptyDraft.media,
     publishReadiness: raw.publishReadiness ?? emptyDraft.publishReadiness,
     speakers: raw.speakers,
     description: raw.description,
