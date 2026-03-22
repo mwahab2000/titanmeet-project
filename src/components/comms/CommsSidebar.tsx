@@ -2,11 +2,12 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard, Inbox, Send, Clock, FileText, ScrollText,
-  AlertCircle, Settings, Mail, QrCode,
+  AlertCircle, Settings, Mail, QrCode, Megaphone,
 } from "lucide-react";
 
 export type CommsView =
   | "overview"
+  | "campaigns"
   | "inbox"
   | "sent"
   | "scheduled"
@@ -28,6 +29,7 @@ interface CommsSidebarProps {
 
 const viewItems: { id: CommsView; icon: any; label: string; countKey?: "inbox" | "unassigned" }[] = [
   { id: "overview", icon: LayoutDashboard, label: "Overview" },
+  { id: "campaigns", icon: Megaphone, label: "Campaigns" },
   { id: "inbox", icon: Inbox, label: "Inbox", countKey: "inbox" },
   { id: "sent", icon: Send, label: "Sent" },
   { id: "scheduled", icon: Clock, label: "Scheduled" },

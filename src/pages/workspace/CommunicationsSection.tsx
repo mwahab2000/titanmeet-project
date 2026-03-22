@@ -12,6 +12,7 @@ import { CommsUsageBadge } from "@/components/comms/CommsUsageBadge";
 import { CommsMessageList, type CommsMessage } from "@/components/comms/CommsMessageList";
 import { ScheduledMessagesPanel } from "@/components/comms/ScheduledMessagesPanel";
 import { CheckinPanel } from "@/components/comms/CheckinPanel";
+import { CampaignsView } from "@/components/comms/CampaignsView";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Menu, Construction, Clock, FileText, Settings, QrCode } from "lucide-react";
