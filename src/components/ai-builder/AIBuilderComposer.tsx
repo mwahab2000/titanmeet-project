@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import { Send, Mic, MicOff, X, Check, AlertCircle } from "lucide-react";
+import { Send, Mic, MicOff, X, Check, AlertCircle, Paperclip, Image as ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
@@ -7,12 +7,16 @@ import { cn } from "@/lib/utils";
 
 interface AIBuilderComposerProps {
   onSend: (message: string) => void;
+  onFileUpload?: (file: File) => void;
   isLoading: boolean;
+  pendingUpload?: { file: File; previewUrl: string } | null;
+  onClearUpload?: () => void;
 }
 
-export const AIBuilderComposer = ({ onSend, isLoading }: AIBuilderComposerProps) => {
+export const AIBuilderComposer = ({ onSend, onFileUpload, isLoading, pendingUpload, onClearUpload }: AIBuilderComposerProps) => {
   const [input, setInput] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { isRecording, transcript, error, isSupported, startRecording, stopRecording, clearTranscript } = useVoiceRecorder();
 
   // Auto-resize textarea
@@ -29,7 +33,6 @@ export const AIBuilderComposer = ({ onSend, isLoading }: AIBuilderComposerProps)
     if (!text || isLoading) return;
     onSend(text);
     setInput("");
-    // Don't auto-focus on mobile to avoid keyboard jump
     if (window.innerWidth >= 768) {
       textareaRef.current?.focus();
     }
@@ -55,6 +58,23 @@ export const AIBuilderComposer = ({ onSend, isLoading }: AIBuilderComposerProps)
     } else {
       startRecording();
     }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && onFileUpload) {
+      // Validate file type
+      if (!file.type.startsWith("image/")) {
+        return; // Only images for now
+      }
+      // Validate file size (10MB max)
+      if (file.size > 10 * 1024 * 1024) {
+        return;
+      }
+      onFileUpload(file);
+    }
+    // Reset input so the same file can be selected again
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   // Transcript preview mode
@@ -112,19 +132,56 @@ export const AIBuilderComposer = ({ onSend, isLoading }: AIBuilderComposerProps)
         </div>
       )}
 
+      {/* Pending upload preview */}
+      {pendingUpload && (
+        <div className="flex items-center gap-3 mb-3 px-3 py-2 rounded-lg bg-primary/5 border border-primary/20">
+          <img
+            src={pendingUpload.previewUrl}
+            alt="Upload preview"
+            className="h-12 w-12 rounded-lg object-cover border border-border"
+          />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-medium text-foreground truncate">{pendingUpload.file.name}</p>
+            <p className="text-[10px] text-muted-foreground">{(pendingUpload.file.size / 1024).toFixed(0)} KB — ready to upload</p>
+          </div>
+          <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={onClearUpload}>
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      )}
+
       <div className="flex items-end gap-2">
+        {/* File upload button */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handleFileSelect}
+        />
+        <Button
+          size="icon"
+          variant="ghost"
+          className="h-11 w-11 sm:h-10 sm:w-10 shrink-0 rounded-xl"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={isLoading || isRecording}
+          aria-label="Upload image"
+        >
+          <ImageIcon className="h-4 w-4" />
+        </Button>
+
         <Textarea
           ref={textareaRef}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Type a message…"
+          placeholder={pendingUpload ? "Add a note about this image…" : "Type a message…"}
           className="min-h-[44px] max-h-[120px] resize-none rounded-xl border-border bg-background text-sm leading-relaxed"
           rows={1}
           disabled={isRecording}
         />
 
-        {/* Mic button — only if supported */}
+        {/* Mic button */}
         {isSupported && (
           <Button
             size="icon"
@@ -142,7 +199,7 @@ export const AIBuilderComposer = ({ onSend, isLoading }: AIBuilderComposerProps)
           size="icon"
           className="h-11 w-11 sm:h-10 sm:w-10 shrink-0 rounded-xl"
           onClick={handleSend}
-          disabled={!input.trim() || isLoading || isRecording}
+          disabled={(!input.trim() && !pendingUpload) || isLoading || isRecording}
           aria-label="Send message"
         >
           <Send className="h-4 w-4" />

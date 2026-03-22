@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState, useCallback } from "react";
 import { useAIBuilderSession } from "@/hooks/useAIBuilderSession";
 import { AIBuilderChatMessage } from "@/components/ai-builder/AIBuilderChatMessage";
 import { AIBuilderComposer } from "@/components/ai-builder/AIBuilderComposer";
@@ -9,6 +9,8 @@ import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/s
 import { RotateCcw, Bot, PanelRightClose, PanelRightOpen, ClipboardList } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { AIBuilderUsageBanner } from "@/components/ai-builder/AIBuilderUsageBanner";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import type { VenueResult } from "@/components/ai-builder/AIVenueSearchResults";
 import type { VenuePhoto } from "@/components/ai-builder/AIVenuePhotoBrowser";
 import type { EventProposal } from "@/components/ai-builder/AIEventProposalPreview";
@@ -18,6 +20,8 @@ const AIBuilderPage = () => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showPanel, setShowPanel] = useState(true);
   const [draftSheetOpen, setDraftSheetOpen] = useState(false);
+  const [pendingUpload, setPendingUpload] = useState<{ file: File; previewUrl: string } | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   const isMobile = useIsMobile();
 
   useEffect(() => {
@@ -33,7 +37,6 @@ const AIBuilderPage = () => {
   };
 
   const handlePhotosConfirm = (photos: VenuePhoto[]) => {
-    const photoSummary = photos.map((p, i) => `Photo ${i + 1}`).join(", ");
     sendMessage(
       `Please save these ${photos.length} selected venue photos: ${JSON.stringify(photos.map(p => ({
         photo_reference: p.photo_reference,
@@ -51,6 +54,65 @@ const AIBuilderPage = () => {
   const handleProposalReject = () => {
     sendMessage("I'd like to make some changes to the proposal before saving. What would you like to adjust?");
   };
+
+  const handleFileUpload = useCallback((file: File) => {
+    const previewUrl = URL.createObjectURL(file);
+    setPendingUpload({ file, previewUrl });
+  }, []);
+
+  const handleClearUpload = useCallback(() => {
+    if (pendingUpload?.previewUrl) {
+      URL.revokeObjectURL(pendingUpload.previewUrl);
+    }
+    setPendingUpload(null);
+  }, [pendingUpload]);
+
+  const handleSendWithUpload = useCallback(async (message: string) => {
+    if (!pendingUpload) {
+      sendMessage(message);
+      return;
+    }
+
+    // Upload file to media-library bucket first
+    setIsUploading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error("Please sign in to upload files");
+        return;
+      }
+
+      const ext = pendingUpload.file.name.split(".").pop() || "png";
+      const filePath = `${user.id}/uploads/${Date.now()}.${ext}`;
+
+      const { error: uploadErr } = await supabase.storage
+        .from("media-library")
+        .upload(filePath, pendingUpload.file, {
+          contentType: pendingUpload.file.type,
+          upsert: false,
+        });
+
+      if (uploadErr) {
+        console.error("Upload error:", uploadErr);
+        toast.error("Failed to upload image");
+        return;
+      }
+
+      // Send message with upload info so AI can register it
+      const uploadContext = `[UPLOADED_IMAGE: path="${filePath}", name="${pendingUpload.file.name}", type="${pendingUpload.file.type}", size=${pendingUpload.file.size}]`;
+      const fullMessage = message.trim()
+        ? `${message}\n\n${uploadContext}`
+        : `I've uploaded an image. ${uploadContext}`;
+
+      handleClearUpload();
+      sendMessage(fullMessage);
+    } catch (err) {
+      console.error("Upload error:", err);
+      toast.error("Upload failed");
+    } finally {
+      setIsUploading(false);
+    }
+  }, [pendingUpload, sendMessage, handleClearUpload]);
 
   const effectiveShowPanel = !isMobile && showPanel;
 
@@ -117,7 +179,7 @@ const AIBuilderPage = () => {
                   isProcessing={isLoading}
                 />
               ))}
-              {isLoading && (
+              {(isLoading || isUploading) && (
                 <div className="flex gap-3 py-4 px-2">
                   <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted border border-border">
                     <Bot className="h-4 w-4" />
@@ -134,7 +196,13 @@ const AIBuilderPage = () => {
         </div>
 
         {/* Composer */}
-        <AIBuilderComposer onSend={(msg) => sendMessage(msg)} isLoading={isLoading} />
+        <AIBuilderComposer
+          onSend={handleSendWithUpload}
+          onFileUpload={handleFileUpload}
+          isLoading={isLoading || isUploading}
+          pendingUpload={pendingUpload}
+          onClearUpload={handleClearUpload}
+        />
       </div>
 
       {/* Desktop draft summary panel */}
