@@ -1638,6 +1638,8 @@ function formatToolDisplayName(toolName: string): string {
     add_attendees_from_text: "Add Attendees",
     add_agenda_items: "Add Agenda",
     check_publish_readiness: "Check Readiness",
+    generate_full_event_proposal: "Generate Event Proposal",
+    save_event_proposal: "Save Event Proposal",
   };
   return names[toolName] || toolName;
 }
