@@ -2,6 +2,7 @@ import { Building2, CalendarDays, MapPin, UserCog, UsersRound, ListOrdered, Mess
 import type { DraftState } from "@/hooks/useAIBuilderSession";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { AIBuilderRecommendations } from "./AIBuilderRecommendations";
 
 const statusIcon = {
   empty: <Circle className="h-3.5 w-3.5 text-muted-foreground/40" />,
@@ -30,7 +31,7 @@ const SectionRow = ({ icon, label, status, details }: SectionRowProps) => (
   </div>
 );
 
-export const AIBuilderDraftPanel = ({ draft }: { draft: DraftState }) => {
+export const AIBuilderDraftPanel = ({ draft, onApplyRecommendation, isLoading }: { draft: DraftState; onApplyRecommendation?: (prompt: string) => void; isLoading?: boolean }) => {
   const readyCount = Object.values(draft).filter((s) => s.status === "done").length;
   const totalSections = Object.keys(draft).length;
   const pct = Math.round((readyCount / totalSections) * 100);
@@ -76,6 +77,14 @@ export const AIBuilderDraftPanel = ({ draft }: { draft: DraftState }) => {
           </div>
         )}
       </ScrollArea>
+
+      {onApplyRecommendation && (
+        <AIBuilderRecommendations
+          draft={draft}
+          onApply={onApplyRecommendation}
+          disabled={isLoading}
+        />
+      )}
     </div>
   );
 };
