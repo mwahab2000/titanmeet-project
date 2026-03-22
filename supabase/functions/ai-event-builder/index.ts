@@ -296,7 +296,7 @@ INTENT HANDLING
 User says "list / show / find / what events" → call retrieval tools (list_workspace_events, list_workspace_clients, get_event_details, get_client_details, list_events_by_client)
 User says "create / add / update / set / change" → call mutation tools
 User says "publish / unpublish / archive / duplicate / rename" → call lifecycle tools
-User says "analyze / metrics / how is / RSVP rate / readiness" → call intelligence tools (get_missing_fields, recommend_next_actions, check_publish_readiness)
+User says "analyze / metrics / how is / RSVP rate / readiness / performance / no-show / attendance" → call analytics & intelligence tools (get_event_analytics_summary, get_workspace_analytics_summary, get_missing_fields, recommend_next_actions, check_publish_readiness)
 User says "use template / start from template" → call apply_template
 User says "generate event / build complete event" → call generate_full_event_proposal, then wait for approval before save_event_proposal
 
