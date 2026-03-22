@@ -1707,7 +1707,7 @@ async function toolListWorkspaceEvents(
   const maxResults = Math.min(args.limit || 20, 50);
 
   let query = db.from("events")
-    .select("id, title, slug, status, start_date, end_date, location, venue_name, event_date, client_id, clients(name)")
+    .select("id, title, slug, status, start_date, end_date, location, venue_name, event_date, client_id, readiness, readiness_details, clients(name)")
     .order("updated_at", { ascending: false })
     .limit(maxResults);
 
@@ -1738,6 +1738,18 @@ async function toolListWorkspaceEvents(
     return { success: false, result: {}, error: classified.userMessage, category: classified.category };
   }
 
+  // Batch-fetch attendee counts for listed events
+  const eventIds = (data || []).map((e: any) => e.id);
+  const attendeeCounts: Record<string, number> = {};
+  if (eventIds.length > 0) {
+    const { data: attData } = await db.from("attendees")
+      .select("event_id")
+      .in("event_id", eventIds);
+    for (const a of (attData || [])) {
+      attendeeCounts[a.event_id] = (attendeeCounts[a.event_id] || 0) + 1;
+    }
+  }
+
   const events = (data || []).map((e: any) => ({
     id: e.id,
     title: e.title,
@@ -1747,6 +1759,9 @@ async function toolListWorkspaceEvents(
     location: e.location || e.venue_name || null,
     client_name: e.clients?.name || null,
     slug: e.slug,
+    readiness: e.readiness ?? false,
+    readiness_score: (e.readiness_details as any)?.score ?? null,
+    attendee_count: attendeeCounts[e.id] || 0,
   }));
 
   return {
