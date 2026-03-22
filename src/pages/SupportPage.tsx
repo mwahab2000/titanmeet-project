@@ -286,25 +286,6 @@ const SupportPage = () => {
             </div>
           )}
 
-          {/* Quick Reference PDF */}
-          <Card className="border-dashed">
-            <CardContent className="flex items-center justify-between py-4 px-6">
-              <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted">
-                  <BookOpen className="h-4 w-4 text-muted-foreground" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium">Quick Reference PDF</p>
-                  <p className="text-xs text-muted-foreground">Download a printable cheat-sheet covering all key features.</p>
-                </div>
-              </div>
-              <Button variant="outline" size="sm" className="gap-1.5 shrink-0" asChild>
-                <a href={QUICK_REF_PDF_URL} target="_blank" rel="noopener noreferrer">
-                  <Download className="h-3.5 w-3.5" /> Download PDF
-                </a>
-              </Button>
-            </CardContent>
-          </Card>
 
           <HelpArticleModal
             article={selectedArticle}
