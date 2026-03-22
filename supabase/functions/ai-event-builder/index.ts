@@ -4276,6 +4276,12 @@ function formatToolDisplayName(toolName: string): string {
     apply_visual_pack: "Apply Visual Pack",
     get_event_analytics_summary: "Event Analytics",
     get_workspace_analytics_summary: "Workspace Analytics",
+    prepare_communication_campaign: "Prepare Campaign",
+    send_communication_campaign: "Send Campaign",
+    get_event_confirmation_stats: "Confirmation Stats",
+    list_confirmation_segments: "Confirmation Segments",
+    get_communication_performance: "Communication Performance",
+    list_event_campaigns: "List Campaigns",
   };
   return names[toolName] || toolName;
 }
