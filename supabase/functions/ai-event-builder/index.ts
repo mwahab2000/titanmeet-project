@@ -977,6 +977,89 @@ const TOOL_DEFINITIONS = [
       },
     },
   },
+  // ─── Phase 2: Upload, Brand Kit, Visual Pack tools ───────
+  {
+    type: "function",
+    function: {
+      name: "register_uploaded_media",
+      description: "Register an image that the admin uploaded through the chat. Creates a media_assets record for the uploaded file. Call this when you see [UPLOADED_IMAGE: ...] in a message.",
+      parameters: {
+        type: "object",
+        properties: {
+          event_id: { type: "string", description: "Event UUID to associate with" },
+          file_path: { type: "string", description: "Storage path from the upload context" },
+          file_name: { type: "string", description: "Original file name" },
+          media_type: { type: "string", enum: ["hero_image", "banner", "gallery", "logo", "background"], description: "Type of media" },
+        },
+        required: ["file_path", "file_name"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "create_brand_kit",
+      description: "Create a reusable brand kit with colors, typography, and visual mood for a client or workspace.",
+      parameters: {
+        type: "object",
+        properties: {
+          name: { type: "string", description: "Brand kit name (e.g. 'Titan Cement Branding')" },
+          client_id: { type: "string", description: "Client UUID to associate with" },
+          primary_color: { type: "string", description: "Primary color hex (e.g. '#1E3A5F')" },
+          secondary_color: { type: "string", description: "Secondary color hex" },
+          accent_color: { type: "string", description: "Accent color hex" },
+          typography_preference: { type: "string", enum: ["modern", "classic", "bold", "elegant", "minimal", "tech"], description: "Typography style" },
+          visual_mood: { type: "array", items: { type: "string" }, description: "Visual mood keywords (e.g. ['premium', 'corporate', 'warm'])" },
+        },
+        required: ["name"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_brand_kit",
+      description: "Retrieve a brand kit by client ID or name. Returns branding settings for use in image generation.",
+      parameters: {
+        type: "object",
+        properties: {
+          client_id: { type: "string", description: "Client UUID" },
+          name_search: { type: "string", description: "Search by brand kit name" },
+        },
+        required: [],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "save_visual_pack",
+      description: "Save the current event's media assets and branding settings as a reusable visual pack.",
+      parameters: {
+        type: "object",
+        properties: {
+          event_id: { type: "string", description: "Source event UUID" },
+          pack_name: { type: "string", description: "Name for this visual pack" },
+        },
+        required: ["event_id", "pack_name"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "apply_visual_pack",
+      description: "Apply a previously saved visual pack to an event. Copies hero images, gallery, banner, and branding.",
+      parameters: {
+        type: "object",
+        properties: {
+          event_id: { type: "string", description: "Target event UUID" },
+          pack_name: { type: "string", description: "Visual pack name to apply" },
+        },
+        required: ["event_id", "pack_name"],
+      },
+    },
+  },
 ];
 
 // ─── Tool Executor ─────────────────────────────────────────
