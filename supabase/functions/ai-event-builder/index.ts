@@ -318,8 +318,8 @@ async function toolUpdateEventBasics(
   if (!args.event_id) return { success: false, result: {}, error: "event_id is required" };
 
   // Verify ownership
-  const { data: evt } = await db.from("events").select("id, created_by").eq("id", args.event_id).single();
-  if (!evt || evt.created_by !== userId) return { success: false, result: {}, error: "Event not found or access denied" };
+  const { allowed, event: evt } = await canManageEvent(db, userId, args.event_id);
+  if (!allowed || !evt) return { success: false, result: {}, error: "Event not found or access denied" };
 
   const updateFields: Record<string, unknown> = {};
   const allowed = ["title", "description", "start_date", "end_date", "location", "theme_id", "max_attendees"];
