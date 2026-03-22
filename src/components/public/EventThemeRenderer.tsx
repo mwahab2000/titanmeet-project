@@ -1,5 +1,6 @@
 import type { PublicEventData } from "@/lib/publicSite/types";
 import { PublicEventSeo } from "./PublicEventSeo";
+import { EventConciergeChat } from "./EventConciergeChat";
 import { ThemePublicCorporate } from "./themes/ThemePublicCorporate";
 import { ThemePublicElegant } from "./themes/ThemePublicElegant";
 import { ThemePublicModern } from "./themes/ThemePublicModern";

@@ -247,13 +247,35 @@ Deno.serve(async (req) => {
     }
   }
 
-  // ── Concierge-ready: tag messages for future AI routing ──
-  // If resolved and body doesn't match a known keyword, tag for concierge
-  if (resolvedStatus === "resolved") {
-    // Update the inbound message to flag it needs concierge attention
-    if (insertError === null || insertError === undefined) {
-      // The message is already inserted above; we could update it with a concierge flag
-      // For now, the Communications Center inbox handles this
+  // ── AI Concierge: route resolved messages to event concierge ──
+  if (resolvedStatus === "resolved" && eventId) {
+    try {
+      const conciergeRes = await fetch(
+        `${SUPABASE_URL}/functions/v1/event-concierge`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+          },
+          body: JSON.stringify({
+            event_id: eventId,
+            message: body,
+            identifier: fromPhone,
+            channel: "whatsapp",
+          }),
+        },
+      );
+
+      if (conciergeRes.ok) {
+        const conciergeData = await conciergeRes.json();
+        if (conciergeData.reply) {
+          return twimlResponse(conciergeData.reply);
+        }
+      }
+      console.warn("[inbound] Concierge call failed, falling back");
+    } catch (conciergeErr) {
+      console.error("[inbound] Concierge error:", conciergeErr);
     }
     return twimlResponse("Thanks! Your message was received. An event organizer will get back to you.");
   } else {
