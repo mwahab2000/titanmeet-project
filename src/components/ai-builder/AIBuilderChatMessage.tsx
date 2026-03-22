@@ -51,10 +51,11 @@ interface AIBuilderChatMessageProps {
   isProcessing?: boolean;
 }
 
-export const AIBuilderChatMessage = ({ message, onVenueSelect, onPhotosConfirm, isProcessing }: AIBuilderChatMessageProps) => {
+export const AIBuilderChatMessage = ({ message, onVenueSelect, onPhotosConfirm, onProposalApprove, onProposalReject, isProcessing }: AIBuilderChatMessageProps) => {
   const isUser = message.role === "user";
   const [venueSelected, setVenueSelected] = useState(false);
   const [photosConfirmed, setPhotosConfirmed] = useState(false);
+  const [proposalHandled, setProposalHandled] = useState(false);
   const [logExpanded, setLogExpanded] = useState(true);
 
   const venueSearchAction = message.actions?.find(a => a.type === "venue_search" && a.data?.venues?.length > 0);
