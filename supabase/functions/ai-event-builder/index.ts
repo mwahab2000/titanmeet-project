@@ -1485,6 +1485,184 @@ async function toolApplyTemplate(
   };
 }
 
+// ─── Retrieval Tool Implementations ────────────────────────
+
+async function toolListWorkspaceEvents(
+  db: SupabaseClient, userId: string,
+  args: { status_filter?: string; search?: string; date_from?: string; date_to?: string; limit?: number }
+): Promise<ToolResult> {
+  const isPrivileged = await isAdminOrOwnerRole(db, userId);
+  const maxResults = Math.min(args.limit || 20, 50);
+
+  let query = db.from("events")
+    .select("id, title, slug, status, start_date, end_date, location, venue_name, event_date, client_id, clients(name)")
+    .order("updated_at", { ascending: false })
+    .limit(maxResults);
+
+  // Workspace scoping: admin/owner see all, regular users see their own
+  if (!isPrivileged) {
+    query = query.eq("created_by", userId);
+  }
+
+  if (args.status_filter) {
+    query = query.eq("status", args.status_filter);
+  }
+
+  if (args.search) {
+    query = query.or(`title.ilike.%${args.search}%,location.ilike.%${args.search}%,venue_name.ilike.%${args.search}%`);
+  }
+
+  if (args.date_from) {
+    query = query.gte("start_date", args.date_from);
+  }
+  if (args.date_to) {
+    query = query.lte("start_date", args.date_to);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    const classified = classifyError(error, error.code);
+    return { success: false, result: {}, error: classified.userMessage, category: classified.category };
+  }
+
+  const events = (data || []).map((e: any) => ({
+    id: e.id,
+    title: e.title,
+    status: e.status,
+    date: e.event_date || e.start_date,
+    end_date: e.end_date,
+    location: e.location || e.venue_name || null,
+    client_name: e.clients?.name || null,
+    slug: e.slug,
+  }));
+
+  return {
+    success: true,
+    result: {
+      events,
+      total: events.length,
+      message: events.length === 0
+        ? `No events found${args.status_filter ? ` with status "${args.status_filter}"` : ""}${args.search ? ` matching "${args.search}"` : ""}.`
+        : `Found ${events.length} event${events.length !== 1 ? "s" : ""}.`,
+    },
+  };
+}
+
+async function toolListWorkspaceClients(
+  db: SupabaseClient, userId: string,
+  args: { search?: string; limit?: number }
+): Promise<ToolResult> {
+  const isPrivileged = await isAdminOrOwnerRole(db, userId);
+  const maxResults = Math.min(args.limit || 20, 50);
+
+  let query = db.from("clients")
+    .select("id, name, slug, created_at")
+    .order("created_at", { ascending: false })
+    .limit(maxResults);
+
+  if (!isPrivileged) {
+    query = query.eq("created_by", userId);
+  }
+
+  if (args.search) {
+    query = query.ilike("name", `%${args.search}%`);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    const classified = classifyError(error, error.code);
+    return { success: false, result: {}, error: classified.userMessage, category: classified.category };
+  }
+
+  const clients = (data || []).map((c: any) => ({
+    id: c.id,
+    name: c.name,
+    slug: c.slug,
+  }));
+
+  return {
+    success: true,
+    result: {
+      clients,
+      total: clients.length,
+      message: clients.length === 0
+        ? `No clients found${args.search ? ` matching "${args.search}"` : ""}.`
+        : `Found ${clients.length} client${clients.length !== 1 ? "s" : ""}.`,
+    },
+  };
+}
+
+async function toolGetEventDetails(
+  db: SupabaseClient, userId: string,
+  args: { event_id?: string; title_search?: string }
+): Promise<ToolResult> {
+  if (!args.event_id && !args.title_search) {
+    return { success: false, result: {}, error: "Provide either event_id or title_search", category: "validation" };
+  }
+
+  let eventData: any = null;
+
+  if (args.event_id) {
+    const check = await canManageEvent(db, userId, args.event_id);
+    if (!check.allowed) return { success: false, result: {}, error: "Event not found or access denied", category: "permission" };
+    eventData = check.event;
+  } else {
+    // Search by title
+    const isPrivileged = await isAdminOrOwnerRole(db, userId);
+    let query = db.from("events").select("*").ilike("title", `%${args.title_search}%`).limit(1);
+    if (!isPrivileged) query = query.eq("created_by", userId);
+    const { data } = await query.single();
+    if (!data) return { success: true, result: { found: false, message: `No event found matching "${args.title_search}".` } };
+    eventData = data;
+  }
+
+  // Get counts
+  const eid = eventData.id;
+  const [attRes, agdRes, orgRes, spkRes] = await Promise.all([
+    db.from("attendees").select("id", { count: "exact", head: true }).eq("event_id", eid),
+    db.from("agenda_items").select("id", { count: "exact", head: true }).eq("event_id", eid),
+    db.from("organizers").select("id", { count: "exact", head: true }).eq("event_id", eid),
+    db.from("speakers" as any).select("id", { count: "exact", head: true }).eq("event_id", eid),
+  ]);
+
+  // Get client name
+  let clientName: string | null = null;
+  if (eventData.client_id) {
+    const { data: cl } = await db.from("clients").select("name").eq("id", eventData.client_id).single();
+    if (cl) clientName = cl.name;
+  }
+
+  return {
+    success: true,
+    result: {
+      found: true,
+      event: {
+        id: eventData.id,
+        title: eventData.title,
+        slug: eventData.slug,
+        status: eventData.status,
+        description: eventData.description,
+        date: eventData.event_date || eventData.start_date,
+        end_date: eventData.end_date,
+        location: eventData.location,
+        venue_name: eventData.venue_name,
+        venue_address: eventData.venue_address,
+        theme: eventData.theme_id,
+        client_name: clientName,
+        max_attendees: eventData.max_attendees,
+      },
+      counts: {
+        attendees: attRes.count ?? 0,
+        agenda_items: agdRes.count ?? 0,
+        organizers: orgRes.count ?? 0,
+        speakers: (spkRes as any).count ?? 0,
+      },
+    },
+  };
+}
+
 // ─── Draft State Builder ───────────────────────────────────
 
 async function buildDraftState(
