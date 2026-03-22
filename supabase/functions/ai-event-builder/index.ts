@@ -3199,3 +3199,37 @@ function formatToolLabel(toolName: string, result: Record<string, unknown>): str
       return toolName;
   }
 }
+
+// ─── Extract numbered options from AI response ─────────────
+function extractAndStoreOptions(content: string, stateJson: Record<string, unknown>): void {
+  // Match numbered list patterns like "1. Option text\n2. Option text\n3. Other"
+  const lines = content.split("\n");
+  const numberedLines: string[] = [];
+  let contextLine = "";
+
+  for (const line of lines) {
+    const match = line.trim().match(/^(\d+)\.\s+(.+)/);
+    if (match) {
+      numberedLines.push(match[2].trim());
+    } else if (numberedLines.length === 0 && line.trim().endsWith("?")) {
+      // Capture the question preceding the list as context
+      contextLine = line.trim();
+    }
+  }
+
+  // Only store if we found a meaningful numbered list (2+ items)
+  if (numberedLines.length >= 2) {
+    // Check if the last item is "Other" variant
+    const lastItem = numberedLines[numberedLines.length - 1].toLowerCase();
+    const isOtherLast = lastItem === "other" || lastItem.startsWith("other ") || lastItem === "none of these" || lastItem === "something else";
+
+    stateJson.active_options = {
+      options: numberedLines,
+      context: contextLine || "choice",
+      has_other: isOtherLast,
+    };
+  } else {
+    // No numbered list in this response — clear stale options
+    delete stateJson.active_options;
+  }
+}
