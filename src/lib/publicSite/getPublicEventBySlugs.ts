@@ -39,6 +39,7 @@ export async function getPublicEventBySlugs(clientSlug: string, eventSlug: strin
 
     // 3. Check published status
     if (event.status !== "published" && event.status !== "ongoing") {
+      // Do not reveal whether the event exists — treat as not_found for unpublished
       console.warn(`[PublicEvent] event "${eventSlug}" exists but status is "${event.status}"`);
       return { status: "private" };
     }
