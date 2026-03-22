@@ -530,7 +530,7 @@ const AttendeesSection = () => {
 
   /** Process a send response: update per-attendee results, refresh invite state, show summary banner */
   const processSendResponse = async (res: SendResponse) => {
-    console.log("[Send Summary]", JSON.stringify(res, null, 2));
+    
 
     // Build per-attendee result map and attach to rows
     const resultMap = buildResultMap(res);
