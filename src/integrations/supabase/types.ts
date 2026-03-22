@@ -612,6 +612,63 @@ export type Database = {
           },
         ]
       }
+      campaign_recipients: {
+        Row: {
+          attendee_id: string
+          campaign_id: string
+          channel: string
+          created_at: string | null
+          delivered_at: string | null
+          delivery_status: string
+          error: string | null
+          id: string
+          opened_at: string | null
+          provider_message_id: string | null
+          sent_at: string | null
+        }
+        Insert: {
+          attendee_id: string
+          campaign_id: string
+          channel?: string
+          created_at?: string | null
+          delivered_at?: string | null
+          delivery_status?: string
+          error?: string | null
+          id?: string
+          opened_at?: string | null
+          provider_message_id?: string | null
+          sent_at?: string | null
+        }
+        Update: {
+          attendee_id?: string
+          campaign_id?: string
+          channel?: string
+          created_at?: string | null
+          delivered_at?: string | null
+          delivery_status?: string
+          error?: string | null
+          id?: string
+          opened_at?: string | null
+          provider_message_id?: string | null
+          sent_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_recipients_attendee_id_fkey"
+            columns: ["attendee_id"]
+            isOneToOne: false
+            referencedRelation: "attendees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_recipients_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "communication_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clients: {
         Row: {
           created_at: string
@@ -638,6 +695,68 @@ export type Database = {
           slug?: string
         }
         Relationships: []
+      }
+      communication_campaigns: {
+        Row: {
+          audience_count: number | null
+          audience_filter: Json | null
+          campaign_type: string
+          channels: string[]
+          completed_at: string | null
+          created_at: string | null
+          created_by: string
+          event_id: string
+          id: string
+          message_template: Json | null
+          metadata: Json | null
+          scheduled_at: string | null
+          started_at: string | null
+          status: string
+          updated_at: string | null
+        }
+        Insert: {
+          audience_count?: number | null
+          audience_filter?: Json | null
+          campaign_type?: string
+          channels?: string[]
+          completed_at?: string | null
+          created_at?: string | null
+          created_by: string
+          event_id: string
+          id?: string
+          message_template?: Json | null
+          metadata?: Json | null
+          scheduled_at?: string | null
+          started_at?: string | null
+          status?: string
+          updated_at?: string | null
+        }
+        Update: {
+          audience_count?: number | null
+          audience_filter?: Json | null
+          campaign_type?: string
+          channels?: string[]
+          completed_at?: string | null
+          created_at?: string | null
+          created_by?: string
+          event_id?: string
+          id?: string
+          message_template?: Json | null
+          metadata?: Json | null
+          scheduled_at?: string | null
+          started_at?: string | null
+          status?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "communication_campaigns_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       communications_log: {
         Row: {
