@@ -587,6 +587,83 @@ export type Database = {
           },
         ]
       }
+      concierge_messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          role: string
+          session_id: string
+        }
+        Insert: {
+          content?: string
+          created_at?: string
+          id?: string
+          role?: string
+          session_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          role?: string
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "concierge_messages_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "concierge_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      concierge_sessions: {
+        Row: {
+          attendee_id: string | null
+          channel: string
+          created_at: string
+          event_id: string
+          id: string
+          identifier: string | null
+          updated_at: string
+        }
+        Insert: {
+          attendee_id?: string | null
+          channel?: string
+          created_at?: string
+          event_id: string
+          id?: string
+          identifier?: string | null
+          updated_at?: string
+        }
+        Update: {
+          attendee_id?: string | null
+          channel?: string
+          created_at?: string
+          event_id?: string
+          id?: string
+          identifier?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "concierge_sessions_attendee_id_fkey"
+            columns: ["attendee_id"]
+            isOneToOne: false
+            referencedRelation: "attendees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "concierge_sessions_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dress_codes: {
         Row: {
           created_at: string
