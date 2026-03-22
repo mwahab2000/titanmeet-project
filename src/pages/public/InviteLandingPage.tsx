@@ -25,6 +25,10 @@ const InviteLandingPage = () => {
   useEffect(() => {
     if (!token) { setError("Missing token"); setState("error"); return; }
 
+    // Check for check-in action from URL params
+    const urlParams = new URLSearchParams(window.location.search);
+    const action = urlParams.get("action");
+
     const validate = async () => {
       try {
         const { data, error: fnErr } = await supabase.functions.invoke("invite-get", {
@@ -38,6 +42,12 @@ const InviteLandingPage = () => {
         }
 
         setInvite(data);
+
+        // Auto check-in if action=checkin
+        if (action === "checkin") {
+          await handleCheckin(token);
+          return;
+        }
 
         if (data.status === "rsvp_yes" || data.rsvp_at) {
           setState("confirmed");
