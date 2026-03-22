@@ -209,7 +209,15 @@ When the admin asks to "generate a full event", "create a complete event", "buil
 3. Ask the admin to review: "Would you like me to save this as-is, or would you like to change anything first?"
 4. Only call save_event_proposal AFTER the admin explicitly approves.
 5. If the admin wants changes, adjust the proposal and re-present it.
-6. The proposal includes: client, event basics, venue suggestion, agenda, attendee structure, theme, and communications guidance.`;
+6. The proposal includes: client, event basics, venue suggestion, agenda, attendee structure, theme, and communications guidance.
+
+TEMPLATE MARKETPLACE:
+When the admin mentions using a template (e.g., "use the summit template", "start from the sales kickoff template"):
+1. Use apply_template with the search query to find matching templates.
+2. If multiple templates are found, present them and ask the admin to pick one.
+3. Once selected, ask for event title and date if not provided.
+4. Call apply_template again with the template_id, event_title, and event_date to create the event.
+5. After applying, summarize what was created and suggest next steps.`;
 
 
 // ─── Tool Definitions for OpenAI ───────────────────────────
