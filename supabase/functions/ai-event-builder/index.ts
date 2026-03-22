@@ -202,6 +202,36 @@ async function executeTool(
   }
 }
 
+// ─── Authorization Helpers ─────────────────────────────────
+
+async function isAdminOrOwnerRole(db: SupabaseClient, userId: string): Promise<boolean> {
+  const { data } = await db
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", userId)
+    .in("role", ["admin", "owner"]);
+  return (data?.length ?? 0) > 0;
+}
+
+async function canManageClient(db: SupabaseClient, userId: string, clientId: string): Promise<boolean> {
+  const { data } = await db
+    .from("clients")
+    .select("id")
+    .eq("id", clientId)
+    .or(`created_by.eq.${userId}`)
+    .single();
+  if (data) return true;
+  return await isAdminOrOwnerRole(db, userId);
+}
+
+async function canManageEvent(db: SupabaseClient, userId: string, eventId: string): Promise<{ allowed: boolean; event?: any }> {
+  const { data: evt } = await db.from("events").select("*").eq("id", eventId).single();
+  if (!evt) return { allowed: false };
+  if (evt.created_by === userId) return { allowed: true, event: evt };
+  if (await isAdminOrOwnerRole(db, userId)) return { allowed: true, event: evt };
+  return { allowed: false };
+}
+
 // ─── Tool Implementations ──────────────────────────────────
 
 async function toolFindOrCreateClient(
@@ -211,20 +241,19 @@ async function toolFindOrCreateClient(
   const { name, slug } = args;
   if (!name?.trim()) return { success: false, result: {}, error: "Client name is required" };
 
-  // Try to find existing
-  const { data: existing } = await db
-    .from("clients")
-    .select("id, name, slug")
-    .eq("created_by", userId)
-    .ilike("name", name.trim())
-    .limit(1)
-    .single();
+  const isPrivileged = await isAdminOrOwnerRole(db, userId);
+
+  // Search: own clients + admin sees all
+  let query = db.from("clients").select("id, name, slug").ilike("name", name.trim()).limit(1);
+  if (!isPrivileged) query = query.eq("created_by", userId);
+
+  const { data: existing } = await query.single();
 
   if (existing) {
     return { success: true, result: { client_id: existing.id, name: existing.name, slug: existing.slug, action: "found_existing" } };
   }
 
-  // Create new
+  // Create new — always owned by current user
   const clientSlug = slug || name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
   const { data: created, error } = await db
     .from("clients")
@@ -249,6 +278,12 @@ async function toolCreateEventDraft(
   args: { title: string; client_id?: string; description?: string; start_date?: string; end_date?: string; location?: string; slug?: string }
 ) {
   if (!args.title?.trim()) return { success: false, result: {}, error: "Event title is required" };
+
+  // If client_id provided, verify user can manage that client
+  if (args.client_id) {
+    const canManage = await canManageClient(db, userId, args.client_id);
+    if (!canManage) return { success: false, result: {}, error: "You don't have permission to create events for this client" };
+  }
 
   const startDate = args.start_date || new Date().toISOString();
   const endDate = args.end_date || new Date(Date.now() + 86400000).toISOString();
@@ -283,8 +318,8 @@ async function toolUpdateEventBasics(
   if (!args.event_id) return { success: false, result: {}, error: "event_id is required" };
 
   // Verify ownership
-  const { data: evt } = await db.from("events").select("id, created_by").eq("id", args.event_id).single();
-  if (!evt || evt.created_by !== userId) return { success: false, result: {}, error: "Event not found or access denied" };
+  const { allowed, event: evt } = await canManageEvent(db, userId, args.event_id);
+  if (!allowed || !evt) return { success: false, result: {}, error: "Event not found or access denied" };
 
   const updateFields: Record<string, unknown> = {};
   const allowed = ["title", "description", "start_date", "end_date", "location", "theme_id", "max_attendees"];
@@ -306,8 +341,8 @@ async function toolSetEventVenue(
 ) {
   if (!args.event_id) return { success: false, result: {}, error: "event_id is required" };
 
-  const { data: evt } = await db.from("events").select("id, created_by").eq("id", args.event_id).single();
-  if (!evt || evt.created_by !== userId) return { success: false, result: {}, error: "Event not found or access denied" };
+  const { allowed } = await canManageEvent(db, userId, args.event_id);
+  if (!allowed) return { success: false, result: {}, error: "Event not found or access denied" };
 
   const updateFields: Record<string, unknown> = {};
   if (args.venue_name) updateFields.venue_name = args.venue_name.trim();
@@ -329,8 +364,8 @@ async function toolAddAttendeesFromText(
 ) {
   if (!args.event_id || !args.text?.trim()) return { success: false, result: {}, error: "event_id and text are required" };
 
-  const { data: evt } = await db.from("events").select("id, created_by").eq("id", args.event_id).single();
-  if (!evt || evt.created_by !== userId) return { success: false, result: {}, error: "Event not found or access denied" };
+  const { allowed } = await canManageEvent(db, userId, args.event_id);
+  if (!allowed) return { success: false, result: {}, error: "Event not found or access denied" };
 
   // Parse: support "Name <email>", "Name, email", or just names
   const lines = args.text.split(/[\n,;]+/).map(l => l.trim()).filter(Boolean);
@@ -379,8 +414,8 @@ async function toolAddAgendaItems(
 ) {
   if (!args.event_id || !args.items?.length) return { success: false, result: {}, error: "event_id and items are required" };
 
-  const { data: evt } = await db.from("events").select("id, created_by").eq("id", args.event_id).single();
-  if (!evt || evt.created_by !== userId) return { success: false, result: {}, error: "Event not found or access denied" };
+  const { allowed } = await canManageEvent(db, userId, args.event_id);
+  if (!allowed) return { success: false, result: {}, error: "Event not found or access denied" };
 
   // Get current max order_index
   const { data: existing } = await db
@@ -413,14 +448,8 @@ async function toolCheckPublishReadiness(
 ) {
   if (!args.event_id) return { success: false, result: {}, error: "event_id is required" };
 
-  const { data: evt, error: evtErr } = await db
-    .from("events")
-    .select("*")
-    .eq("id", args.event_id)
-    .single();
-
-  if (evtErr || !evt) return { success: false, result: {}, error: "Event not found" };
-  if (evt.created_by !== userId) return { success: false, result: {}, error: "Access denied" };
+  const { allowed, event: evt } = await canManageEvent(db, userId, args.event_id);
+  if (!allowed || !evt) return { success: false, result: {}, error: "Event not found or access denied" };
 
   const { count: attendeeCount } = await db.from("attendees").select("id", { count: "exact", head: true }).eq("event_id", args.event_id);
   const { count: agendaCount } = await db.from("agenda_items").select("id", { count: "exact", head: true }).eq("event_id", args.event_id);
