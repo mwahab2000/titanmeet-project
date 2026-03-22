@@ -55,6 +55,8 @@ const CommunicationsSection = () => {
     switch (activeView) {
       case "overview":
         return <CommsOverview onNavigate={handleNavigate} />;
+      case "campaigns":
+        return <CampaignsView />;
       case "inbox":
         return (
           <CommsInboxView
