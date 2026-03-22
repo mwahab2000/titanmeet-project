@@ -9,6 +9,148 @@ const corsHeaders = {
 
 const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
 const MAX_HISTORY = 30;
+const WARNING_THRESHOLD = 0.8; // 80%
+
+// ─── Rate Limiting ────────────────────────────────────────
+type RateLimitResource = "ai_requests" | "ai_heavy" | "maps_search" | "maps_photos" | "whatsapp_sends";
+
+interface RateLimitResult {
+  allowed: boolean;
+  warning: boolean;
+  usage: number;
+  limit: number;
+  percent: number;
+  remaining: number;
+  burstBlocked: boolean;
+}
+
+async function checkAndIncrementUsage(
+  db: SupabaseClient,
+  userId: string,
+  resource: RateLimitResource,
+  correlationId: string,
+): Promise<RateLimitResult> {
+  // Get plan limits
+  const { data: sub } = await db
+    .from("account_subscriptions")
+    .select("plan_id, subscription_plans(max_ai_requests, max_ai_heavy, max_maps_searches, max_maps_photos, max_whatsapp_sends, burst_per_minute)")
+    .eq("user_id", userId)
+    .single();
+
+  const sp = (sub as any)?.subscription_plans || {};
+  const limitMap: Record<string, number> = {
+    ai_requests: sp.max_ai_requests ?? 100,
+    ai_heavy: sp.max_ai_heavy ?? 20,
+    maps_search: sp.max_maps_searches ?? 50,
+    maps_photos: sp.max_maps_photos ?? 100,
+    whatsapp_sends: sp.max_whatsapp_sends ?? 500,
+  };
+  const burstLimit = sp.burst_per_minute ?? 10;
+  const limit = limitMap[resource] ?? 100;
+
+  // Get/create period tracking
+  const periodStart = new Date();
+  periodStart.setUTCDate(1);
+  periodStart.setUTCHours(0, 0, 0, 0);
+  const periodStr = periodStart.toISOString();
+
+  const { data: existing } = await db
+    .from("api_usage_tracking")
+    .select("id, usage_count, burst_count, burst_window_start")
+    .eq("user_id", userId)
+    .eq("resource_type", resource)
+    .eq("period_start", periodStr)
+    .single();
+
+  const now = new Date();
+  let currentUsage = 0;
+  let burstCount = 0;
+  let burstBlocked = false;
+
+  if (existing) {
+    currentUsage = existing.usage_count;
+    const burstWindowStart = new Date(existing.burst_window_start);
+    const minuteAgo = new Date(now.getTime() - 60000);
+
+    if (burstWindowStart > minuteAgo) {
+      burstCount = existing.burst_count;
+      if (burstCount >= burstLimit) {
+        burstBlocked = true;
+        console.log(`[${correlationId}] BURST blocked user=${userId} resource=${resource} burst=${burstCount}/${burstLimit}`);
+      }
+    }
+  }
+
+  // Check monthly limit
+  const percent = limit > 0 ? Math.round((currentUsage / limit) * 100) : 0;
+  if (currentUsage >= limit) {
+    console.log(`[${correlationId}] LIMIT blocked user=${userId} resource=${resource} usage=${currentUsage}/${limit}`);
+    return {
+      allowed: false, warning: false, usage: currentUsage, limit, percent: 100,
+      remaining: 0, burstBlocked: false,
+    };
+  }
+
+  if (burstBlocked) {
+    return {
+      allowed: false, warning: false, usage: currentUsage, limit, percent,
+      remaining: Math.max(0, limit - currentUsage), burstBlocked: true,
+    };
+  }
+
+  // Increment — upsert
+  const minuteAgo = new Date(now.getTime() - 60000);
+  if (existing) {
+    const burstWindowStart = new Date(existing.burst_window_start);
+    const newBurst = burstWindowStart > minuteAgo ? existing.burst_count + 1 : 1;
+    const newBurstWindow = burstWindowStart > minuteAgo ? existing.burst_window_start : now.toISOString();
+
+    await db
+      .from("api_usage_tracking")
+      .update({
+        usage_count: existing.usage_count + 1,
+        burst_count: newBurst,
+        burst_window_start: newBurstWindow,
+        last_request_at: now.toISOString(),
+      })
+      .eq("id", existing.id);
+  } else {
+    await db
+      .from("api_usage_tracking")
+      .insert({
+        user_id: userId,
+        resource_type: resource,
+        period_start: periodStr,
+        usage_count: 1,
+        burst_count: 1,
+        burst_window_start: now.toISOString(),
+        last_request_at: now.toISOString(),
+      });
+  }
+
+  const newUsage = currentUsage + 1;
+  const newPercent = limit > 0 ? Math.round((newUsage / limit) * 100) : 0;
+  const warning = newPercent >= WARNING_THRESHOLD * 100;
+
+  return {
+    allowed: true, warning, usage: newUsage, limit, percent: newPercent,
+    remaining: Math.max(0, limit - newUsage), burstBlocked: false,
+  };
+}
+
+// Map tool names to rate-limited resources
+function getToolResource(toolName: string): RateLimitResource | null {
+  switch (toolName) {
+    case "search_venue_on_maps":
+    case "save_selected_venue":
+      return "maps_search";
+    case "get_venue_photos":
+    case "save_selected_venue_photos":
+      return "maps_photos";
+    default:
+      return null; // covered by the overall ai_requests limit
+  }
+}
 
 // ─── Failure Classification ───────────────────────────────
 type FailureCategory = "validation" | "permission" | "external_api" | "parsing" | "duplicate_conflict" | "internal";
