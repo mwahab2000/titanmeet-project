@@ -36,7 +36,7 @@ export const AIBuilderDraftPanel = ({ draft }: { draft: DraftState }) => {
   const pct = Math.round((readyCount / totalSections) * 100);
 
   return (
-    <div className="flex flex-col h-full border-l border-border bg-card/50">
+    <div className="flex flex-col h-full border-l border-border bg-card/50 sm:border-l-0 sm:border-t-0">
       <div className="p-4 border-b border-border">
         <h3 className="text-sm font-semibold text-foreground">Draft Summary</h3>
         <div className="flex items-center gap-2 mt-2">
@@ -52,54 +52,14 @@ export const AIBuilderDraftPanel = ({ draft }: { draft: DraftState }) => {
 
       <ScrollArea className="flex-1 p-3">
         <div className="space-y-1.5">
-          <SectionRow
-            icon={<Building2 className="h-4 w-4" />}
-            label="Client"
-            status={draft.client.status}
-            details={draft.client.name || "Not set"}
-          />
-          <SectionRow
-            icon={<CalendarDays className="h-4 w-4" />}
-            label="Event Basics"
-            status={draft.eventBasics.status}
-            details={draft.eventBasics.title || "Not set"}
-          />
-          <SectionRow
-            icon={<MapPin className="h-4 w-4" />}
-            label="Venue"
-            status={draft.venue.status}
-            details={draft.venue.name || "Not set"}
-          />
-          <SectionRow
-            icon={<UserCog className="h-4 w-4" />}
-            label="Organizers"
-            status={draft.organizers.status}
-            details={draft.organizers.count > 0 ? `${draft.organizers.count} added` : "None"}
-          />
-          <SectionRow
-            icon={<UsersRound className="h-4 w-4" />}
-            label="Attendees"
-            status={draft.attendees.status}
-            details={draft.attendees.count > 0 ? `${draft.attendees.count} added` : "None"}
-          />
-          <SectionRow
-            icon={<ListOrdered className="h-4 w-4" />}
-            label="Agenda"
-            status={draft.agenda.status}
-            details={draft.agenda.items > 0 ? `${draft.agenda.items} items` : "No items"}
-          />
-          <SectionRow
-            icon={<MessageSquare className="h-4 w-4" />}
-            label="Communications"
-            status={draft.communications.status}
-            details={draft.communications.status === "done" ? "Ready" : "Not configured"}
-          />
-          <SectionRow
-            icon={<Rocket className="h-4 w-4" />}
-            label="Publish Readiness"
-            status={draft.publishReadiness.status}
-            details={draft.publishReadiness.score > 0 ? `${draft.publishReadiness.score}% ready` : "Incomplete"}
-          />
+          <SectionRow icon={<Building2 className="h-4 w-4" />} label="Client" status={draft.client.status} details={draft.client.name || "Not set"} />
+          <SectionRow icon={<CalendarDays className="h-4 w-4" />} label="Event Basics" status={draft.eventBasics.status} details={draft.eventBasics.title || "Not set"} />
+          <SectionRow icon={<MapPin className="h-4 w-4" />} label="Venue" status={draft.venue.status} details={draft.venue.name || "Not set"} />
+          <SectionRow icon={<UserCog className="h-4 w-4" />} label="Organizers" status={draft.organizers.status} details={draft.organizers.count > 0 ? `${draft.organizers.count} added` : "None"} />
+          <SectionRow icon={<UsersRound className="h-4 w-4" />} label="Attendees" status={draft.attendees.status} details={draft.attendees.count > 0 ? `${draft.attendees.count} added` : "None"} />
+          <SectionRow icon={<ListOrdered className="h-4 w-4" />} label="Agenda" status={draft.agenda.status} details={draft.agenda.items > 0 ? `${draft.agenda.items} items` : "No items"} />
+          <SectionRow icon={<MessageSquare className="h-4 w-4" />} label="Communications" status={draft.communications.status} details={draft.communications.status === "done" ? "Ready" : "Not configured"} />
+          <SectionRow icon={<Rocket className="h-4 w-4" />} label="Publish Readiness" status={draft.publishReadiness.status} details={draft.publishReadiness.score > 0 ? `${draft.publishReadiness.score}% ready` : "Incomplete"} />
         </div>
 
         {draft.publishReadiness.missing.length > 0 && (
@@ -108,7 +68,7 @@ export const AIBuilderDraftPanel = ({ draft }: { draft: DraftState }) => {
             <ul className="space-y-1">
               {draft.publishReadiness.missing.map((item, i) => (
                 <li key={i} className="text-xs text-muted-foreground flex items-center gap-1.5">
-                  <span className="h-1 w-1 rounded-full bg-yellow-400" />
+                  <span className="h-1 w-1 rounded-full bg-yellow-400 shrink-0" />
                   {item}
                 </li>
               ))}

@@ -1,10 +1,11 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useMemo } from "react";
 
 interface UseVoiceRecorderReturn {
   isRecording: boolean;
   isProcessing: boolean;
   transcript: string | null;
   error: string | null;
+  isSupported: boolean;
   startRecording: () => Promise<void>;
   stopRecording: () => void;
   clearTranscript: () => void;
@@ -19,15 +20,25 @@ export function useVoiceRecorder(): UseVoiceRecorderReturn {
   const chunksRef = useRef<Blob[]>([]);
   const recognitionRef = useRef<any>(null);
 
+  const isSupported = useMemo(() => {
+    if (typeof window === "undefined") return false;
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const hasMediaDevices = !!(navigator.mediaDevices?.getUserMedia);
+    return !!(SpeechRecognition || hasMediaDevices);
+  }, []);
+
   const startRecording = useCallback(async () => {
     setError(null);
     setTranscript(null);
 
-    // Try Web Speech API for live transcript
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
       // Fallback: just record audio, no live transcript
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setError("Voice input is not supported in this browser. Please use text input instead.");
+        return;
+      }
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         const mediaRecorder = new MediaRecorder(stream);
@@ -43,49 +54,61 @@ export function useVoiceRecorder(): UseVoiceRecorderReturn {
         mediaRecorder.start();
         mediaRecorderRef.current = mediaRecorder;
         setIsRecording(true);
-      } catch {
-        setError("Microphone access denied.");
+      } catch (err: any) {
+        if (err?.name === "NotAllowedError") {
+          setError("Microphone access denied. Please allow microphone access in your browser settings.");
+        } else {
+          setError("Could not access microphone. Please check your device settings.");
+        }
       }
       return;
     }
 
-    const recognition = new SpeechRecognition();
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.lang = "en-US";
+    try {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = "en-US";
 
-    let finalTranscript = "";
+      let finalTranscript = "";
 
-    recognition.onresult = (event: any) => {
-      let interim = "";
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const result = event.results[i];
-        if (result.isFinal) {
-          finalTranscript += result[0].transcript + " ";
-        } else {
-          interim += result[0].transcript;
+      recognition.onresult = (event: any) => {
+        let interim = "";
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const result = event.results[i];
+          if (result.isFinal) {
+            finalTranscript += result[0].transcript + " ";
+          } else {
+            interim += result[0].transcript;
+          }
         }
-      }
-      setTranscript((finalTranscript + interim).trim());
-    };
+        setTranscript((finalTranscript + interim).trim());
+      };
 
-    recognition.onerror = (event: any) => {
-      if (event.error !== "aborted") {
-        setError(`Speech recognition error: ${event.error}`);
-      }
-      setIsRecording(false);
-    };
+      recognition.onerror = (event: any) => {
+        if (event.error === "not-allowed") {
+          setError("Microphone access denied. Please allow microphone access in your browser settings.");
+        } else if (event.error === "no-speech") {
+          setError("No speech detected. Please try again and speak clearly.");
+        } else if (event.error !== "aborted") {
+          setError(`Voice input error: ${event.error}. Please try text input instead.`);
+        }
+        setIsRecording(false);
+      };
 
-    recognition.onend = () => {
-      setIsRecording(false);
-      if (finalTranscript.trim()) {
-        setTranscript(finalTranscript.trim());
-      }
-    };
+      recognition.onend = () => {
+        setIsRecording(false);
+        if (finalTranscript.trim()) {
+          setTranscript(finalTranscript.trim());
+        }
+      };
 
-    recognition.start();
-    recognitionRef.current = recognition;
-    setIsRecording(true);
+      recognition.start();
+      recognitionRef.current = recognition;
+      setIsRecording(true);
+    } catch {
+      setError("Could not start voice input. Please try text input instead.");
+    }
   }, []);
 
   const stopRecording = useCallback(() => {
@@ -105,5 +128,5 @@ export function useVoiceRecorder(): UseVoiceRecorderReturn {
     setError(null);
   }, []);
 
-  return { isRecording, isProcessing, transcript, error, startRecording, stopRecording, clearTranscript };
+  return { isRecording, isProcessing, transcript, error, isSupported, startRecording, stopRecording, clearTranscript };
 }
