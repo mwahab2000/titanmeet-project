@@ -2698,7 +2698,6 @@ async function toolSaveMediaToEvent(
   const { allowed, event: evt } = await canManageEvent(db, userId, args.event_id);
   if (!allowed || !evt) return { success: false, result: {}, error: "Event not found or access denied", category: "permission" };
 
-  // Get the media asset
   const { data: asset, error: assetErr } = await db.from("media_assets")
     .select("*")
     .eq("id", args.media_asset_id)
@@ -2707,16 +2706,15 @@ async function toolSaveMediaToEvent(
   if (assetErr || !asset) return { success: false, result: {}, error: "Media asset not found", category: "validation" };
 
   // Copy from media-library to event-assets bucket
-  const destPath = `events/${args.event_id}/hero/${Date.now()}-ai-generated.png`;
+  const subfolder = args.media_type === "gallery" ? "gallery" : args.media_type === "banner" ? "banner" : "hero";
+  const destPath = `events/${args.event_id}/${subfolder}/${Date.now()}-media.png`;
 
-  // Download from media-library
   const { data: fileData, error: dlErr } = await db.storage.from("media-library").download(asset.file_url);
   if (dlErr || !fileData) {
     console.error(`[${correlationId}] Download error:`, dlErr);
-    return { success: false, result: {}, error: "Failed to retrieve generated image", category: "internal" };
+    return { success: false, result: {}, error: "Failed to retrieve image from library", category: "internal" };
   }
 
-  // Upload to event-assets
   const arrayBuffer = await fileData.arrayBuffer();
   const { error: uploadErr } = await db.storage
     .from("event-assets")
@@ -2727,33 +2725,38 @@ async function toolSaveMediaToEvent(
     return { success: false, result: {}, error: "Failed to save image to event", category: "internal" };
   }
 
-  // Update event based on media type
+  // Determine overwrite vs append behavior
+  let overwriteNote = "";
+
   if (args.media_type === "hero_image") {
+    // REPLACE: hero image is the primary visual — replace existing
     const currentHero = Array.isArray(evt.hero_images) ? evt.hero_images : [];
-    const updatedHero = [...currentHero, destPath];
-    const { error: updateErr } = await db.from("events").update({ hero_images: updatedHero }).eq("id", args.event_id);
+    overwriteNote = currentHero.length > 0 ? ` (replaced ${currentHero.length} previous hero image${currentHero.length > 1 ? "s" : ""})` : "";
+    const { error: updateErr } = await db.from("events").update({ hero_images: [destPath] }).eq("id", args.event_id);
     if (updateErr) return { success: false, result: {}, error: "Failed to update event hero images", category: "internal" };
   } else if (args.media_type === "gallery") {
+    // APPEND: gallery accumulates images
     const currentGallery = Array.isArray(evt.gallery_images) ? evt.gallery_images : [];
     const updatedGallery = [...currentGallery, destPath];
     const { error: updateErr } = await db.from("events").update({ gallery_images: updatedGallery }).eq("id", args.event_id);
     if (updateErr) return { success: false, result: {}, error: "Failed to update event gallery", category: "internal" };
+    overwriteNote = ` (gallery now has ${updatedGallery.length} image${updatedGallery.length > 1 ? "s" : ""})`;
   } else if (args.media_type === "banner") {
-    // Store banner as cover_image
+    overwriteNote = evt.cover_image ? " (replaced previous banner)" : "";
     const { error: updateErr } = await db.from("events").update({ cover_image: destPath }).eq("id", args.event_id);
     if (updateErr) return { success: false, result: {}, error: "Failed to update event banner", category: "internal" };
   }
 
-  // Mark asset as approved
-  await db.from("media_assets").update({ approved: true }).eq("id", args.media_asset_id);
+  await db.from("media_assets").update({ approved: true, event_id: args.event_id }).eq("id", args.media_asset_id);
 
   return {
     success: true,
     result: {
-      message: `Image saved as ${args.media_type} for "${evt.title}"`,
+      message: `Image saved as ${args.media_type} for "${evt.title}"${overwriteNote}`,
       event_id: args.event_id,
       media_type: args.media_type,
       file_path: destPath,
+      overwrite_note: overwriteNote,
     },
   };
 }
