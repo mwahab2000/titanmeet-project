@@ -1232,6 +1232,144 @@ async function toolSaveEventProposal(
   };
 }
 
+async function toolApplyTemplate(
+  db: SupabaseClient, userId: string,
+  args: { search_query: string; template_id?: string; event_title?: string; client_id?: string; event_date?: string },
+  correlationId: string,
+): Promise<ToolResult> {
+  // Step 1: Find template(s)
+  let templates: any[] = [];
+
+  if (args.template_id) {
+    const { data } = await db.from("event_templates").select("*").eq("id", args.template_id).single();
+    if (data) templates = [data];
+  } else {
+    // Search by name/description/tags
+    const query = args.search_query.toLowerCase();
+    const { data } = await db.from("event_templates")
+      .select("id, name, description, category, tags, included_sections, comm_templates, is_featured, event_type, expected_attendees")
+      .order("is_featured", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(20);
+
+    templates = (data || []).filter((t: any) =>
+      t.name.toLowerCase().includes(query) ||
+      (t.description || "").toLowerCase().includes(query) ||
+      (t.tags || []).some((tag: string) => tag.toLowerCase().includes(query)) ||
+      (t.category || "").toLowerCase().includes(query)
+    );
+  }
+
+  if (templates.length === 0) {
+    return { success: true, result: { action: "no_templates_found", query: args.search_query, templates: [] } };
+  }
+
+  // If no event_title provided, return search results for user to pick
+  if (!args.event_title && !args.template_id) {
+    return {
+      success: true,
+      result: {
+        action: "templates_found",
+        templates: templates.slice(0, 5).map((t: any) => ({
+          id: t.id,
+          name: t.name,
+          description: t.description,
+          category: t.category,
+          tags: t.tags,
+          sections: t.included_sections,
+          has_comms: Object.values(t.comm_templates || {}).some((v: any) => !!v),
+          is_featured: t.is_featured,
+          event_type: t.event_type,
+        })),
+      },
+    };
+  }
+
+  // Step 2: Apply template — create event from it
+  const tpl = templates[0];
+  if (!tpl.template_data && args.template_id) {
+    // Need full data
+    const { data: fullTpl } = await db.from("event_templates").select("*").eq("id", tpl.id).single();
+    if (fullTpl) Object.assign(tpl, fullTpl);
+  }
+
+  const td = tpl.template_data || {};
+  const title = args.event_title || td.title || "New Event from Template";
+  const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  const startDate = args.event_date ? new Date(args.event_date).toISOString() : new Date().toISOString();
+  const endDate = args.event_date ? new Date(new Date(args.event_date).getTime() + 86400000).toISOString() : new Date(Date.now() + 86400000).toISOString();
+
+  // Resolve client
+  let clientId = args.client_id || tpl.client_id;
+
+  // Create event
+  const eventInsert: Record<string, unknown> = {
+    created_by: userId,
+    title,
+    slug,
+    start_date: startDate,
+    end_date: endDate,
+    status: "draft",
+  };
+  if (clientId) eventInsert.client_id = clientId;
+  if (td.description) eventInsert.description = td.description;
+  if (td.venue_name) eventInsert.venue_name = td.venue_name;
+  if (td.venue_address) eventInsert.venue_address = td.venue_address;
+  if (td.theme_id) eventInsert.theme_id = td.theme_id;
+  if (td.location) eventInsert.location = td.location;
+  if (td.max_attendees) eventInsert.max_attendees = td.max_attendees;
+  if (args.event_date) eventInsert.event_date = args.event_date;
+
+  const { data: newEvent, error: evErr } = await db.from("events").insert(eventInsert).select("id, title, slug").single();
+  if (evErr) {
+    const classified = classifyError(evErr, evErr.code);
+    return { success: false, result: {}, error: classified.userMessage, category: classified.category };
+  }
+
+  const eventId = newEvent.id;
+  const cloned: string[] = [];
+
+  // Clone agenda
+  if (td.agenda_items?.length) {
+    const rows = td.agenda_items.map((item: any, i: number) => ({
+      event_id: eventId, title: item.title, description: item.description,
+      start_time: item.start_time, end_time: item.end_time,
+      day_number: item.day_number || 1, order_index: item.order_index ?? i,
+    }));
+    const { error } = await db.from("agenda_items").insert(rows);
+    if (!error) cloned.push(`${rows.length} agenda items`);
+  }
+
+  // Clone speakers
+  if (td.speakers?.length) {
+    const rows = td.speakers.map((s: any) => ({ event_id: eventId, name: s.name, title: s.title, bio: s.bio, photo_url: s.photo_url }));
+    const { error } = await db.from("speakers").insert(rows);
+    if (!error) cloned.push(`${rows.length} speakers`);
+  }
+
+  // Clone organizers
+  if (td.organizers?.length) {
+    const rows = td.organizers.map((o: any) => ({ event_id: eventId, name: o.name, role: o.role, email: o.email, mobile: o.mobile, photo_url: o.photo_url }));
+    const { error } = await db.from("organizers").insert(rows);
+    if (!error) cloned.push(`${rows.length} organizers`);
+  }
+
+  console.log(`[${correlationId}] apply_template: created event ${eventId} from template ${tpl.id}, cloned: ${cloned.join(", ")}`);
+
+  return {
+    success: true,
+    result: {
+      action: "template_applied",
+      event_id: eventId,
+      event_title: newEvent.title,
+      event_slug: newEvent.slug,
+      template_name: tpl.name,
+      cloned: cloned,
+      comm_templates: tpl.comm_templates || {},
+    },
+  };
+}
+
 // ─── Draft State Builder ───────────────────────────────────
 
 async function buildDraftState(
