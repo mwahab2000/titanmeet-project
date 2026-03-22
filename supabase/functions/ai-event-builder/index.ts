@@ -2496,6 +2496,13 @@ function formatToolDisplayName(toolName: string): string {
     list_workspace_events: "List Events",
     list_workspace_clients: "List Clients",
     get_event_details: "Get Event Details",
+    get_client_details: "Get Client Details",
+    list_events_by_client: "List Client Events",
+    publish_event: "Publish Event",
+    unpublish_event: "Unpublish Event",
+    archive_event: "Archive Event",
+    duplicate_event: "Duplicate Event",
+    rename_event: "Rename Event",
   };
   return names[toolName] || toolName;
 }
