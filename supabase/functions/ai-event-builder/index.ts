@@ -2737,6 +2737,56 @@ serve(async (req) => {
     // ── Plain assistant response (no tool calls) ──
     const assistantContent = choice?.message?.content || "I'm ready to help. What would you like to do?";
 
+    // ── Detect if the AI is asking for confirmation and capture pending action ──
+    const confirmationAskPatterns = /(?:do you want me to|shall I|would you like me to|should I|want me to)\s+(.+?)(?:\?|$)/i;
+    const confirmMatch = assistantContent.match(confirmationAskPatterns);
+    if (confirmMatch && stateJson.event_id) {
+      // Try to infer what action the AI wants to perform from its response
+      const actionText = confirmMatch[1].toLowerCase();
+      let pendingTool = "";
+      let pendingArgs: Record<string, unknown> = { event_id: stateJson.event_id };
+
+      // Parse common update patterns from the response
+      const locationMatch = assistantContent.match(/(?:location|city)\s+(?:to|as)\s+[""]?([^""?.]+)[""]?/i);
+      const venueMatch = assistantContent.match(/(?:venue(?:\s+name)?)\s+(?:to|as)\s+[""]?([^""?.]+)[""]?/i);
+      const titleMatch = assistantContent.match(/(?:rename|title)\s+(?:to|as)\s+[""]?([^""?.]+)[""]?/i);
+
+      if (actionText.includes("update") || actionText.includes("change") || actionText.includes("set")) {
+        if (locationMatch) {
+          pendingTool = "update_event_basics";
+          pendingArgs.location = locationMatch[1].trim();
+        } else if (venueMatch) {
+          pendingTool = "set_event_venue";
+          pendingArgs.venue_name = venueMatch[1].trim();
+        } else if (titleMatch) {
+          pendingTool = "rename_event";
+          pendingArgs.new_title = titleMatch[1].trim();
+        } else {
+          // Generic update — try to extract field:value patterns
+          pendingTool = "update_event_basics";
+        }
+      } else if (actionText.includes("publish")) {
+        pendingTool = "publish_event";
+      } else if (actionText.includes("archive")) {
+        pendingTool = "archive_event";
+      } else if (actionText.includes("unpublish")) {
+        pendingTool = "unpublish_event";
+      } else if (actionText.includes("duplicate") || actionText.includes("copy")) {
+        pendingTool = "duplicate_event";
+      }
+
+      if (pendingTool) {
+        stateJson.pending_action = {
+          tool: pendingTool,
+          arguments: pendingArgs,
+          summary: confirmMatch[1].trim(),
+          awaiting_confirmation: true,
+          created_at: new Date().toISOString(),
+        };
+        console.log(`[${correlationId}] Stored pending action: ${pendingTool} args=${JSON.stringify(pendingArgs)}`);
+      }
+    }
+
     await db.from("ai_chat_messages").insert({ session_id: session.id, role: "assistant", content: assistantContent });
     await db.from("ai_chat_sessions").update({ state_json: stateJson }).eq("id", session.id);
 
