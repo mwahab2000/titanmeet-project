@@ -1,9 +1,10 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, lazy, Suspense } from "react";
 import { Link } from "react-router-dom";
 import { Calendar, Users, TrendingUp, Clock, AlertTriangle, ArrowUpRight, Zap, FileEdit, Plus, Copy } from "lucide-react";
 import { motion } from "framer-motion";
 import AIInsightsCard from "@/components/ai/AIInsightsCard";
 import UsageMeters from "@/components/billing/UsageMeters";
+const WorkspaceAnalytics = lazy(() => import("@/components/analytics/WorkspaceAnalytics"));
 import { GlobalCommsWidget } from "@/components/dashboard/GlobalCommsWidget";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
