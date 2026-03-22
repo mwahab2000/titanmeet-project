@@ -4004,6 +4004,8 @@ function formatToolDisplayName(toolName: string): string {
     get_brand_kit: "Get Brand Kit",
     save_visual_pack: "Save Visual Pack",
     apply_visual_pack: "Apply Visual Pack",
+    get_event_analytics_summary: "Event Analytics",
+    get_workspace_analytics_summary: "Workspace Analytics",
   };
   return names[toolName] || toolName;
 }
