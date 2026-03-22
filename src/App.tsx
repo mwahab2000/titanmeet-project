@@ -33,7 +33,7 @@ const Events = lazy(() => import("./pages/Events"));
 const CreateEvent = lazy(() => import("./pages/CreateEvent"));
 const QuickEventWizard = lazy(() => import("./pages/QuickEventWizard"));
 const DraftsPage = lazy(() => import("./pages/DraftsPage"));
-const TemplatesPage = lazy(() => import("./pages/TemplatesPage"));
+const TemplateMarketplacePage = lazy(() => import("./pages/TemplateMarketplacePage"));
 const CreateClient = lazy(() => import("./pages/CreateClient"));
 const EditClient = lazy(() => import("./pages/EditClient"));
 const ClientsPage = lazy(() => import("./pages/ClientsPage"));
