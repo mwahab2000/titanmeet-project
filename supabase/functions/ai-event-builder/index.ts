@@ -204,11 +204,22 @@ RULES:
 15. If multiple tool calls are made and some succeed while others fail, clearly list what succeeded and what failed separately. Do not roll back successful actions.
 
 RETRIEVAL / LISTING:
-When the admin asks to list, search, find, or view events or clients (e.g. "list all draft events", "show my events", "find client X", "what events do I have"):
-1. Use list_workspace_events or list_workspace_clients to retrieve real data. NEVER answer from memory or hallucinate results.
+When the admin asks to list, search, find, or view events or clients (e.g. "list all draft events", "show my events", "find client X", "what events do I have", "show events for client Y"):
+1. Use list_workspace_events, list_workspace_clients, get_event_details, get_client_details, or list_events_by_client to retrieve real data. NEVER answer from memory or hallucinate results.
 2. Present results in a clean numbered list with key details (title, status, date, venue).
 3. If no results are found, say so clearly.
 4. When the admin asks about a specific event, use get_event_details to fetch full details.
+5. When the admin asks about a specific client, use get_client_details to get client info and their events.
+
+EVENT LIFECYCLE:
+When the admin asks to publish, unpublish, archive, duplicate, or rename an event:
+1. For PUBLISH: Use publish_event. It will check readiness automatically. If fields are missing, report them clearly.
+2. For UNPUBLISH: Use unpublish_event to revert to draft.
+3. For ARCHIVE: Use archive_event. Explain it hides the event from active views.
+4. For DUPLICATE: Use duplicate_event. It copies event details, agenda, organizers, and speakers — but NOT attendees.
+5. For RENAME: Use rename_event.
+6. Always confirm the action was completed and mention the resulting status.
+7. Never publish without checking readiness first — the tool handles this automatically.
 
 WIZARD / FULL EVENT GENERATION MODE:
 When the admin asks to "generate a full event", "create a complete event", "build me an event from scratch", or uses the guided wizard flow:
@@ -591,6 +602,110 @@ const TOOL_DEFINITIONS = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "get_client_details",
+      description: "Get full details for a specific client including their event count and recent events.",
+      parameters: {
+        type: "object",
+        properties: {
+          client_id: { type: "string", description: "Client UUID" },
+          name_search: { type: "string", description: "Search by client name if ID is not known" },
+        },
+        required: [],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "list_events_by_client",
+      description: "List all events belonging to a specific client. Supports status filtering.",
+      parameters: {
+        type: "object",
+        properties: {
+          client_id: { type: "string", description: "Client UUID" },
+          client_name: { type: "string", description: "Client name to search for if ID is not known" },
+          status_filter: { type: "string", description: "Filter by event status: draft, published, ongoing, completed, archived" },
+          limit: { type: "number", description: "Max results (default 20, max 50)" },
+        },
+        required: [],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "publish_event",
+      description: "Publish a draft event after verifying readiness. Checks required fields before allowing publish.",
+      parameters: {
+        type: "object",
+        properties: {
+          event_id: { type: "string", description: "Event UUID" },
+        },
+        required: ["event_id"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "unpublish_event",
+      description: "Revert a published/ongoing event back to draft status.",
+      parameters: {
+        type: "object",
+        properties: {
+          event_id: { type: "string", description: "Event UUID" },
+        },
+        required: ["event_id"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "archive_event",
+      description: "Archive a completed or published event. Archived events are hidden from active views.",
+      parameters: {
+        type: "object",
+        properties: {
+          event_id: { type: "string", description: "Event UUID" },
+        },
+        required: ["event_id"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "duplicate_event",
+      description: "Create a copy of an existing event as a new draft. Copies event details, agenda, and organizers but NOT attendees.",
+      parameters: {
+        type: "object",
+        properties: {
+          event_id: { type: "string", description: "Source event UUID to duplicate" },
+          new_title: { type: "string", description: "Title for the duplicated event" },
+        },
+        required: ["event_id"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "rename_event",
+      description: "Rename an existing event.",
+      parameters: {
+        type: "object",
+        properties: {
+          event_id: { type: "string", description: "Event UUID" },
+          new_title: { type: "string", description: "New title for the event" },
+        },
+        required: ["event_id", "new_title"],
+      },
+    },
+  },
 ];
 
 // ─── Tool Executor ─────────────────────────────────────────
@@ -648,6 +763,20 @@ async function executeTool(
         return await toolListWorkspaceClients(db, userId, args as any);
       case "get_event_details":
         return await toolGetEventDetails(db, userId, args as any);
+      case "get_client_details":
+        return await toolGetClientDetails(db, userId, args as any);
+      case "list_events_by_client":
+        return await toolListEventsByClient(db, userId, args as any);
+      case "publish_event":
+        return await toolPublishEvent(db, userId, args as any);
+      case "unpublish_event":
+        return await toolUnpublishEvent(db, userId, args as any);
+      case "archive_event":
+        return await toolArchiveEvent(db, userId, args as any);
+      case "duplicate_event":
+        return await toolDuplicateEvent(db, userId, args as any);
+      case "rename_event":
+        return await toolRenameEvent(db, userId, args as any);
       default:
         return { success: false, result: {}, error: `Unknown tool: ${toolName}`, category: "internal" };
     }
@@ -1663,6 +1792,273 @@ async function toolGetEventDetails(
   };
 }
 
+// ─── Phase 1 Additional Retrieval Tools ────────────────────
+
+async function toolGetClientDetails(
+  db: SupabaseClient, userId: string,
+  args: { client_id?: string; name_search?: string }
+): Promise<ToolResult> {
+  if (!args.client_id && !args.name_search) {
+    return { success: false, result: {}, error: "Provide either client_id or name_search", category: "validation" };
+  }
+
+  const isPrivileged = await isAdminOrOwnerRole(db, userId);
+  let clientData: any = null;
+
+  if (args.client_id) {
+    const canManage = await canManageClient(db, userId, args.client_id);
+    if (!canManage) return { success: false, result: {}, error: "Client not found or access denied", category: "permission" };
+    const { data } = await db.from("clients").select("*").eq("id", args.client_id).single();
+    clientData = data;
+  } else {
+    let query = db.from("clients").select("*").ilike("name", `%${args.name_search}%`).limit(1);
+    if (!isPrivileged) query = query.eq("created_by", userId);
+    const { data } = await query.single();
+    if (!data) return { success: true, result: { found: false, message: `No client found matching "${args.name_search}".` } };
+    clientData = data;
+  }
+
+  // Count events for this client
+  let evQuery = db.from("events").select("id, title, status, start_date", { count: "exact" }).eq("client_id", clientData.id).limit(5).order("updated_at", { ascending: false });
+  if (!isPrivileged) evQuery = evQuery.eq("created_by", userId);
+  const { data: recentEvents, count: eventCount } = await evQuery;
+
+  return {
+    success: true,
+    result: {
+      found: true,
+      client: { id: clientData.id, name: clientData.name, slug: clientData.slug, created_at: clientData.created_at },
+      event_count: eventCount ?? 0,
+      recent_events: (recentEvents || []).map((e: any) => ({ id: e.id, title: e.title, status: e.status, date: e.start_date })),
+    },
+  };
+}
+
+async function toolListEventsByClient(
+  db: SupabaseClient, userId: string,
+  args: { client_id?: string; client_name?: string; status_filter?: string; limit?: number }
+): Promise<ToolResult> {
+  const isPrivileged = await isAdminOrOwnerRole(db, userId);
+  let clientId = args.client_id;
+
+  if (!clientId && args.client_name) {
+    let cq = db.from("clients").select("id").ilike("name", `%${args.client_name}%`).limit(1);
+    if (!isPrivileged) cq = cq.eq("created_by", userId);
+    const { data: cl } = await cq.single();
+    if (!cl) return { success: true, result: { events: [], total: 0, message: `No client found matching "${args.client_name}".` } };
+    clientId = cl.id;
+  }
+
+  if (!clientId) return { success: false, result: {}, error: "Provide either client_id or client_name", category: "validation" };
+
+  const maxResults = Math.min(args.limit || 20, 50);
+  let query = db.from("events")
+    .select("id, title, slug, status, start_date, end_date, location, venue_name, event_date")
+    .eq("client_id", clientId)
+    .order("updated_at", { ascending: false })
+    .limit(maxResults);
+
+  if (!isPrivileged) query = query.eq("created_by", userId);
+  if (args.status_filter) query = query.eq("status", args.status_filter);
+
+  const { data, error } = await query;
+  if (error) {
+    const classified = classifyError(error, error.code);
+    return { success: false, result: {}, error: classified.userMessage, category: classified.category };
+  }
+
+  const events = (data || []).map((e: any) => ({
+    id: e.id, title: e.title, status: e.status, date: e.event_date || e.start_date, location: e.location || e.venue_name,
+  }));
+
+  return { success: true, result: { events, total: events.length, message: events.length === 0 ? "No events found for this client." : `Found ${events.length} event${events.length !== 1 ? "s" : ""}.` } };
+}
+
+// ─── Phase 2 — Event Lifecycle Tools ───────────────────────
+
+async function toolPublishEvent(
+  db: SupabaseClient, userId: string,
+  args: { event_id: string }
+): Promise<ToolResult> {
+  const check = await canManageEvent(db, userId, args.event_id);
+  if (!check.allowed) return { success: false, result: {}, error: "Event not found or access denied", category: "permission" };
+
+  const evt = check.event;
+  if (evt.status === "published" || evt.status === "ongoing") {
+    return { success: true, result: { event_id: evt.id, status: evt.status, message: "Event is already published." } };
+  }
+  if (evt.status === "archived") {
+    return { success: false, result: {}, error: "Cannot publish an archived event. Unarchive it first.", category: "validation" };
+  }
+
+  // Readiness check
+  const missing: string[] = [];
+  if (!evt.title?.trim()) missing.push("title");
+  if (!evt.start_date) missing.push("start date");
+  if (!evt.end_date) missing.push("end date");
+  if (!evt.description?.trim()) missing.push("description");
+
+  const { count: attCount } = await db.from("attendees").select("id", { count: "exact", head: true }).eq("event_id", args.event_id);
+  if ((attCount ?? 0) === 0) missing.push("at least 1 attendee");
+
+  if (missing.length > 0) {
+    return {
+      success: false,
+      result: { missing },
+      error: `Cannot publish — missing: ${missing.join(", ")}. Fix these and try again.`,
+      category: "validation",
+    };
+  }
+
+  const { error } = await db.from("events").update({ status: "published", updated_at: new Date().toISOString() }).eq("id", args.event_id);
+  if (error) {
+    const classified = classifyError(error, error.code);
+    return { success: false, result: {}, error: classified.userMessage, category: classified.category };
+  }
+
+  return { success: true, result: { event_id: args.event_id, status: "published", title: evt.title, message: `"${evt.title}" is now published!` } };
+}
+
+async function toolUnpublishEvent(
+  db: SupabaseClient, userId: string,
+  args: { event_id: string }
+): Promise<ToolResult> {
+  const check = await canManageEvent(db, userId, args.event_id);
+  if (!check.allowed) return { success: false, result: {}, error: "Event not found or access denied", category: "permission" };
+
+  const evt = check.event;
+  if (evt.status === "draft") {
+    return { success: true, result: { event_id: evt.id, status: "draft", message: "Event is already a draft." } };
+  }
+  if (evt.status !== "published" && evt.status !== "ongoing") {
+    return { success: false, result: {}, error: `Cannot unpublish event with status "${evt.status}".`, category: "validation" };
+  }
+
+  const { error } = await db.from("events").update({ status: "draft", updated_at: new Date().toISOString() }).eq("id", args.event_id);
+  if (error) {
+    const classified = classifyError(error, error.code);
+    return { success: false, result: {}, error: classified.userMessage, category: classified.category };
+  }
+
+  return { success: true, result: { event_id: args.event_id, status: "draft", title: evt.title, message: `"${evt.title}" reverted to draft.` } };
+}
+
+async function toolArchiveEvent(
+  db: SupabaseClient, userId: string,
+  args: { event_id: string }
+): Promise<ToolResult> {
+  const check = await canManageEvent(db, userId, args.event_id);
+  if (!check.allowed) return { success: false, result: {}, error: "Event not found or access denied", category: "permission" };
+
+  const evt = check.event;
+  if (evt.status === "archived") {
+    return { success: true, result: { event_id: evt.id, status: "archived", message: "Event is already archived." } };
+  }
+
+  const { error } = await db.from("events").update({ status: "archived", updated_at: new Date().toISOString() }).eq("id", args.event_id);
+  if (error) {
+    const classified = classifyError(error, error.code);
+    return { success: false, result: {}, error: classified.userMessage, category: classified.category };
+  }
+
+  return { success: true, result: { event_id: args.event_id, status: "archived", title: evt.title, message: `"${evt.title}" has been archived.` } };
+}
+
+async function toolDuplicateEvent(
+  db: SupabaseClient, userId: string,
+  args: { event_id: string; new_title?: string }
+): Promise<ToolResult> {
+  const check = await canManageEvent(db, userId, args.event_id);
+  if (!check.allowed) return { success: false, result: {}, error: "Event not found or access denied", category: "permission" };
+
+  const src = check.event;
+  const newTitle = args.new_title || `${src.title} (Copy)`;
+  const newSlug = newTitle.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+
+  const { data: newEvt, error: evErr } = await db.from("events").insert({
+    created_by: userId,
+    title: newTitle,
+    slug: newSlug,
+    description: src.description,
+    start_date: src.start_date,
+    end_date: src.end_date,
+    location: src.location,
+    venue_name: src.venue_name,
+    venue_address: src.venue_address,
+    venue_lat: src.venue_lat,
+    venue_lng: src.venue_lng,
+    venue_place_id: src.venue_place_id,
+    venue_map_link: src.venue_map_link,
+    venue_notes: src.venue_notes,
+    venue_images: src.venue_images,
+    venue_photo_refs: src.venue_photo_refs,
+    theme_id: src.theme_id,
+    client_id: src.client_id,
+    max_attendees: src.max_attendees,
+    transportation_notes: src.transportation_notes,
+    status: "draft",
+  }).select("id, title, slug").single();
+
+  if (evErr) {
+    const classified = classifyError(evErr, evErr.code);
+    return { success: false, result: {}, error: classified.userMessage, category: classified.category };
+  }
+
+  const cloned: string[] = [];
+
+  // Copy agenda
+  const { data: agendaItems } = await db.from("agenda_items").select("title, description, start_time, end_time, day_number, order_index").eq("event_id", args.event_id);
+  if (agendaItems?.length) {
+    await db.from("agenda_items").insert(agendaItems.map((a: any) => ({ ...a, event_id: newEvt.id })));
+    cloned.push(`${agendaItems.length} agenda items`);
+  }
+
+  // Copy organizers
+  const { data: organizers } = await db.from("organizers").select("name, role, email, mobile, photo_url").eq("event_id", args.event_id);
+  if (organizers?.length) {
+    await db.from("organizers").insert(organizers.map((o: any) => ({ ...o, event_id: newEvt.id })));
+    cloned.push(`${organizers.length} organizers`);
+  }
+
+  // Copy speakers
+  const { data: speakers } = await db.from("speakers" as any).select("name, title, bio, photo_url").eq("event_id", args.event_id);
+  if (speakers?.length) {
+    await db.from("speakers" as any).insert((speakers as any[]).map((s: any) => ({ ...s, event_id: newEvt.id })));
+    cloned.push(`${speakers.length} speakers`);
+  }
+
+  return {
+    success: true,
+    result: {
+      event_id: newEvt.id,
+      title: newEvt.title,
+      slug: newEvt.slug,
+      source_event_id: args.event_id,
+      cloned,
+      message: `Duplicated "${src.title}" → "${newEvt.title}" (draft). Copied: ${cloned.join(", ") || "event details only"}.`,
+    },
+  };
+}
+
+async function toolRenameEvent(
+  db: SupabaseClient, userId: string,
+  args: { event_id: string; new_title: string }
+): Promise<ToolResult> {
+  if (!args.new_title?.trim()) return { success: false, result: {}, error: "New title is required", category: "validation" };
+
+  const check = await canManageEvent(db, userId, args.event_id);
+  if (!check.allowed) return { success: false, result: {}, error: "Event not found or access denied", category: "permission" };
+
+  const oldTitle = check.event.title;
+  const { error } = await db.from("events").update({ title: args.new_title.trim(), updated_at: new Date().toISOString() }).eq("id", args.event_id);
+  if (error) {
+    const classified = classifyError(error, error.code);
+    return { success: false, result: {}, error: classified.userMessage, category: classified.category };
+  }
+
+  return { success: true, result: { event_id: args.event_id, old_title: oldTitle, new_title: args.new_title.trim(), message: `Renamed "${oldTitle}" → "${args.new_title.trim()}"` } };
+}
+
 // ─── Draft State Builder ───────────────────────────────────
 
 async function buildDraftState(
@@ -1976,6 +2372,10 @@ serve(async (req) => {
             stateJson.event_id = toolResult.result.event_id;
             await db.from("ai_chat_sessions").update({ event_id: toolResult.result.event_id as string }).eq("id", session.id);
           }
+          if (toolName === "duplicate_event" && toolResult.result.event_id) {
+            stateJson.event_id = toolResult.result.event_id;
+            await db.from("ai_chat_sessions").update({ event_id: toolResult.result.event_id as string }).eq("id", session.id);
+          }
         } else {
           logEntry.status = "failed";
           logEntry.message = toolResult.error || "Action failed";
@@ -2100,6 +2500,13 @@ function formatToolDisplayName(toolName: string): string {
     list_workspace_events: "List Events",
     list_workspace_clients: "List Clients",
     get_event_details: "Get Event Details",
+    get_client_details: "Get Client Details",
+    list_events_by_client: "List Client Events",
+    publish_event: "Publish Event",
+    unpublish_event: "Unpublish Event",
+    archive_event: "Archive Event",
+    duplicate_event: "Duplicate Event",
+    rename_event: "Rename Event",
   };
   return names[toolName] || toolName;
 }
@@ -2114,13 +2521,17 @@ function resolveToolTarget(toolName: string, args: Record<string, unknown>): str
   if (toolName === "list_workspace_events") return (args.status_filter as string) || "workspace events";
   if (toolName === "list_workspace_clients") return (args.search as string) || "workspace clients";
   if (toolName === "get_event_details") return (args.title_search as string) || (args.event_id as string)?.slice(0, 8) || "event";
+  if (toolName === "get_client_details") return (args.name_search as string) || (args.client_id as string)?.slice(0, 8) || "client";
+  if (toolName === "list_events_by_client") return (args.client_name as string) || "client events";
+  if (toolName === "publish_event" || toolName === "unpublish_event" || toolName === "archive_event" || toolName === "rename_event") return `event:${(args.event_id as string)?.slice(0, 8) || ""}`;
+  if (toolName === "duplicate_event") return (args.new_title as string) || `event:${(args.event_id as string)?.slice(0, 8) || ""}`;
   if (args.event_id) return `event:${(args.event_id as string).slice(0, 8)}`;
   return toolName;
 }
 
 function filterSafeMetadata(result: Record<string, unknown>): Record<string, unknown> {
   const safe: Record<string, unknown> = {};
-  const allowed = ["client_id", "event_id", "action", "name", "title", "slug", "added", "score", "ready", "saved_count", "updated_fields", "venue_name", "template_name", "templates", "cloned", "events", "clients", "total", "message", "found", "event", "counts"];
+  const allowed = ["client_id", "event_id", "action", "name", "title", "slug", "added", "score", "ready", "saved_count", "updated_fields", "venue_name", "template_name", "templates", "cloned", "events", "clients", "total", "message", "found", "event", "counts", "status", "old_title", "new_title", "source_event_id", "missing", "event_count", "recent_events", "client"];
   for (const k of allowed) {
     if (result[k] !== undefined) safe[k] = result[k];
   }
@@ -2197,6 +2608,20 @@ function formatToolLabel(toolName: string, result: Record<string, unknown>): str
       return (result.message as string) || `Listed ${result.total} clients`;
     case "get_event_details":
       return result.found ? `Retrieved details for "${(result.event as any)?.title}"` : (result.message as string) || "Event not found";
+    case "get_client_details":
+      return result.found ? `Retrieved client "${(result.client as any)?.name}" (${result.event_count} events)` : (result.message as string) || "Client not found";
+    case "list_events_by_client":
+      return (result.message as string) || `Listed ${result.total} client events`;
+    case "publish_event":
+      return (result.message as string) || `Published event`;
+    case "unpublish_event":
+      return (result.message as string) || `Unpublished event`;
+    case "archive_event":
+      return (result.message as string) || `Archived event`;
+    case "duplicate_event":
+      return (result.message as string) || `Duplicated event`;
+    case "rename_event":
+      return (result.message as string) || `Renamed event`;
     default:
       return toolName;
   }
