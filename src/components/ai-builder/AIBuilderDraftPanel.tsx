@@ -31,7 +31,7 @@ const SectionRow = ({ icon, label, status, details }: SectionRowProps) => (
   </div>
 );
 
-export const AIBuilderDraftPanel = ({ draft }: { draft: DraftState }) => {
+export const AIBuilderDraftPanel = ({ draft, onApplyRecommendation, isLoading }: { draft: DraftState; onApplyRecommendation?: (prompt: string) => void; isLoading?: boolean }) => {
   const readyCount = Object.values(draft).filter((s) => s.status === "done").length;
   const totalSections = Object.keys(draft).length;
   const pct = Math.round((readyCount / totalSections) * 100);
