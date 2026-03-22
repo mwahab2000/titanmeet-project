@@ -6,10 +6,11 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useEventWorkspace } from "@/contexts/EventWorkspaceContext";
 import { supabase } from "@/integrations/supabase/client";
+import { WhatsAppMetricsDashboard } from "@/components/comms/WhatsAppMetricsDashboard";
 import { format } from "date-fns";
 import {
   Send, Mail, MessageSquare, CheckCircle2, Eye, AlertTriangle,
-  Inbox, ClipboardList, ArrowRight, RefreshCw, Loader2,
+  Inbox, ClipboardList, ArrowRight, RefreshCw, Loader2, QrCode,
 } from "lucide-react";
 
 interface CommsStats {

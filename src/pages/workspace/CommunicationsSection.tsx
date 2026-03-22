@@ -157,12 +157,12 @@ const CommunicationsSection = () => {
       </div>
 
       {/* Middle pane */}
-      <div className="flex-1 min-w-0 border-r border-border overflow-hidden" style={{ maxWidth: activeView === "overview" || activeView === "log" ? "100%" : "380px" }}>
+      <div className="flex-1 min-w-0 border-r border-border overflow-hidden" style={{ maxWidth: ["overview", "log", "scheduled", "checkin"].includes(activeView) ? "100%" : "380px" }}>
         {renderMiddlePane()}
       </div>
 
       {/* Right pane - only for views that support thread selection */}
-      {activeView !== "overview" && activeView !== "log" && activeView !== "scheduled" && activeView !== "templates" && activeView !== "settings" && (
+      {!["overview", "log", "scheduled", "checkin", "templates", "settings"].includes(activeView) && (
         <div className="flex-1 min-w-0 overflow-hidden">
           {renderRightPane()}
         </div>
