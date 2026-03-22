@@ -2716,6 +2716,49 @@ serve(async (req) => {
         const summaryResult = await summaryResp.json();
         const summaryContent = summaryResult.choices?.[0]?.message?.content || "Actions completed.";
 
+        // ── Detect if the summary asks for confirmation and store pending action ──
+        const summaryConfirmMatch = summaryContent.match(/(?:do you want me to|shall I|would you like me to|should I|want me to)\s+(.+?)(?:\?|$)/i);
+        if (summaryConfirmMatch && stateJson.event_id) {
+          const actionText = summaryConfirmMatch[1].toLowerCase();
+          let pendingTool = "";
+          let pendingArgs: Record<string, unknown> = { event_id: stateJson.event_id };
+
+          const locMatch = summaryContent.match(/(?:location|city)\s+(?:to|as)\s+[""]?([^""?.]+)[""]?/i);
+          const venMatch = summaryContent.match(/(?:venue(?:\s+name)?)\s+(?:to|as)\s+[""]?([^""?.]+)[""]?/i);
+          const titMatch = summaryContent.match(/(?:rename|title)\s+(?:to|as)\s+[""]?([^""?.]+)[""]?/i);
+
+          if (actionText.includes("update") || actionText.includes("change") || actionText.includes("set")) {
+            if (locMatch) {
+              pendingTool = "update_event_basics";
+              pendingArgs.location = locMatch[1].trim();
+            } else if (venMatch) {
+              pendingTool = "set_event_venue";
+              pendingArgs.venue_name = venMatch[1].trim();
+            } else if (titMatch) {
+              pendingTool = "rename_event";
+              pendingArgs.new_title = titMatch[1].trim();
+            } else {
+              pendingTool = "update_event_basics";
+            }
+          } else if (actionText.includes("publish")) {
+            pendingTool = "publish_event";
+          } else if (actionText.includes("archive")) {
+            pendingTool = "archive_event";
+          }
+
+          if (pendingTool) {
+            stateJson.pending_action = {
+              tool: pendingTool,
+              arguments: pendingArgs,
+              summary: summaryConfirmMatch[1].trim(),
+              awaiting_confirmation: true,
+              created_at: new Date().toISOString(),
+            };
+            console.log(`[${correlationId}] Stored pending action from summary: ${pendingTool}`);
+            await db.from("ai_chat_sessions").update({ state_json: stateJson }).eq("id", session.id);
+          }
+        }
+
         await db.from("ai_chat_messages").insert({ session_id: session.id, role: "assistant", content: summaryContent });
 
         const draftState = await buildDraftState(db, user.id, stateJson);
