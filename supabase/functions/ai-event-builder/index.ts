@@ -3402,6 +3402,150 @@ async function toolApplyVisualPack(
   };
 }
 
+// ─── Communication Tools ───────────────────────────────────
+
+async function toolPrepareCommunicationCampaign(
+  db: SupabaseClient, userId: string,
+  args: { event_id: string; campaign_type: string; channels: string[]; audience_segment?: string }
+): Promise<ToolResult> {
+  if (!args.event_id) return { success: false, result: {}, error: "event_id is required", category: "validation" };
+  const { allowed, event: evt } = await canManageEvent(db, userId, args.event_id);
+  if (!allowed || !evt) return { success: false, result: {}, error: "Event not found or access denied", category: "permission" };
+
+  const segment = args.audience_segment || "all";
+  let countQuery = db.from("attendees").select("id", { count: "exact", head: true }).eq("event_id", args.event_id);
+  if (segment === "pending") countQuery = countQuery.eq("confirmed", false);
+  if (segment === "confirmed") countQuery = countQuery.eq("confirmed", true);
+  const { count } = await countQuery;
+
+  const { data: campaign, error } = await db.from("communication_campaigns").insert({
+    event_id: args.event_id, created_by: userId, campaign_type: args.campaign_type,
+    channels: args.channels, status: "draft", audience_filter: { segment }, audience_count: count || 0,
+  }).select("id, campaign_type, channels, audience_count").single();
+
+  if (error) return { success: false, result: {}, error: error.message, category: "internal" };
+
+  const typeLabel: Record<string,string> = { invitation:"invitation", attendance_confirmation:"confirmation request", reminder:"reminder", check_in:"check-in", follow_up:"follow-up" };
+  return { success: true, result: {
+    campaign_id: (campaign as any).id, campaign_type: args.campaign_type, channels: args.channels,
+    audience_count: count || 0, audience_segment: segment, event_name: evt.title, requires_confirmation: true,
+    message: `Campaign ready: ${typeLabel[args.campaign_type]||args.campaign_type} to ${count||0} ${segment==="all"?"":segment+" "}attendees via ${args.channels.join(" and ")}.`,
+  }};
+}
+
+async function toolSendCommunicationCampaign(
+  db: SupabaseClient, userId: string,
+  args: { campaign_id: string; event_id: string }, correlationId: string,
+): Promise<ToolResult> {
+  if (!args.campaign_id || !args.event_id) return { success: false, result: {}, error: "campaign_id and event_id required", category: "validation" };
+  const { allowed, event: evt } = await canManageEvent(db, userId, args.event_id);
+  if (!allowed || !evt) return { success: false, result: {}, error: "Event not found or access denied", category: "permission" };
+
+  const { data: campaign } = await db.from("communication_campaigns").select("*").eq("id", args.campaign_id).single();
+  if (!campaign) return { success: false, result: {}, error: "Campaign not found", category: "validation" };
+  const camp = campaign as any;
+  if (camp.status !== "draft") return { success: false, result: {}, error: `Campaign already ${camp.status}`, category: "validation" };
+
+  await db.from("communication_campaigns").update({ status: "sending", started_at: new Date().toISOString() }).eq("id", args.campaign_id);
+
+  let attQ = db.from("attendees").select("id").eq("event_id", args.event_id);
+  const seg = camp.audience_filter?.segment;
+  if (seg === "pending") attQ = attQ.eq("confirmed", false);
+  if (seg === "confirmed") attQ = attQ.eq("confirmed", true);
+  const { data: atts } = await attQ;
+  const ids = (atts||[]).map((a:any)=>a.id);
+
+  if (!ids.length) {
+    await db.from("communication_campaigns").update({ status: "completed", completed_at: new Date().toISOString(), audience_count: 0 }).eq("id", args.campaign_id);
+    return { success: true, result: { sent_email:0, sent_whatsapp:0, total:0, message: "No attendees matched." }};
+  }
+
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const baseUrl = Deno.env.get("VITE_APP_URL") || "https://app.titanmeet.com";
+
+  try {
+    const resp = await fetch(`${supabaseUrl}/functions/v1/send-event-invitations`, {
+      method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${serviceKey}` },
+      body: JSON.stringify({ event_id: args.event_id, attendee_ids: ids, base_url: baseUrl, channels: camp.channels, is_reminder: camp.campaign_type === "reminder" }),
+    });
+    const result = await resp.json();
+    console.log(`[${correlationId}] campaign send: ${JSON.stringify(result).substring(0,300)}`);
+
+    const recipients: any[] = [];
+    if (result?.results) {
+      for (const r of result.results) {
+        for (const ch of camp.channels) {
+          const st = r[ch==="email"?"email_status":"whatsapp_status"];
+          if (st && st !== "skipped") recipients.push({ campaign_id: args.campaign_id, attendee_id: r.attendee_id, channel: ch, delivery_status: st==="sent"?"sent":"failed", error: r[ch==="email"?"email_error":"whatsapp_error"]||null, sent_at: st==="sent"?new Date().toISOString():null });
+        }
+      }
+    }
+    if (recipients.length) await db.from("campaign_recipients").insert(recipients);
+
+    await db.from("communication_campaigns").update({ status: "completed", completed_at: new Date().toISOString(), audience_count: ids.length }).eq("id", args.campaign_id);
+    const se = result?.sent_email||0, sw = result?.sent_whatsapp||0;
+    return { success: true, result: { sent_email:se, sent_whatsapp:sw, failed_email:result?.failed_email||0, failed_whatsapp:result?.failed_whatsapp||0, total:ids.length, message: `Sent to ${ids.length} attendees. ${se} emails, ${sw} WhatsApp.` }};
+  } catch (err) {
+    await db.from("communication_campaigns").update({ status: "failed" }).eq("id", args.campaign_id);
+    return { success: false, result: {}, error: "Campaign send failed", category: "external_api" };
+  }
+}
+
+async function toolGetEventConfirmationStats(db: SupabaseClient, userId: string, args: { event_id: string }): Promise<ToolResult> {
+  if (!args.event_id) return { success: false, result: {}, error: "event_id required", category: "validation" };
+  const { allowed, event: evt } = await canManageEvent(db, userId, args.event_id);
+  if (!allowed||!evt) return { success: false, result: {}, error: "Access denied", category: "permission" };
+  const [attR, logR] = await Promise.all([
+    db.from("attendees").select("id, confirmed").eq("event_id", args.event_id),
+    db.from("message_logs").select("channel, status").eq("event_id", args.event_id),
+  ]);
+  const atts = attR.data||[], logs = logR.data||[];
+  const confirmed = atts.filter((a:any)=>a.confirmed).length, total = atts.length, pending = total - confirmed;
+  const rate = total>0?Math.round((confirmed/total)*100):0;
+  const eLogs = logs.filter((l:any)=>l.channel==="email"), wLogs = logs.filter((l:any)=>l.channel==="whatsapp");
+  return { success: true, result: { event_name: evt.title, invited: total, confirmed, pending, declined: 0, confirmation_rate: rate,
+    by_channel: { email: { sent: eLogs.length, failed: eLogs.filter((l:any)=>l.status==="failed").length }, whatsapp: { sent: wLogs.length, failed: wLogs.filter((l:any)=>["failed","undelivered"].includes(l.status)).length } },
+    message: `${evt.title}: ${confirmed}/${total} confirmed (${rate}%), ${pending} pending.` }};
+}
+
+async function toolListConfirmationSegments(db: SupabaseClient, userId: string, args: { event_id: string }): Promise<ToolResult> {
+  if (!args.event_id) return { success: false, result: {}, error: "event_id required", category: "validation" };
+  const { allowed, event: evt } = await canManageEvent(db, userId, args.event_id);
+  if (!allowed||!evt) return { success: false, result: {}, error: "Access denied", category: "permission" };
+  const { data: atts } = await db.from("attendees").select("id, name, confirmed, last_reminder_sent_at").eq("event_id", args.event_id);
+  const all = atts||[], conf = all.filter((a:any)=>a.confirmed), pend = all.filter((a:any)=>!a.confirmed), needsR = pend.filter((a:any)=>!a.last_reminder_sent_at);
+  return { success: true, result: { event_name: evt.title, total: all.length, segments: {
+    confirmed: { count: conf.length, sample: conf.slice(0,5).map((a:any)=>a.name) },
+    pending: { count: pend.length, sample: pend.slice(0,5).map((a:any)=>a.name) },
+    needs_reminder: { count: needsR.length, sample: needsR.slice(0,5).map((a:any)=>a.name) },
+  }, message: `${conf.length} confirmed, ${pend.length} pending, ${needsR.length} need reminder.` }};
+}
+
+async function toolGetCommunicationPerformance(db: SupabaseClient, userId: string, args: { event_id: string }): Promise<ToolResult> {
+  if (!args.event_id) return { success: false, result: {}, error: "event_id required", category: "validation" };
+  const { allowed, event: evt } = await canManageEvent(db, userId, args.event_id);
+  if (!allowed||!evt) return { success: false, result: {}, error: "Access denied", category: "permission" };
+  const [logR, inR] = await Promise.all([
+    db.from("message_logs").select("channel, status").eq("event_id", args.event_id),
+    db.from("inbound_messages").select("id, channel").eq("event_id", args.event_id),
+  ]);
+  const logs = logR.data||[], inb = (inR.data||[]) as any[];
+  const ch = (c:string) => { const cl = logs.filter((l:any)=>l.channel===c); return { sent:cl.length, delivered:cl.filter((l:any)=>["sent","delivered","read"].includes(l.status)).length, opened:cl.filter((l:any)=>l.status==="read").length, failed:cl.filter((l:any)=>["failed","undelivered"].includes(l.status)).length, replied:inb.filter((m:any)=>m.channel===c).length }; };
+  const e = ch("email"), w = ch("whatsapp");
+  return { success: true, result: { event_name: evt.title, total: { sent:logs.length, delivered:e.delivered+w.delivered, opened:e.opened+w.opened, failed:e.failed+w.failed, replied:inb.length }, email:e, whatsapp:w, message: `${logs.length} sent, ${e.delivered+w.delivered} delivered, ${e.failed+w.failed} failed.` }};
+}
+
+async function toolListEventCampaigns(db: SupabaseClient, userId: string, args: { event_id: string }): Promise<ToolResult> {
+  if (!args.event_id) return { success: false, result: {}, error: "event_id required", category: "validation" };
+  const { allowed, event: evt } = await canManageEvent(db, userId, args.event_id);
+  if (!allowed||!evt) return { success: false, result: {}, error: "Access denied", category: "permission" };
+  const { data: camps } = await db.from("communication_campaigns").select("id, campaign_type, channels, status, audience_count, created_at").eq("event_id", args.event_id).order("created_at", { ascending: false }).limit(20);
+  const list = (camps||[]) as any[];
+  const tl: Record<string,string> = { invitation:"Invitation", attendance_confirmation:"Confirmation", reminder:"Reminder", check_in:"Check-in", follow_up:"Follow-up" };
+  return { success: true, result: { campaigns: list.map((c:any)=>({ id:c.id, type:tl[c.campaign_type]||c.campaign_type, channels:c.channels, status:c.status, audience:c.audience_count })), total: list.length, message: list.length? `${list.length} campaign(s) for "${evt.title}".` : "No campaigns yet." }};
+}
+
 // ─── Action Log Persistence ────────────────────────────────
 
 async function persistActionLog(
