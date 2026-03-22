@@ -5,8 +5,6 @@ import { ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DEMO_SITE_URL } from "@/config/pricing";
 import logo from "@/assets/logo.png";
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const _Link = Link;
 
 export const LandingCta = () => {
   const ref = useRef(null);
