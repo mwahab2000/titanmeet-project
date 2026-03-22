@@ -2111,13 +2111,16 @@ function resolveToolTarget(toolName: string, args: Record<string, unknown>): str
   if (toolName === "generate_full_event_proposal") return (args.description as string)?.substring(0, 40) || "proposal";
   if (toolName === "save_event_proposal") return "full proposal";
   if (toolName === "apply_template") return (args.search_query as string) || "template";
+  if (toolName === "list_workspace_events") return (args.status_filter as string) || "workspace events";
+  if (toolName === "list_workspace_clients") return (args.search as string) || "workspace clients";
+  if (toolName === "get_event_details") return (args.title_search as string) || (args.event_id as string)?.slice(0, 8) || "event";
   if (args.event_id) return `event:${(args.event_id as string).slice(0, 8)}`;
   return toolName;
 }
 
 function filterSafeMetadata(result: Record<string, unknown>): Record<string, unknown> {
   const safe: Record<string, unknown> = {};
-  const allowed = ["client_id", "event_id", "action", "name", "title", "slug", "added", "score", "ready", "saved_count", "updated_fields", "venue_name", "template_name", "templates", "cloned"];
+  const allowed = ["client_id", "event_id", "action", "name", "title", "slug", "added", "score", "ready", "saved_count", "updated_fields", "venue_name", "template_name", "templates", "cloned", "events", "clients", "total", "message", "found", "event", "counts"];
   for (const k of allowed) {
     if (result[k] !== undefined) safe[k] = result[k];
   }
