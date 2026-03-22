@@ -1,7 +1,10 @@
+/**
+ * Smoke test — verifies the test framework is working.
+ */
 import { describe, it, expect } from "vitest";
 
-describe("example", () => {
-  it("should pass", () => {
-    expect(true).toBe(true);
+describe("test setup", () => {
+  it("vitest is configured correctly", () => {
+    expect(1 + 1).toBe(2);
   });
 });
