@@ -4,7 +4,7 @@ import { supabase, edgeFunctionUrl } from "@/integrations/supabase/client";
 import { Loader2, CheckCircle2, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-type PageState = "loading" | "invite" | "confirmed" | "error";
+type PageState = "loading" | "invite" | "confirmed" | "checked_in" | "error";
 
 interface InviteData {
   event_title: string;
