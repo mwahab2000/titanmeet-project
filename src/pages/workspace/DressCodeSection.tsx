@@ -166,7 +166,7 @@ const DressCodeSection = () => {
           const { error } = await supabase.from("dress_codes").update(payload).eq("id", entry.id);
           if (error) { console.error("Update error:", error); toast.error("Save failed: " + error.message); setSaving(false); return; }
         } else {
-          console.log("Inserting dress code:", payload);
+          
           const { data, error } = await supabase.from("dress_codes").insert(payload).select();
           if (error) { console.error("Insert error:", error); toast.error("Save failed: " + error.message); setSaving(false); return; }
           console.log("Insert result:", data);
