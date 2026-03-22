@@ -2097,6 +2097,9 @@ function formatToolDisplayName(toolName: string): string {
     generate_full_event_proposal: "Generate Event Proposal",
     save_event_proposal: "Save Event Proposal",
     apply_template: "Apply Template",
+    list_workspace_events: "List Events",
+    list_workspace_clients: "List Clients",
+    get_event_details: "Get Event Details",
   };
   return names[toolName] || toolName;
 }
