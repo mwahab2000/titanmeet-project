@@ -856,6 +856,10 @@ async function executeTool(
         return await toolDuplicateEvent(db, userId, args as any);
       case "rename_event":
         return await toolRenameEvent(db, userId, args as any);
+      case "get_missing_fields":
+        return await toolGetMissingFields(db, userId, args as any);
+      case "recommend_next_actions":
+        return await toolRecommendNextActions(db, userId, args as any);
       default:
         return { success: false, result: {}, error: `Unknown tool: ${toolName}`, category: "internal" };
     }
