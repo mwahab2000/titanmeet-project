@@ -60,6 +60,7 @@ export const AIBuilderChatMessage = ({ message, onVenueSelect, onPhotosConfirm, 
 
   const venueSearchAction = message.actions?.find(a => a.type === "venue_search" && a.data?.venues?.length > 0);
   const venuePhotosAction = message.actions?.find(a => a.type === "venue_photos" && a.data?.photos?.length > 0);
+  const proposalAction = message.actions?.find(a => a.type === "proposal" && a.data?.proposal);
 
   const actionLog = message.actionLog;
   const hasActionLog = actionLog && actionLog.length > 0;
