@@ -202,6 +202,36 @@ async function executeTool(
   }
 }
 
+// ─── Authorization Helpers ─────────────────────────────────
+
+async function isAdminOrOwnerRole(db: SupabaseClient, userId: string): Promise<boolean> {
+  const { data } = await db
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", userId)
+    .in("role", ["admin", "owner"]);
+  return (data?.length ?? 0) > 0;
+}
+
+async function canManageClient(db: SupabaseClient, userId: string, clientId: string): Promise<boolean> {
+  const { data } = await db
+    .from("clients")
+    .select("id")
+    .eq("id", clientId)
+    .or(`created_by.eq.${userId}`)
+    .single();
+  if (data) return true;
+  return await isAdminOrOwnerRole(db, userId);
+}
+
+async function canManageEvent(db: SupabaseClient, userId: string, eventId: string): Promise<{ allowed: boolean; event?: any }> {
+  const { data: evt } = await db.from("events").select("*").eq("id", eventId).single();
+  if (!evt) return { allowed: false };
+  if (evt.created_by === userId) return { allowed: true, event: evt };
+  if (await isAdminOrOwnerRole(db, userId)) return { allowed: true, event: evt };
+  return { allowed: false };
+}
+
 // ─── Tool Implementations ──────────────────────────────────
 
 async function toolFindOrCreateClient(
@@ -211,20 +241,19 @@ async function toolFindOrCreateClient(
   const { name, slug } = args;
   if (!name?.trim()) return { success: false, result: {}, error: "Client name is required" };
 
-  // Try to find existing
-  const { data: existing } = await db
-    .from("clients")
-    .select("id, name, slug")
-    .eq("created_by", userId)
-    .ilike("name", name.trim())
-    .limit(1)
-    .single();
+  const isPrivileged = await isAdminOrOwnerRole(db, userId);
+
+  // Search: own clients + admin sees all
+  let query = db.from("clients").select("id, name, slug").ilike("name", name.trim()).limit(1);
+  if (!isPrivileged) query = query.eq("created_by", userId);
+
+  const { data: existing } = await query.single();
 
   if (existing) {
     return { success: true, result: { client_id: existing.id, name: existing.name, slug: existing.slug, action: "found_existing" } };
   }
 
-  // Create new
+  // Create new — always owned by current user
   const clientSlug = slug || name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
   const { data: created, error } = await db
     .from("clients")
