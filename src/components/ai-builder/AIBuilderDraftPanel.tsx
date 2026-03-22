@@ -2,6 +2,7 @@ import { Building2, CalendarDays, MapPin, UserCog, UsersRound, ListOrdered, Mess
 import type { DraftState } from "@/hooks/useAIBuilderSession";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { AIBuilderRecommendations } from "./AIBuilderRecommendations";
 
 const statusIcon = {
   empty: <Circle className="h-3.5 w-3.5 text-muted-foreground/40" />,
