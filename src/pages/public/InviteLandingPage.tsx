@@ -168,6 +168,23 @@ const InviteLandingPage = () => {
             </div>
           )}
 
+          {state === "checked_in" && invite && (
+            <div className="text-center space-y-5 sm:space-y-6">
+              <CheckCircle2 className="h-14 w-14 sm:h-16 sm:w-16 text-emerald-500 mx-auto" />
+              <div className="space-y-2">
+                <h1 className="text-xl sm:text-2xl font-bold text-gray-900">You're Checked In! 🎫</h1>
+                <p className="text-gray-500 text-sm sm:text-base">
+                  Welcome, {invite.attendee_name}! Enjoy <span className="font-semibold text-gray-700">{invite.event_title}</span>.
+                </p>
+              </div>
+              {eventUrl && (
+                <Button onClick={() => navigate(eventUrl)} className="w-full h-12 sm:h-11 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl">
+                  View Event Details →
+                </Button>
+              )}
+            </div>
+          )}
+
           {state === "error" && (
             <div className="text-center space-y-5 sm:space-y-6">
               <AlertTriangle className="h-14 w-14 sm:h-16 sm:w-16 text-amber-500 mx-auto" />
