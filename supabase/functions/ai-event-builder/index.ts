@@ -757,6 +757,34 @@ const TOOL_DEFINITIONS = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "get_missing_fields",
+      description: "Analyze what an event is missing for completeness. Returns missing fields, readiness score, and prioritized gaps.",
+      parameters: {
+        type: "object",
+        properties: {
+          event_id: { type: "string", description: "Event UUID" },
+        },
+        required: ["event_id"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "recommend_next_actions",
+      description: "Get smart recommendations for what the admin should do next based on current event state. Returns prioritized action suggestions.",
+      parameters: {
+        type: "object",
+        properties: {
+          event_id: { type: "string", description: "Event UUID (optional — if not provided, gives workspace-level recommendations)" },
+        },
+        required: [],
+      },
+    },
+  },
 ];
 
 // ─── Tool Executor ─────────────────────────────────────────
