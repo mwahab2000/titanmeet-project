@@ -576,6 +576,8 @@ async function executeTool(
         return await toolGenerateFullEventProposal(db, userId, args as any, correlationId);
       case "save_event_proposal":
         return await toolSaveEventProposal(db, userId, args as any, correlationId);
+      case "apply_template":
+        return await toolApplyTemplate(db, userId, args as any, correlationId);
       default:
         return { success: false, result: {}, error: `Unknown tool: ${toolName}`, category: "internal" };
     }
