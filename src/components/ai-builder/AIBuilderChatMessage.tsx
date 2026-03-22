@@ -46,6 +46,8 @@ interface AIBuilderChatMessageProps {
   message: ChatMessage;
   onVenueSelect?: (venue: VenueResult) => void;
   onPhotosConfirm?: (photos: VenuePhoto[]) => void;
+  onProposalApprove?: (proposal: EventProposal) => void;
+  onProposalReject?: () => void;
   isProcessing?: boolean;
 }
 
