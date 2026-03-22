@@ -4302,6 +4302,9 @@ function resolveToolTarget(toolName: string, args: Record<string, unknown>): str
   if (toolName === "duplicate_event") return (args.new_title as string) || `event:${(args.event_id as string)?.slice(0, 8) || ""}`;
   if (toolName === "get_missing_fields") return `event:${(args.event_id as string)?.slice(0, 8) || ""}`;
   if (toolName === "recommend_next_actions") return args.event_id ? `event:${(args.event_id as string)?.slice(0, 8) || ""}` : "workspace";
+  if (toolName === "prepare_communication_campaign") return (args.campaign_type as string) || "campaign";
+  if (toolName === "send_communication_campaign") return `campaign:${(args.campaign_id as string)?.slice(0, 8) || ""}`;
+  if (toolName === "get_event_confirmation_stats" || toolName === "list_confirmation_segments" || toolName === "get_communication_performance" || toolName === "list_event_campaigns") return `event:${(args.event_id as string)?.slice(0, 8) || ""}`;
   if (args.event_id) return `event:${(args.event_id as string).slice(0, 8)}`;
   return toolName;
 }
