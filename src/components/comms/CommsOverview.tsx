@@ -6,10 +6,11 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useEventWorkspace } from "@/contexts/EventWorkspaceContext";
 import { supabase } from "@/integrations/supabase/client";
+import { WhatsAppMetricsDashboard } from "@/components/comms/WhatsAppMetricsDashboard";
 import { format } from "date-fns";
 import {
   Send, Mail, MessageSquare, CheckCircle2, Eye, AlertTriangle,
-  Inbox, ClipboardList, ArrowRight, RefreshCw, Loader2,
+  Inbox, ClipboardList, ArrowRight, RefreshCw, Loader2, QrCode,
 } from "lucide-react";
 
 interface CommsStats {
@@ -171,21 +172,7 @@ export function CommsOverview({ onNavigate }: { onNavigate: (view: string) => vo
 
       {/* Channel Performance */}
       <div className="grid md:grid-cols-2 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <MessageSquare className="h-4 w-4 text-emerald-500" /> WhatsApp
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 gap-2">
-              <StatCard icon={Send} label="Sent" value={stats.whatsappSent} />
-              <StatCard icon={CheckCircle2} label="Delivered" value={stats.whatsappDelivered} variant="success" />
-              <StatCard icon={Inbox} label="Replies" value={stats.whatsappReplied} />
-              <StatCard icon={AlertTriangle} label="Unresolved" value={stats.unresolvedInbound} variant={stats.unresolvedInbound > 0 ? "warning" : "default"} />
-            </div>
-          </CardContent>
-        </Card>
+        <WhatsAppMetricsDashboard />
 
         <Card>
           <CardHeader className="pb-2">
@@ -252,17 +239,20 @@ export function CommsOverview({ onNavigate }: { onNavigate: (view: string) => vo
       </Card>
 
       {/* CTA Buttons */}
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         <Button variant="outline" size="sm" className="gap-1" onClick={() => onNavigate("inbox")}>
-          <Inbox className="h-3.5 w-3.5" /> Open Inbox
+          <Inbox className="h-3.5 w-3.5" /> Inbox
+        </Button>
+        <Button variant="outline" size="sm" className="gap-1" onClick={() => onNavigate("checkin")}>
+          <QrCode className="h-3.5 w-3.5" /> Check-in
         </Button>
         <Button variant="outline" size="sm" className="gap-1" asChild>
           <Link to={`/dashboard/events/${event?.id}/survey`}>
-            <ClipboardList className="h-3.5 w-3.5" /> Survey Results
+            <ClipboardList className="h-3.5 w-3.5" /> Surveys
           </Link>
         </Button>
-        <Button variant="outline" size="sm" className="gap-1" onClick={() => onNavigate("sent")}>
-          <RefreshCw className="h-3.5 w-3.5" /> Resend Failed
+        <Button variant="outline" size="sm" className="gap-1" onClick={() => onNavigate("scheduled")}>
+          <RefreshCw className="h-3.5 w-3.5" /> Scheduled
         </Button>
       </div>
     </div>

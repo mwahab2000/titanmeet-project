@@ -10,9 +10,11 @@ import { CommsLogView } from "@/components/comms/CommsLogView";
 import { CommsThreadView } from "@/components/comms/CommsThreadView";
 import { CommsUsageBadge } from "@/components/comms/CommsUsageBadge";
 import { CommsMessageList, type CommsMessage } from "@/components/comms/CommsMessageList";
+import { ScheduledMessagesPanel } from "@/components/comms/ScheduledMessagesPanel";
+import { CheckinPanel } from "@/components/comms/CheckinPanel";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Menu, Construction, Clock, FileText, Settings } from "lucide-react";
+import { Menu, Construction, Clock, FileText, Settings, QrCode } from "lucide-react";
 
 const CommunicationsSection = () => {
   const { event } = useEventWorkspace();
@@ -78,11 +80,13 @@ const CommunicationsSection = () => {
       case "log":
         return <CommsLogView />;
       case "scheduled":
+        return <ScheduledMessagesPanel />;
+      case "checkin":
+        return <CheckinPanel />;
       case "templates":
       case "settings":
         return (
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-3 p-8">
-            {activeView === "scheduled" && <Clock className="h-8 w-8" />}
             {activeView === "templates" && <FileText className="h-8 w-8" />}
             {activeView === "settings" && <Settings className="h-8 w-8" />}
             <p className="text-sm font-medium capitalize">{activeView}</p>
@@ -153,12 +157,12 @@ const CommunicationsSection = () => {
       </div>
 
       {/* Middle pane */}
-      <div className="flex-1 min-w-0 border-r border-border overflow-hidden" style={{ maxWidth: activeView === "overview" || activeView === "log" ? "100%" : "380px" }}>
+      <div className="flex-1 min-w-0 border-r border-border overflow-hidden" style={{ maxWidth: ["overview", "log", "scheduled", "checkin"].includes(activeView) ? "100%" : "380px" }}>
         {renderMiddlePane()}
       </div>
 
       {/* Right pane - only for views that support thread selection */}
-      {activeView !== "overview" && activeView !== "log" && activeView !== "scheduled" && activeView !== "templates" && activeView !== "settings" && (
+      {!["overview", "log", "scheduled", "checkin", "templates", "settings"].includes(activeView) && (
         <div className="flex-1 min-w-0 overflow-hidden">
           {renderRightPane()}
         </div>

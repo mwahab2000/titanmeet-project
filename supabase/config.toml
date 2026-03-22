@@ -53,3 +53,9 @@ verify_jwt = false
 
 [functions.twilio-whatsapp-inbound]
 verify_jwt = false
+
+[functions.send-checkin-whatsapp]
+verify_jwt = false
+
+[functions.process-scheduled-messages]
+verify_jwt = false

@@ -204,9 +204,58 @@ Deno.serve(async (req) => {
     console.error("[inbound] Insert error:", insertError.message);
   }
 
-  // Return TwiML
+  // ── Concierge routing: check for action keywords ──
+  const bodyLower = body.trim().toLowerCase();
+
+  // Check-in keyword
+  if (resolvedStatus === "resolved" && eventId && attendeeId) {
+    if (bodyLower === "checkin" || bodyLower === "check in" || bodyLower === "check-in" || bodyLower === "arrived") {
+      // Mark check-in
+      const { data: att } = await sb
+        .from("attendees")
+        .select("checked_in_at")
+        .eq("id", attendeeId)
+        .single();
+
+      if (att?.checked_in_at) {
+        return twimlResponse("You're already checked in! ✅ See you at the event.");
+      }
+
+      await sb
+        .from("attendees")
+        .update({ checked_in_at: new Date().toISOString(), checked_in_via: "whatsapp_reply" })
+        .eq("id", attendeeId);
+
+      return twimlResponse("You're checked in! ✅ Welcome to the event.");
+    }
+
+    // RSVP keywords
+    if (bodyLower === "yes" || bodyLower === "confirm" || bodyLower === "accept") {
+      await sb
+        .from("attendees")
+        .update({ confirmed: true, confirmed_at: new Date().toISOString() })
+        .eq("id", attendeeId);
+      return twimlResponse("Your attendance is confirmed! ✅ We look forward to seeing you.");
+    }
+
+    if (bodyLower === "no" || bodyLower === "decline" || bodyLower === "cancel") {
+      await sb
+        .from("attendees")
+        .update({ confirmed: false })
+        .eq("id", attendeeId);
+      return twimlResponse("We've noted that you can't attend. Thank you for letting us know.");
+    }
+  }
+
+  // ── Concierge-ready: tag messages for future AI routing ──
+  // If resolved and body doesn't match a known keyword, tag for concierge
   if (resolvedStatus === "resolved") {
-    return twimlResponse("Thanks! Your message was received.");
+    // Update the inbound message to flag it needs concierge attention
+    if (insertError === null || insertError === undefined) {
+      // The message is already inserted above; we could update it with a concierge flag
+      // For now, the Communications Center inbox handles this
+    }
+    return twimlResponse("Thanks! Your message was received. An event organizer will get back to you.");
   } else {
     return twimlResponse(
       "Thanks! Please reply with your event code or email so we can route your message.",

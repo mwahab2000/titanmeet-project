@@ -4,7 +4,7 @@ import { supabase, edgeFunctionUrl } from "@/integrations/supabase/client";
 import { Loader2, CheckCircle2, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-type PageState = "loading" | "invite" | "confirmed" | "error";
+type PageState = "loading" | "invite" | "confirmed" | "checked_in" | "error";
 
 interface InviteData {
   event_title: string;
@@ -22,34 +22,33 @@ const InviteLandingPage = () => {
   const [error, setError] = useState<string>("Invalid or expired link");
   const [confirming, setConfirming] = useState(false);
 
+  const handleCheckin = async (t: string) => {
+    try {
+      const url = edgeFunctionUrl("confirm-rsvp", { token: t, action: "checkin" });
+      const res = await fetch(url, { method: "GET", headers: { "Content-Type": "application/json" } });
+      const data = await res.json();
+      if (!res.ok) { setError(data?.error || "Check-in failed"); setState("error"); return; }
+      setState("checked_in");
+    } catch {
+      setError("Check-in failed. Please try again.");
+      setState("error");
+    }
+  };
+
   useEffect(() => {
     if (!token) { setError("Missing token"); setState("error"); return; }
+    const urlParams = new URLSearchParams(window.location.search);
+    const action = urlParams.get("action");
 
     const validate = async () => {
       try {
-        const { data, error: fnErr } = await supabase.functions.invoke("invite-get", {
-          body: { token },
-        });
-
-        if (fnErr || data?.error) {
-          setError(data?.error || "Invalid invitation link");
-          setState("error");
-          return;
-        }
-
+        const { data, error: fnErr } = await supabase.functions.invoke("invite-get", { body: { token } });
+        if (fnErr || data?.error) { setError(data?.error || "Invalid invitation link"); setState("error"); return; }
         setInvite(data);
-
-        if (data.status === "rsvp_yes" || data.rsvp_at) {
-          setState("confirmed");
-        } else {
-          setState("invite");
-        }
-      } catch {
-        setError("Failed to validate invitation");
-        setState("error");
-      }
+        if (action === "checkin") { await handleCheckin(token); return; }
+        if (data.status === "rsvp_yes" || data.rsvp_at) { setState("confirmed"); } else { setState("invite"); }
+      } catch { setError("Failed to validate invitation"); setState("error"); }
     };
-
     validate();
   }, [token]);
 
@@ -58,26 +57,14 @@ const InviteLandingPage = () => {
     setConfirming(true);
     try {
       const url = edgeFunctionUrl("confirm-rsvp", { token });
-      const res = await fetch(url, {
-        method: "GET",
-        headers: { "Content-Type": "application/json" },
-      });
+      const res = await fetch(url, { method: "GET", headers: { "Content-Type": "application/json" } });
       const data = await res.json();
-
-      if (!res.ok) {
-        setError(data?.error || "Confirmation failed");
-        setState("error");
-        return;
-      }
-
+      if (!res.ok) { setError(data?.error || "Confirmation failed"); setState("error"); return; }
       setState("confirmed");
-    } catch {
-      setError("Failed to confirm. Please try again.");
-      setState("error");
-    } finally {
-      setConfirming(false);
-    }
+    } catch { setError("Failed to confirm. Please try again."); setState("error"); }
+    finally { setConfirming(false); }
   };
+
 
   const eventUrl = invite?.client_slug && invite?.event_slug
     ? `/${invite.client_slug}/${invite.event_slug}`
@@ -175,6 +162,23 @@ const InviteLandingPage = () => {
                   onClick={() => navigate(eventUrl)}
                   className="w-full h-12 sm:h-11 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl"
                 >
+                  View Event Details →
+                </Button>
+              )}
+            </div>
+          )}
+
+          {state === "checked_in" && invite && (
+            <div className="text-center space-y-5 sm:space-y-6">
+              <CheckCircle2 className="h-14 w-14 sm:h-16 sm:w-16 text-emerald-500 mx-auto" />
+              <div className="space-y-2">
+                <h1 className="text-xl sm:text-2xl font-bold text-gray-900">You're Checked In! 🎫</h1>
+                <p className="text-gray-500 text-sm sm:text-base">
+                  Welcome, {invite.attendee_name}! Enjoy <span className="font-semibold text-gray-700">{invite.event_title}</span>.
+                </p>
+              </div>
+              {eventUrl && (
+                <Button onClick={() => navigate(eventUrl)} className="w-full h-12 sm:h-11 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl">
                   View Event Details →
                 </Button>
               )}

@@ -455,6 +455,8 @@ export type Database = {
       }
       attendees: {
         Row: {
+          checked_in_at: string | null
+          checked_in_via: string | null
           confirmed: boolean
           confirmed_at: string | null
           email: string
@@ -468,6 +470,8 @@ export type Database = {
           name: string
         }
         Insert: {
+          checked_in_at?: string | null
+          checked_in_via?: string | null
           confirmed?: boolean
           confirmed_at?: string | null
           email: string
@@ -481,6 +485,8 @@ export type Database = {
           name: string
         }
         Update: {
+          checked_in_at?: string | null
+          checked_in_via?: string | null
           confirmed?: boolean
           confirmed_at?: string | null
           email?: string
@@ -1491,6 +1497,72 @@ export type Database = {
           },
           {
             foreignKeyName: "rsvp_tokens_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      scheduled_messages: {
+        Row: {
+          attendee_id: string | null
+          cancelled_at: string | null
+          channel: string
+          created_at: string
+          created_by: string
+          error: string | null
+          event_id: string
+          id: string
+          message_type: string
+          payload: Json
+          scheduled_at: string
+          sent_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          attendee_id?: string | null
+          cancelled_at?: string | null
+          channel?: string
+          created_at?: string
+          created_by: string
+          error?: string | null
+          event_id: string
+          id?: string
+          message_type?: string
+          payload?: Json
+          scheduled_at: string
+          sent_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          attendee_id?: string | null
+          cancelled_at?: string | null
+          channel?: string
+          created_at?: string
+          created_by?: string
+          error?: string | null
+          event_id?: string
+          id?: string
+          message_type?: string
+          payload?: Json
+          scheduled_at?: string
+          sent_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scheduled_messages_attendee_id_fkey"
+            columns: ["attendee_id"]
+            isOneToOne: false
+            referencedRelation: "attendees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scheduled_messages_event_id_fkey"
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
