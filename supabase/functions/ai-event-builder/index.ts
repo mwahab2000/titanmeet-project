@@ -1049,12 +1049,14 @@ const TOOL_DEFINITIONS = [
     type: "function",
     function: {
       name: "apply_visual_pack",
-      description: "Apply a previously saved visual pack to an event. Copies hero images, gallery, banner, and branding.",
+      description: "Apply a previously saved visual pack to an event. First call with preview_only=true to show what will change, then call again with confirmed=true after admin approval.",
       parameters: {
         type: "object",
         properties: {
           event_id: { type: "string", description: "Target event UUID" },
           pack_name: { type: "string", description: "Visual pack name to apply" },
+          preview_only: { type: "boolean", description: "If true, return a summary of changes without applying. Default true." },
+          confirmed: { type: "boolean", description: "Set to true only after admin confirms the preview. Executes the actual copy." },
         },
         required: ["event_id", "pack_name"],
       },
