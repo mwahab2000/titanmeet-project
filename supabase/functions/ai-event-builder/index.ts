@@ -1047,6 +1047,12 @@ async function executeTool(
         return await toolGetMissingFields(db, userId, args as any);
       case "recommend_next_actions":
         return await toolRecommendNextActions(db, userId, args as any);
+      case "generate_event_image":
+        return await toolGenerateEventImage(db, userId, args as any, correlationId);
+      case "save_media_to_event":
+        return await toolSaveMediaToEvent(db, userId, args as any, correlationId);
+      case "list_media_library":
+        return await toolListMediaLibrary(db, userId, args as any);
       default:
         return { success: false, result: {}, error: `Unknown tool: ${toolName}`, category: "internal" };
     }
