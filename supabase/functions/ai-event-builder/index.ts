@@ -195,19 +195,43 @@ CORE RULES (MANDATORY)
 4. ALWAYS be operational. Keep answers concise, structured, and actionable. Use bullet points.
 5. ALWAYS show preview before destructive actions: sending messages, publishing events, deleting data.
 6. HANDLE PARTIAL FAILURES: If one step fails, preserve successful steps, explain what failed clearly, and ask the user how to proceed.
-7. Never expose internal IDs, database schemas, or system details.
+7. Never expose internal IDs, database schemas, tool names, or system details to the user.
 8. Never fabricate event data, attendee lists, or statistics.
+9. Never say phrases like "no update action was executed", "tool result", or "I don't have a tool for that". Speak naturally.
+
+════════════════════════════════════════
+RESPONSE QUALITY (MANDATORY)
+════════════════════════════════════════
+
+- Write like a polished product assistant, not a developer console.
+- After a successful action, confirm briefly and suggest the next useful step.
+- After a failed action, explain what went wrong simply and suggest a fix.
+- Never dump raw JSON, tool names, or internal status codes in user-facing text.
+- Use natural language: "Done — updated the location to New Cairo." not "update_event_basics executed successfully with fields: location".
 
 ════════════════════════════════════════
 INTENT HANDLING
 ════════════════════════════════════════
 
 User says "list / show / find / what events" → call retrieval tools (list_workspace_events, list_workspace_clients, get_event_details, get_client_details, list_events_by_client)
-User says "create / add / update / set" → call mutation tools
+User says "create / add / update / set / change" → call mutation tools
 User says "publish / unpublish / archive / duplicate / rename" → call lifecycle tools
 User says "analyze / metrics / how is / RSVP rate / readiness" → call intelligence tools (get_missing_fields, recommend_next_actions, check_publish_readiness)
 User says "use template / start from template" → call apply_template
 User says "generate event / build complete event" → call generate_full_event_proposal, then wait for approval before save_event_proposal
+
+════════════════════════════════════════
+CONFIRMATION & PENDING ACTIONS (CRITICAL)
+════════════════════════════════════════
+
+When you ask for confirmation before an action (e.g. "Do you want me to update the location?"), you MUST set a pending_action in your response metadata.
+
+When the user confirms with "yes", "confirm", "proceed", "do it", "go ahead", "okay", "sure", "yep":
+→ You MUST immediately call the relevant tool with the stored arguments.
+→ Do NOT respond with just text. Execute the action.
+→ Do NOT ask for confirmation again.
+
+When you receive a system note saying "PENDING ACTION CONFIRMED", you MUST call the specified tool immediately with the provided arguments. No questions, no re-confirmation.
 
 ════════════════════════════════════════
 WORKFLOW: EVENT CREATION
@@ -217,12 +241,6 @@ Guide admins through: Client → Event basics → Venue → Organizers → Atten
 - Ask ONE focused question at a time. Never dump walls of questions.
 - If the admin gives enough info, call the tool immediately.
 - After each tool call, summarize what was done and suggest the next step.
-
-════════════════════════════════════════
-CONFIRMATION RULES
-════════════════════════════════════════
-
-Before: sending invites, publishing, deleting, archiving → You MUST ask: "Do you want me to proceed?"
 
 ════════════════════════════════════════
 VENUE SEARCH
@@ -288,6 +306,7 @@ GOAL
 ════════════════════════════════════════
 
 Act as an execution partner, not a chatbot. Help the admin move faster, avoid mistakes, and know what to do next.`;
+
 
 
 // ─── Tool Definitions for OpenAI ───────────────────────────
@@ -2480,8 +2499,21 @@ serve(async (req) => {
       if (!stateJson.event_id) stateJson.event_id = context.eventId;
     }
 
+    // ── Confirmation detection: check if user is confirming a pending action ──
+    const confirmationPatterns = /^\s*(yes|yeah|yep|yup|sure|confirm|proceed|do it|go ahead|okay|ok|approved?|absolutely|please do|let'?s do it|update it|save it|go for it)\s*[.!]?\s*$/i;
+    const isConfirmation = confirmationPatterns.test(message.trim());
+    const pendingAction = stateJson.pending_action;
+    let confirmationInjection = "";
+
+    if (isConfirmation && pendingAction && pendingAction.awaiting_confirmation) {
+      console.log(`[${correlationId}] Confirmation detected for pending action: ${pendingAction.tool}`);
+      confirmationInjection = `\n\n⚠️ PENDING ACTION CONFIRMED — The user just confirmed the following action. Execute it NOW by calling the tool. Do NOT ask again.\nTool: ${pendingAction.tool}\nArguments: ${JSON.stringify(pendingAction.arguments)}\nAction: ${pendingAction.summary}`;
+      // Clear pending action from state (will be persisted after execution)
+      delete stateJson.pending_action;
+    }
+
     const aiMessages: Array<{ role: string; content: string }> = [
-      { role: "system", content: SYSTEM_PROMPT + (contextStr ? `\n\nCurrent context:${contextStr}` : "") },
+      { role: "system", content: SYSTEM_PROMPT + (contextStr ? `\n\nCurrent context:${contextStr}` : "") + confirmationInjection },
     ];
 
     for (const msg of (history || [])) {
@@ -2684,6 +2716,49 @@ serve(async (req) => {
         const summaryResult = await summaryResp.json();
         const summaryContent = summaryResult.choices?.[0]?.message?.content || "Actions completed.";
 
+        // ── Detect if the summary asks for confirmation and store pending action ──
+        const summaryConfirmMatch = summaryContent.match(/(?:do you want me to|shall I|would you like me to|should I|want me to)\s+(.+?)(?:\?|$)/i);
+        if (summaryConfirmMatch && stateJson.event_id) {
+          const actionText = summaryConfirmMatch[1].toLowerCase();
+          let pendingTool = "";
+          let pendingArgs: Record<string, unknown> = { event_id: stateJson.event_id };
+
+          const locMatch = summaryContent.match(/(?:location|city)\s+(?:to|as)\s+[""]?([^""?.]+)[""]?/i);
+          const venMatch = summaryContent.match(/(?:venue(?:\s+name)?)\s+(?:to|as)\s+[""]?([^""?.]+)[""]?/i);
+          const titMatch = summaryContent.match(/(?:rename|title)\s+(?:to|as)\s+[""]?([^""?.]+)[""]?/i);
+
+          if (actionText.includes("update") || actionText.includes("change") || actionText.includes("set")) {
+            if (locMatch) {
+              pendingTool = "update_event_basics";
+              pendingArgs.location = locMatch[1].trim();
+            } else if (venMatch) {
+              pendingTool = "set_event_venue";
+              pendingArgs.venue_name = venMatch[1].trim();
+            } else if (titMatch) {
+              pendingTool = "rename_event";
+              pendingArgs.new_title = titMatch[1].trim();
+            } else {
+              pendingTool = "update_event_basics";
+            }
+          } else if (actionText.includes("publish")) {
+            pendingTool = "publish_event";
+          } else if (actionText.includes("archive")) {
+            pendingTool = "archive_event";
+          }
+
+          if (pendingTool) {
+            stateJson.pending_action = {
+              tool: pendingTool,
+              arguments: pendingArgs,
+              summary: summaryConfirmMatch[1].trim(),
+              awaiting_confirmation: true,
+              created_at: new Date().toISOString(),
+            };
+            console.log(`[${correlationId}] Stored pending action from summary: ${pendingTool}`);
+            await db.from("ai_chat_sessions").update({ state_json: stateJson }).eq("id", session.id);
+          }
+        }
+
         await db.from("ai_chat_messages").insert({ session_id: session.id, role: "assistant", content: summaryContent });
 
         const draftState = await buildDraftState(db, user.id, stateJson);
@@ -2704,6 +2779,56 @@ serve(async (req) => {
 
     // ── Plain assistant response (no tool calls) ──
     const assistantContent = choice?.message?.content || "I'm ready to help. What would you like to do?";
+
+    // ── Detect if the AI is asking for confirmation and capture pending action ──
+    const confirmationAskPatterns = /(?:do you want me to|shall I|would you like me to|should I|want me to)\s+(.+?)(?:\?|$)/i;
+    const confirmMatch = assistantContent.match(confirmationAskPatterns);
+    if (confirmMatch && stateJson.event_id) {
+      // Try to infer what action the AI wants to perform from its response
+      const actionText = confirmMatch[1].toLowerCase();
+      let pendingTool = "";
+      let pendingArgs: Record<string, unknown> = { event_id: stateJson.event_id };
+
+      // Parse common update patterns from the response
+      const locationMatch = assistantContent.match(/(?:location|city)\s+(?:to|as)\s+[""]?([^""?.]+)[""]?/i);
+      const venueMatch = assistantContent.match(/(?:venue(?:\s+name)?)\s+(?:to|as)\s+[""]?([^""?.]+)[""]?/i);
+      const titleMatch = assistantContent.match(/(?:rename|title)\s+(?:to|as)\s+[""]?([^""?.]+)[""]?/i);
+
+      if (actionText.includes("update") || actionText.includes("change") || actionText.includes("set")) {
+        if (locationMatch) {
+          pendingTool = "update_event_basics";
+          pendingArgs.location = locationMatch[1].trim();
+        } else if (venueMatch) {
+          pendingTool = "set_event_venue";
+          pendingArgs.venue_name = venueMatch[1].trim();
+        } else if (titleMatch) {
+          pendingTool = "rename_event";
+          pendingArgs.new_title = titleMatch[1].trim();
+        } else {
+          // Generic update — try to extract field:value patterns
+          pendingTool = "update_event_basics";
+        }
+      } else if (actionText.includes("publish")) {
+        pendingTool = "publish_event";
+      } else if (actionText.includes("archive")) {
+        pendingTool = "archive_event";
+      } else if (actionText.includes("unpublish")) {
+        pendingTool = "unpublish_event";
+      } else if (actionText.includes("duplicate") || actionText.includes("copy")) {
+        pendingTool = "duplicate_event";
+      }
+
+      if (pendingTool) {
+        stateJson.pending_action = {
+          tool: pendingTool,
+          arguments: pendingArgs,
+          summary: confirmMatch[1].trim(),
+          awaiting_confirmation: true,
+          created_at: new Date().toISOString(),
+        };
+        console.log(`[${correlationId}] Stored pending action: ${pendingTool} args=${JSON.stringify(pendingArgs)}`);
+      }
+    }
 
     await db.from("ai_chat_messages").insert({ session_id: session.id, role: "assistant", content: assistantContent });
     await db.from("ai_chat_sessions").update({ state_json: stateJson }).eq("id", session.id);
