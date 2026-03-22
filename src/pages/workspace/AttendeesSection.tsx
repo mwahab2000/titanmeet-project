@@ -388,11 +388,11 @@ const AttendeesSection = () => {
     const emailErr = validateField("email", attendee.email);
     if (emailErr && attendee.email) { toast.error("Fix email format before saving"); return null; }
 
-    if (!planLimits.canCreate("attendees")) {
+    if (!planLimits.canCreate("attendeesPerEvent")) {
       openUpgradeModal("attendees");
       return null;
-    } else if (planLimits.attendees.percent >= 80) {
-      toast.warning(`You've used ${planLimits.attendees.percent}% of your monthly attendee limit.`);
+    } else if (planLimits.attendeesPerEvent.percent >= 80) {
+      toast.warning(`You've used ${planLimits.attendeesPerEvent.percent}% of your event attendee limit.`);
     }
 
     const { data, error } = await supabase

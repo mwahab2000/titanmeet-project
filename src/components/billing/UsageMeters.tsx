@@ -8,15 +8,18 @@ import { AlertTriangle } from "lucide-react";
 import { usePlanLimits, type ResourceStatus } from "@/hooks/usePlanLimits";
 
 const RESOURCE_META: Record<string, { label: string; description: string }> = {
-  clients: { label: "Clients", description: "Active client accounts" },
-  activeEvents: { label: "Events", description: "Currently active events" },
-  attendees: { label: "Attendees", description: "Registrations this billing cycle" },
-  emails: { label: "Emails", description: "Emails sent this billing cycle" },
-  storage: { label: "Storage", description: "Files and media stored (GB)" },
+  clients:      { label: "Clients",          description: "Active client accounts" },
+  activeEvents: { label: "Events",           description: "Active events this cycle" },
+  aiPrompts:    { label: "AI Prompts",       description: "AI Builder prompts this cycle" },
+  aiImages:     { label: "AI Images",        description: "AI-generated images this cycle" },
+  emails:       { label: "Emails",           description: "Emails sent this cycle" },
+  whatsapp:     { label: "WhatsApp",         description: "WhatsApp messages this cycle" },
+  brandKits:    { label: "Brand Kits",       description: "Saved brand kits" },
+  storage:      { label: "Storage",          description: "Files and media stored (GB)" },
 };
 
-type ResourceKey = "clients" | "activeEvents" | "attendees" | "emails" | "storage";
-const RESOURCE_KEYS: ResourceKey[] = ["clients", "activeEvents", "attendees", "emails", "storage"];
+type ResourceKey = keyof typeof RESOURCE_META;
+const RESOURCE_KEYS: ResourceKey[] = ["clients", "activeEvents", "aiPrompts", "aiImages", "emails", "whatsapp", "brandKits", "storage"];
 
 function barColor(status: ResourceStatus): string {
   if (status.grandfathered) return "[&>div]:bg-orange-500";
@@ -26,12 +29,11 @@ function barColor(status: ResourceStatus): string {
 }
 
 function formatValue(key: ResourceKey, value: number, limit: number): string {
-  if (limit === Infinity) return `${value} / ∞`;
+  if (limit === Infinity) return `${Math.round(value)} / ∞`;
   const suffix = key === "storage" ? " GB" : "";
-  const displayVal = key === "storage" ? value.toFixed(1) : String(value);
+  const displayVal = key === "storage" ? value.toFixed(1) : String(Math.round(value));
   return `${displayVal}${suffix} / ${limit}${suffix}`;
 }
-
 
 interface UsageMetersProps {
   compact?: boolean;
@@ -58,6 +60,21 @@ export default function UsageMeters({ compact = false }: UsageMetersProps) {
   const limits = usePlanLimits();
 
   const isNoPlan = !limits.loading && limits.planId === "starter" && limits.clients.limit === 0;
+
+  // Map resource keys to the plan limits result
+  const getStatus = (key: ResourceKey): ResourceStatus => {
+    const map: Record<ResourceKey, ResourceStatus> = {
+      clients: limits.clients,
+      activeEvents: limits.activeEvents,
+      aiPrompts: limits.aiPrompts,
+      aiImages: limits.aiImages,
+      emails: limits.emails,
+      whatsapp: limits.whatsapp,
+      brandKits: limits.brandKits,
+      storage: limits.storage,
+    };
+    return map[key];
+  };
 
   return (
     <Card>
@@ -98,7 +115,8 @@ export default function UsageMeters({ compact = false }: UsageMetersProps) {
         ) : (
           <TooltipProvider>
             {RESOURCE_KEYS.map((key) => {
-              const status: ResourceStatus = limits[key];
+              const status = getStatus(key);
+              if (!status || status.limit === Infinity) return null; // Skip unlimited resources
               const meta = RESOURCE_META[key];
               const displayPercent = Math.min(status.percent, 100);
 
@@ -151,7 +169,7 @@ export default function UsageMeters({ compact = false }: UsageMetersProps) {
 
         {!compact && !limits.loading && !isNoPlan && (
           <p className="text-xs text-muted-foreground pt-2 border-t border-border">
-            Attendees and emails reset on {limits.cycleStart
+            Usage resets on {limits.cycleStart
               ? new Date(
                   limits.cycleStart.getFullYear(),
                   limits.cycleStart.getMonth() + 1,

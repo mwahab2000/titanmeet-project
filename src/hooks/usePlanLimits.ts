@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -12,30 +12,57 @@ export interface ResourceStatus {
   grandfathered: boolean;
 }
 
+export interface FeatureGates {
+  segmentation: boolean;
+  workspaceAnalytics: boolean;
+  liveDashboard: boolean;
+  aiConcierge: string; // 'none' | 'basic' | 'advanced'
+  campaignTier: string; // 'basic' | 'advanced'
+}
+
 export interface PlanLimitsResult {
   planId: string;
+  billingInterval: string; // 'monthly' | 'annual'
   clients: ResourceStatus;
   activeEvents: ResourceStatus;
-  attendees: ResourceStatus;
+  attendeesPerEvent: ResourceStatus;
+  adminUsers: ResourceStatus;
+  aiPrompts: ResourceStatus;
+  aiImages: ResourceStatus;
   emails: ResourceStatus;
+  whatsapp: ResourceStatus;
+  brandKits: ResourceStatus;
   storage: ResourceStatus;
+  features: FeatureGates;
   loading: boolean;
   cycleStart: Date | null;
-  canCreate: (resource: keyof Pick<PlanLimitsResult, "clients" | "activeEvents" | "attendees" | "emails" | "storage">) => boolean;
+  canCreate: (resource: string) => boolean;
+  hasFeature: (feature: keyof FeatureGates) => boolean;
   refresh: () => void;
 }
 
 function buildStatus(used: number, limit: number, isHard: boolean): ResourceStatus {
-  const effective = limit <= 0 || limit === Infinity ? Infinity : limit;
+  const effective = limit <= 0 || limit >= 999999 ? Infinity : limit;
   const percent = effective === Infinity ? 0 : Math.min(100, Math.round((used / effective) * 100));
   return { used, limit: effective, percent, isHard, grandfathered: used > effective && effective !== Infinity };
 }
 
+const ALL_PLAN_COLS = [
+  "max_clients", "max_active_events", "max_attendees_per_event", "max_admin_users",
+  "max_emails", "max_whatsapp_sends", "max_ai_requests", "max_ai_images",
+  "max_brand_kits", "max_storage_gb",
+  "has_segmentation", "has_workspace_analytics", "has_live_dashboard",
+  "has_ai_concierge", "campaign_tier",
+].join(", ");
+
 export function usePlanLimits(): PlanLimitsResult {
   const { user } = useAuth();
   const [planId, setPlanId] = useState("starter");
-  const [limits, setLimits] = useState({ clients: 3, activeEvents: 5, attendees: 500, emails: 2000, storageGB: 5 });
-  const [usage, setUsage] = useState({ clients: 0, activeEvents: 0, attendees: 0, emails: 0, storageBytes: 0 });
+  const [billingInterval, setBillingInterval] = useState("monthly");
+  const [sp, setSp] = useState<any>({});
+  const [usage, setUsage] = useState<any>({});
+  const [apiUsage, setApiUsage] = useState<Record<string, number>>({});
+  const [brandKitCount, setBrandKitCount] = useState(0);
   const [cycleStart, setCycleStart] = useState<Date | null>(null);
   const [loading, setLoading] = useState(true);
   const [tick, setTick] = useState(0);
@@ -47,45 +74,62 @@ export function usePlanLimits(): PlanLimitsResult {
     const load = async () => {
       setLoading(true);
 
-      // Fetch subscription + plan limits and usage in parallel
-      const [subRes, usageRes] = await Promise.all([
+      const periodStart = new Date();
+      periodStart.setDate(1);
+      periodStart.setHours(0, 0, 0, 0);
+
+      const [subRes, usageRes, apiRes, bkRes] = await Promise.all([
         supabase
           .from("account_subscriptions")
-          .select("plan_id, subscription_plans(max_clients, max_active_events, max_attendees, max_emails, max_storage_gb)")
+          .select("plan_id, provider, current_period_start")
           .eq("user_id", user.id)
-          .single(),
+          .eq("status", "active")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
         supabase.rpc("get_user_usage", { p_user_id: user.id }),
+        supabase
+          .from("api_usage_tracking")
+          .select("resource_type, usage_count")
+          .eq("user_id", user.id)
+          .gte("period_start", periodStart.toISOString()),
+        supabase
+          .from("brand_kits")
+          .select("id", { count: "exact", head: true })
+          .eq("created_by", user.id),
       ]);
 
       if (cancelled) return;
 
-      const plan = subRes.data?.plan_id || "starter";
+      const subData = subRes.data as any;
+      const plan = subData?.plan_id || "starter";
       setPlanId(plan);
+      setBillingInterval("monthly");
 
-      // Read limits from subscription_plans join
-      const sp = (subRes.data as any)?.subscription_plans;
-      if (sp) {
-        setLimits({
-          clients: sp.max_clients ?? 3,
-          activeEvents: sp.max_active_events ?? 5,
-          attendees: sp.max_attendees ?? 500,
-          emails: sp.max_emails ?? 2000,
-          storageGB: sp.max_storage_gb ?? 5,
-        });
+      // Fetch plan limits separately to avoid complex select parsing
+      const { data: planData } = await supabase
+        .from("subscription_plans")
+        .select("*")
+        .eq("id", plan)
+        .maybeSingle();
+
+      setSp(planData || {});
+
+      if (subData?.current_period_start) {
+        setCycleStart(new Date(subData.current_period_start));
       }
 
-      // Read usage from RPC result
       const u = usageRes.data as any;
-      if (u) {
-        setUsage({
-          clients: u.clients ?? 0,
-          activeEvents: u.activeEvents ?? 0,
-          attendees: u.attendees ?? 0,
-          emails: u.emails ?? 0,
-          storageBytes: u.storageBytes ?? 0,
-        });
-        if (u.cycleStart) setCycleStart(new Date(u.cycleStart));
+      if (u) setUsage(u);
+
+      // Aggregate API usage
+      const agg: Record<string, number> = {};
+      for (const row of (apiRes.data || []) as any[]) {
+        agg[row.resource_type] = (agg[row.resource_type] || 0) + (row.usage_count || 0);
       }
+      setApiUsage(agg);
+
+      setBrandKitCount(bkRes.count ?? 0);
 
       setLoading(false);
     };
@@ -94,23 +138,55 @@ export function usePlanLimits(): PlanLimitsResult {
     return () => { cancelled = true; };
   }, [user, tick]);
 
-  const result = useMemo<PlanLimitsResult>(() => {
-    const clients = buildStatus(usage.clients, limits.clients, true);
-    const activeEvents = buildStatus(usage.activeEvents, limits.activeEvents, true);
-    const attendees = buildStatus(usage.attendees, limits.attendees, false);
-    const emails = buildStatus(usage.emails, limits.emails, false);
-    const storage = buildStatus(usage.storageBytes / (1024 * 1024 * 1024), limits.storageGB, false);
+  const refresh = useCallback(() => setTick(t => t + 1), []);
 
-    const canCreate = (resource: keyof Pick<PlanLimitsResult, "clients" | "activeEvents" | "attendees" | "emails" | "storage">) => {
-      const r = { clients, activeEvents, attendees, emails, storage }[resource];
+  const result = useMemo<PlanLimitsResult>(() => {
+    const clients = buildStatus(usage.clients ?? 0, sp.max_clients ?? 3, true);
+    const activeEvents = buildStatus(usage.activeEvents ?? 0, sp.max_active_events ?? 3, true);
+    const attendeesPerEvent = buildStatus(0, sp.max_attendees_per_event ?? 300, true); // Per-event, checked contextually
+    const adminUsers = buildStatus(0, sp.max_admin_users ?? 1, true);
+    const aiPrompts = buildStatus(apiUsage.ai_requests ?? 0, sp.max_ai_requests ?? 500, false);
+    const aiImages = buildStatus(apiUsage.ai_heavy ?? 0, sp.max_ai_images ?? 20, false);
+    const emails = buildStatus(usage.emails ?? 0, sp.max_emails ?? 2000, false);
+    const whatsapp = buildStatus(apiUsage.whatsapp_sends ?? 0, sp.max_whatsapp_sends ?? 500, false);
+    const brandKits = buildStatus(brandKitCount, sp.max_brand_kits ?? 0, true);
+    const storage = buildStatus((usage.storageBytes ?? 0) / (1024 * 1024 * 1024), sp.max_storage_gb ?? 5, false);
+
+    const features: FeatureGates = {
+      segmentation: sp.has_segmentation ?? false,
+      workspaceAnalytics: sp.has_workspace_analytics ?? false,
+      liveDashboard: sp.has_live_dashboard ?? false,
+      aiConcierge: sp.has_ai_concierge ?? "none",
+      campaignTier: sp.campaign_tier ?? "basic",
+    };
+
+    const canCreate = (resource: string) => {
+      const map: Record<string, ResourceStatus> = {
+        clients, activeEvents, active_events: activeEvents, attendeesPerEvent,
+        attendees_per_event: attendeesPerEvent, adminUsers, admin_users: adminUsers,
+        aiPrompts, ai_prompts: aiPrompts, aiImages, ai_images: aiImages,
+        emails, whatsapp, brandKits, brand_kits: brandKits, storage,
+      };
+      const r = map[resource];
       if (!r) return true;
       if (r.limit === Infinity) return true;
       if (r.isHard) return r.used < r.limit;
       return r.percent < 100;
     };
 
-    return { planId, clients, activeEvents, attendees, emails, storage, loading, cycleStart, canCreate, refresh: () => setTick(t => t + 1) };
-  }, [planId, usage, limits, loading, cycleStart]);
+    const hasFeature = (feature: keyof FeatureGates) => {
+      const val = features[feature];
+      if (typeof val === "boolean") return val;
+      return val !== "none";
+    };
+
+    return {
+      planId, billingInterval,
+      clients, activeEvents, attendeesPerEvent, adminUsers,
+      aiPrompts, aiImages, emails, whatsapp, brandKits, storage,
+      features, loading, cycleStart, canCreate, hasFeature, refresh,
+    };
+  }, [planId, billingInterval, usage, sp, apiUsage, brandKitCount, loading, cycleStart]);
 
   return result;
 }
