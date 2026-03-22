@@ -12,6 +12,7 @@ import { CommsUsageBadge } from "@/components/comms/CommsUsageBadge";
 import { CommsMessageList, type CommsMessage } from "@/components/comms/CommsMessageList";
 import { ScheduledMessagesPanel } from "@/components/comms/ScheduledMessagesPanel";
 import { CheckinPanel } from "@/components/comms/CheckinPanel";
+import { CampaignsView } from "@/components/comms/CampaignsView";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Menu, Construction, Clock, FileText, Settings, QrCode } from "lucide-react";
@@ -54,6 +55,8 @@ const CommunicationsSection = () => {
     switch (activeView) {
       case "overview":
         return <CommsOverview onNavigate={handleNavigate} />;
+      case "campaigns":
+        return <CampaignsView />;
       case "inbox":
         return (
           <CommsInboxView
@@ -157,12 +160,12 @@ const CommunicationsSection = () => {
       </div>
 
       {/* Middle pane */}
-      <div className="flex-1 min-w-0 border-r border-border overflow-hidden" style={{ maxWidth: ["overview", "log", "scheduled", "checkin"].includes(activeView) ? "100%" : "380px" }}>
+      <div className="flex-1 min-w-0 border-r border-border overflow-hidden" style={{ maxWidth: ["overview", "campaigns", "log", "scheduled", "checkin"].includes(activeView) ? "100%" : "380px" }}>
         {renderMiddlePane()}
       </div>
 
       {/* Right pane - only for views that support thread selection */}
-      {!["overview", "log", "scheduled", "checkin", "templates", "settings"].includes(activeView) && (
+      {!["overview", "campaigns", "log", "scheduled", "checkin", "templates", "settings"].includes(activeView) && (
         <div className="flex-1 min-w-0 overflow-hidden">
           {renderRightPane()}
         </div>
