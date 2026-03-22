@@ -3990,7 +3990,8 @@ serve(async (req) => {
         // Determine tool category for action log
         const isRetrievalTool = ["list_workspace_events", "list_workspace_clients", "get_event_details", "get_client_details", "list_events_by_client"].includes(toolName);
         const isIntelligenceTool = ["get_missing_fields", "recommend_next_actions", "check_publish_readiness", "get_event_analytics_summary", "get_workspace_analytics_summary"].includes(toolName);
-        const toolCategory = isRetrievalTool ? "retrieval" : isIntelligenceTool ? "intelligence" : undefined;
+        const isCommunicationTool = ["prepare_communication_campaign", "send_communication_campaign", "get_event_confirmation_stats", "list_confirmation_segments", "get_communication_performance", "list_event_campaigns"].includes(toolName);
+        const toolCategory = isRetrievalTool ? "retrieval" : isIntelligenceTool ? "intelligence" : isCommunicationTool ? "communication" : undefined;
 
         // Add pending entry
         const logEntry: ActionLogEntry = {
