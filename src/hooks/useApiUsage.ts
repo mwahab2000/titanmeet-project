@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -18,7 +18,6 @@ export interface ApiUsageResult {
   usage: Record<ApiResourceType, ApiUsageEntry>;
   loading: boolean;
   refresh: () => void;
-  /** The single highest-severity warning to show, if any */
   topWarning: ApiUsageEntry | null;
 }
 
@@ -32,14 +31,14 @@ const RESOURCE_LABELS: Record<string, string> = {
 
 const PLAN_LIMIT_COLS: Record<string, string> = {
   ai_requests: "max_ai_requests",
-  ai_heavy: "max_ai_heavy",
+  ai_heavy: "max_ai_images",
   maps_search: "max_maps_searches",
   maps_photos: "max_maps_photos",
   whatsapp_sends: "max_whatsapp_sends",
 };
 
 const DEFAULT_LIMITS: Record<string, number> = {
-  ai_requests: 100,
+  ai_requests: 500,
   ai_heavy: 20,
   maps_search: 50,
   maps_photos: 100,
@@ -47,7 +46,7 @@ const DEFAULT_LIMITS: Record<string, number> = {
 };
 
 function buildEntry(used: number, limit: number): ApiUsageEntry {
-  const effective = limit <= 0 ? Infinity : limit;
+  const effective = limit <= 0 || limit >= 999999 ? Infinity : limit;
   const percent = effective === Infinity ? 0 : Math.min(100, Math.round((used / effective) * 100));
   return {
     resource_type: "",
@@ -86,9 +85,12 @@ export function useApiUsage(): ApiUsageResult {
           .gte("period_start", periodStr),
         supabase
           .from("account_subscriptions")
-          .select("plan_id, subscription_plans(max_ai_requests, max_ai_heavy, max_maps_searches, max_maps_photos, max_whatsapp_sends)")
+          .select(`plan_id, subscription_plans(max_ai_requests, max_ai_images, max_maps_searches, max_maps_photos, max_whatsapp_sends)`)
           .eq("user_id", user.id)
-          .single(),
+          .eq("status", "active")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
       ]);
 
       if (cancelled) return;
@@ -115,6 +117,8 @@ export function useApiUsage(): ApiUsageResult {
     return () => { cancelled = true; };
   }, [user, tick]);
 
+  const refresh = useCallback(() => setTick(t => t + 1), []);
+
   const result = useMemo<ApiUsageResult>(() => {
     const keys: ApiResourceType[] = ["ai_requests", "ai_heavy", "maps_search", "maps_photos", "whatsapp_sends"];
     const usage = {} as Record<ApiResourceType, ApiUsageEntry>;
@@ -132,7 +136,7 @@ export function useApiUsage(): ApiUsageResult {
       }
     }
 
-    return { usage, loading, refresh: () => setTick(t => t + 1), topWarning };
+    return { usage, loading, refresh, topWarning };
   }, [usageData, limits, loading]);
 
   return result;
