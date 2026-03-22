@@ -85,10 +85,20 @@ export const LandingHowItWorks = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={isInView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.5, delay: 0.1 }}
-          className="font-display text-3xl font-bold md:text-4xl text-center mb-14"
+          className="font-display text-3xl font-bold md:text-4xl text-center mb-3"
         >
           Six steps to your next event
         </motion.h2>
+        <motion.p
+          initial={{ opacity: 0, y: 15 }}
+          animate={isInView ? { opacity: 1, y: 0 } : {}}
+          transition={{ duration: 0.5, delay: 0.15 }}
+          className="text-center mb-14"
+        >
+          <span className="inline-flex items-center gap-2 rounded-full bg-[hsl(var(--titan-green)/0.1)] border border-[hsl(var(--titan-green)/0.2)] px-4 py-1.5 text-sm font-medium text-[hsl(var(--titan-green))]">
+            ✦ Or let AI do all of this for you
+          </span>
+        </motion.p>
 
         {/* DESKTOP ROAD LAYOUT */}
         <div className="hidden lg:block relative max-w-6xl mx-auto" style={{ height: 420 }}>
