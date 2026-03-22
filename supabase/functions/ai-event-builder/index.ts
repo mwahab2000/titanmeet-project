@@ -2626,6 +2626,128 @@ async function toolRecommendNextActions(
   return { success: true, result: { recommendations, scope: "workspace" } };
 }
 
+// ─── Analytics Tools ───────────────────────────────────────
+
+async function toolGetEventAnalytics(
+  db: SupabaseClient, userId: string,
+  args: { event_id: string }
+): Promise<ToolResult> {
+  const { allowed, event: evt } = await canManageEvent(db, userId, args.event_id);
+  if (!allowed || !evt) return { success: false, result: {}, error: "Event not found or access denied", category: "permission" };
+
+  const [attRes, invRes, msgRes] = await Promise.all([
+    db.from("attendees").select("id, confirmed, checked_in_at").eq("event_id", args.event_id),
+    db.from("event_invites").select("id, status, opened_at").eq("event_id", args.event_id),
+    db.from("message_logs").select("id, status, channel").eq("event_id", args.event_id),
+  ]);
+
+  const att = attRes.data || [];
+  const inv = invRes.data || [];
+  const msgs = msgRes.data || [];
+
+  const total = att.length;
+  const confirmed = att.filter((a: any) => a.confirmed).length;
+  const checkedIn = att.filter((a: any) => a.checked_in_at).length;
+  const noShow = confirmed > 0 ? confirmed - checkedIn : 0;
+  const rsvpRate = total > 0 ? Math.round((confirmed / total) * 100) : 0;
+  const attendanceRate = confirmed > 0 ? Math.round((checkedIn / confirmed) * 100) : 0;
+  const noShowRate = confirmed > 0 ? Math.round((noShow / confirmed) * 100) : 0;
+
+  const messagesSent = msgs.filter((m: any) => ["sent", "delivered", "read"].includes(m.status)).length;
+  const messagesDelivered = msgs.filter((m: any) => ["delivered", "read"].includes(m.status)).length;
+  const messagesOpened = inv.filter((i: any) => i.opened_at).length;
+  const openRate = messagesSent > 0 ? Math.round((messagesOpened / messagesSent) * 100) : 0;
+
+  // Auto-insights
+  const insights: string[] = [];
+  if (noShowRate > 25) insights.push(`High no-show rate (${noShowRate}%) — consider sending reminders.`);
+  if (rsvpRate < 40 && total > 5) insights.push(`Low RSVP conversion (${rsvpRate}%).`);
+  if (rsvpRate >= 70) insights.push(`Strong RSVP rate at ${rsvpRate}%.`);
+  if (attendanceRate >= 80 && confirmed >= 10) insights.push(`Excellent attendance rate (${attendanceRate}%).`);
+  if (messagesSent > 0 && messagesOpened === 0) insights.push("No messages opened yet.");
+
+  return {
+    success: true,
+    result: {
+      event_id: args.event_id,
+      title: evt.title,
+      status: evt.status,
+      metrics: {
+        totalInvited: total,
+        confirmed,
+        checkedIn,
+        noShow,
+        rsvpRate,
+        attendanceRate,
+        noShowRate,
+        messagesSent,
+        messagesDelivered,
+        messagesOpened,
+        openRate,
+      },
+      insights,
+    },
+  };
+}
+
+async function toolGetWorkspaceAnalytics(
+  db: SupabaseClient, userId: string
+): Promise<ToolResult> {
+  const isPrivileged = await isAdminOrOwnerRole(db, userId);
+  let evQuery = db.from("events").select("id, title, status, start_date");
+  if (!isPrivileged) evQuery = evQuery.eq("created_by", userId);
+  const { data: events } = await evQuery;
+  const allEvents = events || [];
+  const eventIds = allEvents.map((e: any) => e.id);
+
+  if (eventIds.length === 0) {
+    return { success: true, result: { totalEvents: 0, totalAttendees: 0, avgRsvpRate: 0, avgAttendanceRate: 0, avgNoShowRate: 0, topEvents: [] } };
+  }
+
+  const { data: attendees } = await db
+    .from("attendees")
+    .select("id, event_id, confirmed, checked_in_at")
+    .in("event_id", eventIds);
+
+  const att = attendees || [];
+
+  const eventMetrics = allEvents.map((ev: any) => {
+    const evAtt = att.filter((a: any) => a.event_id === ev.id);
+    const total = evAtt.length;
+    const confirmed = evAtt.filter((a: any) => a.confirmed).length;
+    const checkedIn = evAtt.filter((a: any) => a.checked_in_at).length;
+    return {
+      id: ev.id, title: ev.title, attendees: total,
+      rsvpRate: total > 0 ? (confirmed / total) * 100 : 0,
+      attendanceRate: confirmed > 0 ? (checkedIn / confirmed) * 100 : 0,
+      noShowRate: confirmed > 0 ? ((confirmed - checkedIn) / confirmed) * 100 : 0,
+    };
+  });
+
+  const withAtt = eventMetrics.filter((e: any) => e.attendees > 0);
+  const avgRsvp = withAtt.length > 0 ? Math.round(withAtt.reduce((s: number, e: any) => s + e.rsvpRate, 0) / withAtt.length) : 0;
+  const avgAttendance = withAtt.length > 0 ? Math.round(withAtt.reduce((s: number, e: any) => s + e.attendanceRate, 0) / withAtt.length) : 0;
+  const avgNoShow = withAtt.length > 0 ? Math.round(withAtt.reduce((s: number, e: any) => s + e.noShowRate, 0) / withAtt.length) : 0;
+
+  const topEvents = eventMetrics
+    .filter((e: any) => e.attendees >= 5)
+    .sort((a: any, b: any) => b.attendanceRate - a.attendanceRate)
+    .slice(0, 5)
+    .map((e: any) => ({ title: e.title, attendees: e.attendees, attendanceRate: Math.round(e.attendanceRate), rsvpRate: Math.round(e.rsvpRate) }));
+
+  return {
+    success: true,
+    result: {
+      totalEvents: allEvents.length,
+      totalAttendees: att.length,
+      avgRsvpRate: avgRsvp,
+      avgAttendanceRate: avgAttendance,
+      avgNoShowRate: avgNoShow,
+      topEvents,
+    },
+  };
+}
+
 // ─── Media Tools ───────────────────────────────────────────
 
 async function toolGenerateEventImage(
