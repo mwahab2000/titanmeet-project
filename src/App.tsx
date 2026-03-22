@@ -13,6 +13,7 @@ import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { EventWorkspaceLayout } from "@/components/dashboard/EventWorkspaceLayout";
 import { getClientSlugFromHostname } from "@/lib/subdomain";
 import { lazy, Suspense } from "react";
+import ErrorBoundary from "@/components/ErrorBoundary";
 
 // ── Eagerly loaded (critical path) ────────────────────────────
 import Index from "./pages/Index";
