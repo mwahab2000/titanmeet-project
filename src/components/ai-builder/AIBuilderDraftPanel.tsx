@@ -63,9 +63,9 @@ export const AIBuilderDraftPanel = ({
   const hasContext = !!ctx.eventId || !!ctx.clientId;
   const readyCount = [
     draft.client, draft.eventBasics, draft.venue,
-    draft.organizers, draft.attendees, draft.agenda,
+    draft.organizers, draft.attendees, draft.agenda, draft.media,
   ].filter((s) => s.status === "done").length;
-  const totalSections = 6;
+  const totalSections = 7;
   const pct = Math.round((readyCount / totalSections) * 100);
 
   const statusCfg = eventStatusConfig[ctx.eventStatus || ""] || eventStatusConfig.draft;
