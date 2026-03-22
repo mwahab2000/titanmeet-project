@@ -1,4 +1,5 @@
 import { useState } from "react";
+import ReactMarkdown from "react-markdown";
 import { Bot, User, CheckCircle2, AlertTriangle, Info, Plus, Pencil, MapPin, ImageIcon, XCircle, Clock, ChevronDown, ChevronUp, Sparkles } from "lucide-react";
 import type { ChatMessage, AIAction, ActionLogEntry } from "@/hooks/useAIBuilderSession";
 import { cn } from "@/lib/utils";
