@@ -65,31 +65,6 @@ const InviteLandingPage = () => {
     finally { setConfirming(false); }
   };
 
-  const handleConfirm = async () => {
-    if (!token) return;
-    setConfirming(true);
-    try {
-      const url = edgeFunctionUrl("confirm-rsvp", { token });
-      const res = await fetch(url, {
-        method: "GET",
-        headers: { "Content-Type": "application/json" },
-      });
-      const data = await res.json();
-
-      if (!res.ok) {
-        setError(data?.error || "Confirmation failed");
-        setState("error");
-        return;
-      }
-
-      setState("confirmed");
-    } catch {
-      setError("Failed to confirm. Please try again.");
-      setState("error");
-    } finally {
-      setConfirming(false);
-    }
-  };
 
   const eventUrl = invite?.client_slug && invite?.event_slug
     ? `/${invite.client_slug}/${invite.event_slug}`
