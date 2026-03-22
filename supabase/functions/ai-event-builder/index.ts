@@ -296,7 +296,7 @@ INTENT HANDLING
 User says "list / show / find / what events" → call retrieval tools (list_workspace_events, list_workspace_clients, get_event_details, get_client_details, list_events_by_client)
 User says "create / add / update / set / change" → call mutation tools
 User says "publish / unpublish / archive / duplicate / rename" → call lifecycle tools
-User says "analyze / metrics / how is / RSVP rate / readiness" → call intelligence tools (get_missing_fields, recommend_next_actions, check_publish_readiness)
+User says "analyze / metrics / how is / RSVP rate / readiness / performance / no-show / attendance" → call analytics & intelligence tools (get_event_analytics_summary, get_workspace_analytics_summary, get_missing_fields, recommend_next_actions, check_publish_readiness)
 User says "use template / start from template" → call apply_template
 User says "generate event / build complete event" → call generate_full_event_proposal, then wait for approval before save_event_proposal
 
@@ -1081,6 +1081,32 @@ const TOOL_DEFINITIONS = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "get_event_analytics_summary",
+      description: "Get analytics summary for a specific event: RSVP rate, attendance rate, no-show %, check-in count, message performance, and auto-generated insights.",
+      parameters: {
+        type: "object",
+        properties: {
+          event_id: { type: "string", description: "Event UUID" },
+        },
+        required: ["event_id"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_workspace_analytics_summary",
+      description: "Get workspace-level analytics: total events, total attendees, average RSVP rate, average attendance rate, average no-show rate, and top-performing events.",
+      parameters: {
+        type: "object",
+        properties: {},
+        required: [],
+      },
+    },
+  },
 ];
 
 // ─── Tool Executor ─────────────────────────────────────────
@@ -1172,6 +1198,10 @@ async function executeTool(
         return await toolSaveVisualPack(db, userId, args as any, correlationId);
       case "apply_visual_pack":
         return await toolApplyVisualPack(db, userId, args as any, correlationId);
+      case "get_event_analytics_summary":
+        return await toolGetEventAnalytics(db, userId, args as any);
+      case "get_workspace_analytics_summary":
+        return await toolGetWorkspaceAnalytics(db, userId);
       default:
         return { success: false, result: {}, error: `Unknown tool: ${toolName}`, category: "internal" };
     }
@@ -2596,6 +2626,128 @@ async function toolRecommendNextActions(
   return { success: true, result: { recommendations, scope: "workspace" } };
 }
 
+// ─── Analytics Tools ───────────────────────────────────────
+
+async function toolGetEventAnalytics(
+  db: SupabaseClient, userId: string,
+  args: { event_id: string }
+): Promise<ToolResult> {
+  const { allowed, event: evt } = await canManageEvent(db, userId, args.event_id);
+  if (!allowed || !evt) return { success: false, result: {}, error: "Event not found or access denied", category: "permission" };
+
+  const [attRes, invRes, msgRes] = await Promise.all([
+    db.from("attendees").select("id, confirmed, checked_in_at").eq("event_id", args.event_id),
+    db.from("event_invites").select("id, status, opened_at").eq("event_id", args.event_id),
+    db.from("message_logs").select("id, status, channel").eq("event_id", args.event_id),
+  ]);
+
+  const att = attRes.data || [];
+  const inv = invRes.data || [];
+  const msgs = msgRes.data || [];
+
+  const total = att.length;
+  const confirmed = att.filter((a: any) => a.confirmed).length;
+  const checkedIn = att.filter((a: any) => a.checked_in_at).length;
+  const noShow = confirmed > 0 ? confirmed - checkedIn : 0;
+  const rsvpRate = total > 0 ? Math.round((confirmed / total) * 100) : 0;
+  const attendanceRate = confirmed > 0 ? Math.round((checkedIn / confirmed) * 100) : 0;
+  const noShowRate = confirmed > 0 ? Math.round((noShow / confirmed) * 100) : 0;
+
+  const messagesSent = msgs.filter((m: any) => ["sent", "delivered", "read"].includes(m.status)).length;
+  const messagesDelivered = msgs.filter((m: any) => ["delivered", "read"].includes(m.status)).length;
+  const messagesOpened = inv.filter((i: any) => i.opened_at).length;
+  const openRate = messagesSent > 0 ? Math.round((messagesOpened / messagesSent) * 100) : 0;
+
+  // Auto-insights
+  const insights: string[] = [];
+  if (noShowRate > 25) insights.push(`High no-show rate (${noShowRate}%) — consider sending reminders.`);
+  if (rsvpRate < 40 && total > 5) insights.push(`Low RSVP conversion (${rsvpRate}%).`);
+  if (rsvpRate >= 70) insights.push(`Strong RSVP rate at ${rsvpRate}%.`);
+  if (attendanceRate >= 80 && confirmed >= 10) insights.push(`Excellent attendance rate (${attendanceRate}%).`);
+  if (messagesSent > 0 && messagesOpened === 0) insights.push("No messages opened yet.");
+
+  return {
+    success: true,
+    result: {
+      event_id: args.event_id,
+      title: evt.title,
+      status: evt.status,
+      metrics: {
+        totalInvited: total,
+        confirmed,
+        checkedIn,
+        noShow,
+        rsvpRate,
+        attendanceRate,
+        noShowRate,
+        messagesSent,
+        messagesDelivered,
+        messagesOpened,
+        openRate,
+      },
+      insights,
+    },
+  };
+}
+
+async function toolGetWorkspaceAnalytics(
+  db: SupabaseClient, userId: string
+): Promise<ToolResult> {
+  const isPrivileged = await isAdminOrOwnerRole(db, userId);
+  let evQuery = db.from("events").select("id, title, status, start_date");
+  if (!isPrivileged) evQuery = evQuery.eq("created_by", userId);
+  const { data: events } = await evQuery;
+  const allEvents = events || [];
+  const eventIds = allEvents.map((e: any) => e.id);
+
+  if (eventIds.length === 0) {
+    return { success: true, result: { totalEvents: 0, totalAttendees: 0, avgRsvpRate: 0, avgAttendanceRate: 0, avgNoShowRate: 0, topEvents: [] } };
+  }
+
+  const { data: attendees } = await db
+    .from("attendees")
+    .select("id, event_id, confirmed, checked_in_at")
+    .in("event_id", eventIds);
+
+  const att = attendees || [];
+
+  const eventMetrics = allEvents.map((ev: any) => {
+    const evAtt = att.filter((a: any) => a.event_id === ev.id);
+    const total = evAtt.length;
+    const confirmed = evAtt.filter((a: any) => a.confirmed).length;
+    const checkedIn = evAtt.filter((a: any) => a.checked_in_at).length;
+    return {
+      id: ev.id, title: ev.title, attendees: total,
+      rsvpRate: total > 0 ? (confirmed / total) * 100 : 0,
+      attendanceRate: confirmed > 0 ? (checkedIn / confirmed) * 100 : 0,
+      noShowRate: confirmed > 0 ? ((confirmed - checkedIn) / confirmed) * 100 : 0,
+    };
+  });
+
+  const withAtt = eventMetrics.filter((e: any) => e.attendees > 0);
+  const avgRsvp = withAtt.length > 0 ? Math.round(withAtt.reduce((s: number, e: any) => s + e.rsvpRate, 0) / withAtt.length) : 0;
+  const avgAttendance = withAtt.length > 0 ? Math.round(withAtt.reduce((s: number, e: any) => s + e.attendanceRate, 0) / withAtt.length) : 0;
+  const avgNoShow = withAtt.length > 0 ? Math.round(withAtt.reduce((s: number, e: any) => s + e.noShowRate, 0) / withAtt.length) : 0;
+
+  const topEvents = eventMetrics
+    .filter((e: any) => e.attendees >= 5)
+    .sort((a: any, b: any) => b.attendanceRate - a.attendanceRate)
+    .slice(0, 5)
+    .map((e: any) => ({ title: e.title, attendees: e.attendees, attendanceRate: Math.round(e.attendanceRate), rsvpRate: Math.round(e.rsvpRate) }));
+
+  return {
+    success: true,
+    result: {
+      totalEvents: allEvents.length,
+      totalAttendees: att.length,
+      avgRsvpRate: avgRsvp,
+      avgAttendanceRate: avgAttendance,
+      avgNoShowRate: avgNoShow,
+      topEvents,
+    },
+  };
+}
+
 // ─── Media Tools ───────────────────────────────────────────
 
 async function toolGenerateEventImage(
@@ -3568,7 +3720,7 @@ serve(async (req) => {
 
         // Determine tool category for action log
         const isRetrievalTool = ["list_workspace_events", "list_workspace_clients", "get_event_details", "get_client_details", "list_events_by_client"].includes(toolName);
-        const isIntelligenceTool = ["get_missing_fields", "recommend_next_actions", "check_publish_readiness"].includes(toolName);
+        const isIntelligenceTool = ["get_missing_fields", "recommend_next_actions", "check_publish_readiness", "get_event_analytics_summary", "get_workspace_analytics_summary"].includes(toolName);
         const toolCategory = isRetrievalTool ? "retrieval" : isIntelligenceTool ? "intelligence" : undefined;
 
         // Add pending entry
@@ -3852,6 +4004,8 @@ function formatToolDisplayName(toolName: string): string {
     get_brand_kit: "Get Brand Kit",
     save_visual_pack: "Save Visual Pack",
     apply_visual_pack: "Apply Visual Pack",
+    get_event_analytics_summary: "Event Analytics",
+    get_workspace_analytics_summary: "Workspace Analytics",
   };
   return names[toolName] || toolName;
 }
@@ -3983,6 +4137,10 @@ function formatToolLabel(toolName: string, result: Record<string, unknown>): str
       return (result.message as string) || `Saved visual pack`;
     case "apply_visual_pack":
       return (result.message as string) || `Applied visual pack`;
+    case "get_event_analytics_summary":
+      return `Analytics: ${(result.metrics as any)?.rsvpRate ?? 0}% RSVP, ${(result.metrics as any)?.attendanceRate ?? 0}% attendance`;
+    case "get_workspace_analytics_summary":
+      return `Workspace: ${result.totalEvents} events, ${result.totalAttendees} attendees`;
     default:
       return toolName;
   }

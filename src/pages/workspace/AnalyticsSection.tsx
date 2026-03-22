@@ -23,11 +23,14 @@ interface AnalyticsData {
   checkedIn: number;
   noShow: number;
   messagesSent: number;
+  messagesDelivered: number;
   messagesOpened: number;
   surveysSent: number;
   surveysCompleted: number;
   checkinTimeline: { hour: string; count: number }[];
   rsvpTimeline: { date: string; confirmed: number; total: number }[];
+  messageFunnel: { stage: string; count: number }[];
+  insights: { text: string; type: "info" | "warning" | "success" }[];
 }
 
 const COLORS = {
@@ -102,10 +105,43 @@ const AnalyticsSection = () => {
       const pending = totalInvited - confirmed - declined;
 
       const messagesSent = msgs.filter(m => ["sent", "delivered", "read"].includes(m.status)).length;
+      const messagesDelivered = msgs.filter(m => ["delivered", "read"].includes(m.status)).length;
       const messagesOpened = inv.filter(i => i.opened_at).length;
 
       const surveysSent = si.length;
       const surveysCompleted = sr.length;
+
+      // Message performance funnel
+      const messageFunnel = [
+        { stage: "Sent", count: messagesSent },
+        { stage: "Delivered", count: messagesDelivered },
+        { stage: "Opened", count: messagesOpened },
+        { stage: "RSVP'd", count: confirmed },
+      ];
+
+      // Auto-generate insights
+      const insights: { text: string; type: "info" | "warning" | "success" }[] = [];
+      const rsvpRate = totalInvited > 0 ? (confirmed / totalInvited) * 100 : 0;
+      const attendanceRate = confirmed > 0 ? (checkedIn / confirmed) * 100 : 0;
+      const noShowPct = confirmed > 0 ? (noShow / confirmed) * 100 : 0;
+
+      if (noShowPct > 25) insights.push({ text: `High no-show rate (${Math.round(noShowPct)}%) — consider sending reminders closer to the event.`, type: "warning" });
+      else if (noShowPct > 0 && noShowPct <= 10) insights.push({ text: `Excellent no-show rate — only ${Math.round(noShowPct)}% absent.`, type: "success" });
+      if (rsvpRate < 40 && totalInvited > 5) insights.push({ text: `Low RSVP conversion (${Math.round(rsvpRate)}%) — try a follow-up message.`, type: "warning" });
+      else if (rsvpRate >= 70) insights.push({ text: `Strong RSVP rate at ${Math.round(rsvpRate)}%.`, type: "success" });
+      if (checkedIn > 0) {
+        const peakHour = Object.entries(
+          att.filter(a => a.checked_in_at).reduce((acc: Record<string, number>, a) => {
+            const h = new Date(a.checked_in_at!).getHours();
+            const label = `${h.toString().padStart(2, "0")}:00`;
+            acc[label] = (acc[label] || 0) + 1;
+            return acc;
+          }, {})
+        ).sort(([, a], [, b]) => b - a)[0];
+        if (peakHour) insights.push({ text: `Peak check-in time: ${peakHour[0]} (${peakHour[1]} arrivals).`, type: "info" });
+      }
+      if (messagesSent > 0 && messagesOpened === 0) insights.push({ text: "No messages opened yet — check delivery status.", type: "warning" });
+      if (attendanceRate >= 80 && confirmed >= 10) insights.push({ text: `Great attendance rate (${Math.round(attendanceRate)}%) — well done!`, type: "success" });
 
       // Check-in time distribution
       const checkinHours: Record<string, number> = {};
@@ -133,8 +169,9 @@ const AnalyticsSection = () => {
 
       setData({
         totalInvited, confirmed, declined, pending,
-        checkedIn, noShow, messagesSent, messagesOpened,
+        checkedIn, noShow, messagesSent, messagesDelivered, messagesOpened,
         surveysSent, surveysCompleted, checkinTimeline, rsvpTimeline,
+        messageFunnel, insights,
       });
     } catch (err) {
       console.error("Analytics fetch error:", err);
@@ -342,6 +379,66 @@ const AnalyticsSection = () => {
         </Card>
       </div>
 
+      {/* Message Funnel & Insights */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Message Performance Funnel */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Message Performance Funnel</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {(data?.messageFunnel?.some(s => s.count > 0)) ? (
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={data!.messageFunnel} layout="vertical" margin={{ top: 5, right: 20, bottom: 5, left: 10 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis type="number" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} allowDecimals={false} />
+                  <YAxis type="category" dataKey="stage" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} width={65} />
+                  <ReTooltip
+                    contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: "12px" }}
+                  />
+                  <Bar dataKey="count" fill={COLORS.primary} radius={[0, 4, 4, 0]} name="Count" />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-10">No message data yet</p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Insights Panel */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Insights</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {(data?.insights?.length ?? 0) > 0 ? (
+              <div className="space-y-2">
+                {data!.insights.map((insight, i) => (
+                  <div
+                    key={i}
+                    className={cn(
+                      "flex items-start gap-2 p-3 rounded-lg text-sm border",
+                      insight.type === "warning" && "bg-yellow-500/5 border-yellow-500/20 text-yellow-700 dark:text-yellow-300",
+                      insight.type === "success" && "bg-emerald-500/5 border-emerald-500/20 text-emerald-700 dark:text-emerald-300",
+                      insight.type === "info" && "bg-primary/5 border-primary/20 text-primary",
+                    )}
+                  >
+                    <span className="shrink-0 mt-0.5">
+                      {insight.type === "warning" ? "⚠️" : insight.type === "success" ? "✅" : "ℹ️"}
+                    </span>
+                    <span>{insight.text}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-10">
+                {data?.totalInvited === 0 ? "Add attendees to see insights" : "No notable insights yet"}
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Summary Table */}
       <Card>
         <CardHeader className="pb-2">
@@ -357,8 +454,8 @@ const AnalyticsSection = () => {
               { label: "Checked In", value: data?.checkedIn ?? 0 },
               { label: "No-Shows", value: data?.noShow ?? 0 },
               { label: "Messages Sent", value: data?.messagesSent ?? 0 },
-              { label: "Messages Opened", value: data?.messagesOpened ?? 0 },
-              { label: "Survey Invites", value: data?.surveysSent ?? 0 },
+              { label: "Delivered", value: data?.messagesDelivered ?? 0 },
+              { label: "Opened", value: data?.messagesOpened ?? 0 },
               { label: "Survey Completed", value: data?.surveysCompleted ?? 0 },
               { label: "RSVP Rate", value: `${rsvpRate}%` },
               { label: "Attendance Rate", value: `${attendanceRate}%` },
