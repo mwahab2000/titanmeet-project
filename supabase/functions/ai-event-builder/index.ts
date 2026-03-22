@@ -1516,6 +1516,11 @@ serve(async (req) => {
             stateJson.event_id = toolResult.result.event_id;
             await db.from("ai_chat_sessions").update({ event_id: toolResult.result.event_id as string }).eq("id", session.id);
           }
+          if (toolName === "save_event_proposal" && toolResult.result.event_id) {
+            stateJson.event_id = toolResult.result.event_id;
+            if (toolResult.result.client_id) stateJson.client_id = toolResult.result.client_id;
+            await db.from("ai_chat_sessions").update({ event_id: toolResult.result.event_id as string }).eq("id", session.id);
+          }
         } else {
           logEntry.status = "failed";
           logEntry.message = toolResult.error || "Action failed";
