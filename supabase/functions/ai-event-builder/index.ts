@@ -1707,7 +1707,7 @@ async function toolListWorkspaceEvents(
   const maxResults = Math.min(args.limit || 20, 50);
 
   let query = db.from("events")
-    .select("id, title, slug, status, start_date, end_date, location, venue_name, event_date, client_id, clients(name)")
+    .select("id, title, slug, status, start_date, end_date, location, venue_name, event_date, client_id, readiness, readiness_details, clients(name)")
     .order("updated_at", { ascending: false })
     .limit(maxResults);
 
@@ -1738,6 +1738,18 @@ async function toolListWorkspaceEvents(
     return { success: false, result: {}, error: classified.userMessage, category: classified.category };
   }
 
+  // Batch-fetch attendee counts for listed events
+  const eventIds = (data || []).map((e: any) => e.id);
+  const attendeeCounts: Record<string, number> = {};
+  if (eventIds.length > 0) {
+    const { data: attData } = await db.from("attendees")
+      .select("event_id")
+      .in("event_id", eventIds);
+    for (const a of (attData || [])) {
+      attendeeCounts[a.event_id] = (attendeeCounts[a.event_id] || 0) + 1;
+    }
+  }
+
   const events = (data || []).map((e: any) => ({
     id: e.id,
     title: e.title,
@@ -1747,6 +1759,9 @@ async function toolListWorkspaceEvents(
     location: e.location || e.venue_name || null,
     client_name: e.clients?.name || null,
     slug: e.slug,
+    readiness: e.readiness ?? false,
+    readiness_score: (e.readiness_details as any)?.score ?? null,
+    attendee_count: attendeeCounts[e.id] || 0,
   }));
 
   return {
@@ -1864,6 +1879,9 @@ async function toolGetEventDetails(
         theme: eventData.theme_id,
         client_name: clientName,
         max_attendees: eventData.max_attendees,
+        readiness: eventData.readiness ?? false,
+        readiness_score: (eventData.readiness_details as any)?.score ?? null,
+        readiness_missing: (eventData.readiness_details as any)?.missing ?? [],
       },
       counts: {
         attendees: attRes.count ?? 0,
@@ -2565,12 +2583,18 @@ serve(async (req) => {
           }
         }
 
+        // Determine tool category for action log
+        const isRetrievalTool = ["list_workspace_events", "list_workspace_clients", "get_event_details", "get_client_details", "list_events_by_client"].includes(toolName);
+        const isIntelligenceTool = ["get_missing_fields", "recommend_next_actions", "check_publish_readiness"].includes(toolName);
+        const toolCategory = isRetrievalTool ? "retrieval" : isIntelligenceTool ? "intelligence" : undefined;
+
         // Add pending entry
         const logEntry: ActionLogEntry = {
           action: toolName,
           target: resolveToolTarget(toolName, toolArgs),
           status: "pending",
           message: `Executing ${formatToolDisplayName(toolName)}...`,
+          category: toolCategory,
           timestamp: new Date().toISOString(),
         };
         actionLog.push(logEntry);
