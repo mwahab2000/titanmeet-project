@@ -1648,6 +1648,8 @@ function resolveToolTarget(toolName: string, args: Record<string, unknown>): str
   if (toolName === "find_or_create_client") return (args.name as string) || "client";
   if (toolName === "create_event_draft") return (args.title as string) || "event";
   if (toolName === "search_venue_on_maps") return (args.query as string) || "venue";
+  if (toolName === "generate_full_event_proposal") return (args.description as string)?.substring(0, 40) || "proposal";
+  if (toolName === "save_event_proposal") return "full proposal";
   if (args.event_id) return `event:${(args.event_id as string).slice(0, 8)}`;
   return toolName;
 }
