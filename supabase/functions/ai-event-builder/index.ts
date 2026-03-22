@@ -279,6 +279,12 @@ async function toolCreateEventDraft(
 ) {
   if (!args.title?.trim()) return { success: false, result: {}, error: "Event title is required" };
 
+  // If client_id provided, verify user can manage that client
+  if (args.client_id) {
+    const canManage = await canManageClient(db, userId, args.client_id);
+    if (!canManage) return { success: false, result: {}, error: "You don't have permission to create events for this client" };
+  }
+
   const startDate = args.start_date || new Date().toISOString();
   const endDate = args.end_date || new Date(Date.now() + 86400000).toISOString();
   const eventSlug = args.slug || args.title.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
