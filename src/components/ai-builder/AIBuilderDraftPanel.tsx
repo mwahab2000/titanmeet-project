@@ -1,7 +1,7 @@
 import {
   Building2, CalendarDays, MapPin, UserCog, UsersRound, ListOrdered,
   MessageSquare, Rocket, CheckCircle2, Circle, AlertCircle, Mic2,
-  FileText, Palette, CircleDot
+  FileText, Palette, CircleDot, ImageIcon
 } from "lucide-react";
 import type { DraftState } from "@/hooks/useAIBuilderSession";
 import { cn } from "@/lib/utils";
@@ -63,9 +63,9 @@ export const AIBuilderDraftPanel = ({
   const hasContext = !!ctx.eventId || !!ctx.clientId;
   const readyCount = [
     draft.client, draft.eventBasics, draft.venue,
-    draft.organizers, draft.attendees, draft.agenda,
+    draft.organizers, draft.attendees, draft.agenda, draft.media,
   ].filter((s) => s.status === "done").length;
-  const totalSections = 6;
+  const totalSections = 7;
   const pct = Math.round((readyCount / totalSections) * 100);
 
   const statusCfg = eventStatusConfig[ctx.eventStatus || ""] || eventStatusConfig.draft;
@@ -118,6 +118,20 @@ export const AIBuilderDraftPanel = ({
     completedItems.push({ label: "Agenda", value: `${draft.agenda.items} items` });
   } else {
     missingItems.push({ label: "Agenda", priority: "recommended" });
+  }
+
+  if (draft.media.heroCount > 0) {
+    completedItems.push({ label: "Hero Image", value: `${draft.media.heroCount} image(s)` });
+  } else {
+    missingItems.push({ label: "Hero Image", priority: "recommended" });
+  }
+
+  if (draft.media.galleryCount > 0) {
+    completedItems.push({ label: "Gallery", value: `${draft.media.galleryCount} photos` });
+  }
+
+  if (draft.media.hasBanner) {
+    completedItems.push({ label: "Banner", value: "Set" });
   }
 
   if (draft.description) {
@@ -190,6 +204,7 @@ export const AIBuilderDraftPanel = ({
                 <SectionRow icon={<UserCog className="h-3.5 w-3.5" />} label="Organizers" status={draft.organizers.status} details={draft.organizers.count > 0 ? `${draft.organizers.count} added` : "None"} />
                 <SectionRow icon={<UsersRound className="h-3.5 w-3.5" />} label="Attendees" status={draft.attendees.status} details={draft.attendees.count > 0 ? `${draft.attendees.count} added` : "None"} />
                 <SectionRow icon={<ListOrdered className="h-3.5 w-3.5" />} label="Agenda" status={draft.agenda.status} details={draft.agenda.items > 0 ? `${draft.agenda.items} items` : "No items"} />
+                <SectionRow icon={<ImageIcon className="h-3.5 w-3.5" />} label="Media" status={draft.media.status} details={draft.media.heroCount > 0 ? `Hero: ${draft.media.heroCount} • Gallery: ${draft.media.galleryCount}${draft.media.hasBanner ? " • Banner ✓" : ""}` : "No images"} />
                 <SectionRow icon={<MessageSquare className="h-3.5 w-3.5" />} label="Communications" status={draft.communications.status} details={draft.communications.status === "done" ? "Ready" : "Not configured"} />
               </div>
             </div>

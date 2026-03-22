@@ -1237,6 +1237,88 @@ export type Database = {
           },
         ]
       }
+      media_assets: {
+        Row: {
+          approved: boolean | null
+          attribution: string | null
+          client_id: string | null
+          created_at: string | null
+          created_by: string
+          event_id: string | null
+          file_url: string
+          id: string
+          media_type: string
+          prompt_used: string | null
+          source_type: string
+          style_tags: Json | null
+          template_id: string | null
+          thumbnail_url: string | null
+          title: string | null
+          updated_at: string | null
+          workspace_id: string | null
+        }
+        Insert: {
+          approved?: boolean | null
+          attribution?: string | null
+          client_id?: string | null
+          created_at?: string | null
+          created_by: string
+          event_id?: string | null
+          file_url: string
+          id?: string
+          media_type?: string
+          prompt_used?: string | null
+          source_type?: string
+          style_tags?: Json | null
+          template_id?: string | null
+          thumbnail_url?: string | null
+          title?: string | null
+          updated_at?: string | null
+          workspace_id?: string | null
+        }
+        Update: {
+          approved?: boolean | null
+          attribution?: string | null
+          client_id?: string | null
+          created_at?: string | null
+          created_by?: string
+          event_id?: string | null
+          file_url?: string
+          id?: string
+          media_type?: string
+          prompt_used?: string | null
+          source_type?: string
+          style_tags?: Json | null
+          template_id?: string | null
+          thumbnail_url?: string | null
+          title?: string | null
+          updated_at?: string | null
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "media_assets_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "media_assets_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "media_assets_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "event_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       message_logs: {
         Row: {
           attendee_id: string

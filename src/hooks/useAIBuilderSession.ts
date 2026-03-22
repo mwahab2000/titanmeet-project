@@ -60,6 +60,7 @@ export interface DraftState {
   attendees: { count: number; status: "empty" | "partial" | "done" };
   agenda: { items: number; status: "empty" | "partial" | "done" };
   communications: { status: "empty" | "partial" | "done" };
+  media: { heroCount: number; galleryCount: number; hasBanner: boolean; status: "empty" | "partial" | "done" };
   publishReadiness: { score: number; missing: string[]; status: "empty" | "partial" | "done" };
   // Enriched data
   speakers?: { count: number };
@@ -76,6 +77,7 @@ const emptyDraft: DraftState = {
   attendees: { count: 0, status: "empty" },
   agenda: { items: 0, status: "empty" },
   communications: { status: "empty" },
+  media: { heroCount: 0, galleryCount: 0, hasBanner: false, status: "empty" },
   publishReadiness: { score: 0, missing: [], status: "empty" },
 };
 
@@ -100,6 +102,7 @@ function mapDraftState(raw: Record<string, any> | undefined): DraftState {
     attendees: raw.attendees ?? emptyDraft.attendees,
     agenda: raw.agenda ?? emptyDraft.agenda,
     communications: raw.communications ?? emptyDraft.communications,
+    media: raw.media ?? emptyDraft.media,
     publishReadiness: raw.publishReadiness ?? emptyDraft.publishReadiness,
     speakers: raw.speakers,
     description: raw.description,
