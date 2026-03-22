@@ -10,9 +10,11 @@ import { CommsLogView } from "@/components/comms/CommsLogView";
 import { CommsThreadView } from "@/components/comms/CommsThreadView";
 import { CommsUsageBadge } from "@/components/comms/CommsUsageBadge";
 import { CommsMessageList, type CommsMessage } from "@/components/comms/CommsMessageList";
+import { ScheduledMessagesPanel } from "@/components/comms/ScheduledMessagesPanel";
+import { CheckinPanel } from "@/components/comms/CheckinPanel";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Menu, Construction, Clock, FileText, Settings } from "lucide-react";
+import { Menu, Construction, Clock, FileText, Settings, QrCode } from "lucide-react";
 
 const CommunicationsSection = () => {
   const { event } = useEventWorkspace();
