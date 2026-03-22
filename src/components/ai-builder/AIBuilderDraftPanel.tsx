@@ -1,7 +1,7 @@
 import {
   Building2, CalendarDays, MapPin, UserCog, UsersRound, ListOrdered,
   MessageSquare, Rocket, CheckCircle2, Circle, AlertCircle, Mic2,
-  FileText, Palette, CircleDot
+  FileText, Palette, CircleDot, ImageIcon
 } from "lucide-react";
 import type { DraftState } from "@/hooks/useAIBuilderSession";
 import { cn } from "@/lib/utils";
