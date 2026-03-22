@@ -2191,6 +2191,12 @@ function formatToolLabel(toolName: string, result: Record<string, unknown>): str
       if (result.action === "templates_found") return `Found ${(result.templates as any[])?.length || 0} matching templates`;
       if (result.action === "no_templates_found") return `No templates found for "${result.query}"`;
       return `Applied template "${result.template_name}" → created "${result.event_title}"`;
+    case "list_workspace_events":
+      return (result.message as string) || `Listed ${result.total} events`;
+    case "list_workspace_clients":
+      return (result.message as string) || `Listed ${result.total} clients`;
+    case "get_event_details":
+      return result.found ? `Retrieved details for "${(result.event as any)?.title}"` : (result.message as string) || "Event not found";
     default:
       return toolName;
   }
