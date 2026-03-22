@@ -105,10 +105,43 @@ const AnalyticsSection = () => {
       const pending = totalInvited - confirmed - declined;
 
       const messagesSent = msgs.filter(m => ["sent", "delivered", "read"].includes(m.status)).length;
+      const messagesDelivered = msgs.filter(m => ["delivered", "read"].includes(m.status)).length;
       const messagesOpened = inv.filter(i => i.opened_at).length;
 
       const surveysSent = si.length;
       const surveysCompleted = sr.length;
+
+      // Message performance funnel
+      const messageFunnel = [
+        { stage: "Sent", count: messagesSent },
+        { stage: "Delivered", count: messagesDelivered },
+        { stage: "Opened", count: messagesOpened },
+        { stage: "RSVP'd", count: confirmed },
+      ];
+
+      // Auto-generate insights
+      const insights: { text: string; type: "info" | "warning" | "success" }[] = [];
+      const rsvpRate = totalInvited > 0 ? (confirmed / totalInvited) * 100 : 0;
+      const attendanceRate = confirmed > 0 ? (checkedIn / confirmed) * 100 : 0;
+      const noShowPct = confirmed > 0 ? (noShow / confirmed) * 100 : 0;
+
+      if (noShowPct > 25) insights.push({ text: `High no-show rate (${Math.round(noShowPct)}%) — consider sending reminders closer to the event.`, type: "warning" });
+      else if (noShowPct > 0 && noShowPct <= 10) insights.push({ text: `Excellent no-show rate — only ${Math.round(noShowPct)}% absent.`, type: "success" });
+      if (rsvpRate < 40 && totalInvited > 5) insights.push({ text: `Low RSVP conversion (${Math.round(rsvpRate)}%) — try a follow-up message.`, type: "warning" });
+      else if (rsvpRate >= 70) insights.push({ text: `Strong RSVP rate at ${Math.round(rsvpRate)}%.`, type: "success" });
+      if (checkedIn > 0) {
+        const peakHour = Object.entries(
+          att.filter(a => a.checked_in_at).reduce((acc: Record<string, number>, a) => {
+            const h = new Date(a.checked_in_at!).getHours();
+            const label = `${h.toString().padStart(2, "0")}:00`;
+            acc[label] = (acc[label] || 0) + 1;
+            return acc;
+          }, {})
+        ).sort(([, a], [, b]) => b - a)[0];
+        if (peakHour) insights.push({ text: `Peak check-in time: ${peakHour[0]} (${peakHour[1]} arrivals).`, type: "info" });
+      }
+      if (messagesSent > 0 && messagesOpened === 0) insights.push({ text: "No messages opened yet — check delivery status.", type: "warning" });
+      if (attendanceRate >= 80 && confirmed >= 10) insights.push({ text: `Great attendance rate (${Math.round(attendanceRate)}%) — well done!`, type: "success" });
 
       // Check-in time distribution
       const checkinHours: Record<string, number> = {};
@@ -136,8 +169,9 @@ const AnalyticsSection = () => {
 
       setData({
         totalInvited, confirmed, declined, pending,
-        checkedIn, noShow, messagesSent, messagesOpened,
+        checkedIn, noShow, messagesSent, messagesDelivered, messagesOpened,
         surveysSent, surveysCompleted, checkinTimeline, rsvpTimeline,
+        messageFunnel, insights,
       });
     } catch (err) {
       console.error("Analytics fetch error:", err);
