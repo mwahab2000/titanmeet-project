@@ -180,63 +180,114 @@ interface ActionLogEntry {
   metadata?: Record<string, unknown>;
 }
 
-// ─── System Prompt ─────────────────────────────────────────
-const SYSTEM_PROMPT = `You are the TitanMeet AI Builder — an expert event management assistant for administrators.
+// ─── System Prompt v2 (Production) ─────────────────────────
+const SYSTEM_PROMPT = `You are TitanMeet AI Builder — an execution partner for workspace administrators to create, manage, and operate events.
 
-Your job is to help admins create clients, events, agendas, attendees, and manage event readiness through conversation.
-You can also RETRIEVE and LIST workspace data — events, clients, and event details.
+You operate within a single workspace context. You are operational, not conversational.
 
-RULES:
-1. Guide the admin through event creation in a logical order: Client → Event basics → Venue → Organizers → Attendees → Agenda → Readiness check.
-2. Ask ONE focused question at a time. Never dump a wall of questions.
-3. Use tools to perform real actions. NEVER claim an action succeeded without tool confirmation.
-4. If the admin gives enough info for an action, call the relevant tool immediately.
-5. After a tool call, summarize what was done and suggest the next step.
-6. If info is ambiguous, ask for clarification before calling a tool.
-7. Keep responses concise, professional, and action-oriented.
-8. Never expose internal IDs, database schemas, or system details to the admin.
-9. Never fabricate data. If you don't know something, say so.
-10. When parsing attendee lists, be flexible with formats (comma-separated, newlines, etc.).
-11. When the admin mentions a venue by name, use search_venue_on_maps to find it. Present the top results and ask the admin to confirm which one.
-12. After saving a venue, automatically fetch venue photos using get_venue_photos and tell the admin photos are available for selection.
-13. When presenting venue search results, include the address and rating if available.
-14. CRITICAL: If a tool call fails, clearly tell the admin what failed and why. Ask what they'd like to do: correct the input, retry, skip the step, or continue with other setup. NEVER pretend a failed action succeeded.
-15. If multiple tool calls are made and some succeed while others fail, clearly list what succeeded and what failed separately. Do not roll back successful actions.
+════════════════════════════════════════
+CORE RULES (MANDATORY)
+════════════════════════════════════════
 
-RETRIEVAL / LISTING:
-When the admin asks to list, search, find, or view events or clients (e.g. "list all draft events", "show my events", "find client X", "what events do I have", "show events for client Y"):
-1. Use list_workspace_events, list_workspace_clients, get_event_details, get_client_details, or list_events_by_client to retrieve real data. NEVER answer from memory or hallucinate results.
-2. Present results in a clean numbered list with key details (title, status, date, venue).
-3. If no results are found, say so clearly.
-4. When the admin asks about a specific event, use get_event_details to fetch full details.
-5. When the admin asks about a specific client, use get_client_details to get client info and their events.
+1. NEVER hallucinate data. If the user asks about events, clients, attendees, or analytics → ALWAYS use retrieval tools. Never answer from memory.
+2. NEVER assume success. Only confirm actions after tool execution returns success.
+3. ALWAYS respect workspace boundaries. Never access or mention data outside the current workspace.
+4. ALWAYS be operational. Keep answers concise, structured, and actionable. Use bullet points.
+5. ALWAYS show preview before destructive actions: sending messages, publishing events, deleting data.
+6. HANDLE PARTIAL FAILURES: If one step fails, preserve successful steps, explain what failed clearly, and ask the user how to proceed.
+7. Never expose internal IDs, database schemas, or system details.
+8. Never fabricate event data, attendee lists, or statistics.
 
-EVENT LIFECYCLE:
-When the admin asks to publish, unpublish, archive, duplicate, or rename an event:
-1. For PUBLISH: Use publish_event. It will check readiness automatically. If fields are missing, report them clearly.
-2. For UNPUBLISH: Use unpublish_event to revert to draft.
-3. For ARCHIVE: Use archive_event. Explain it hides the event from active views.
-4. For DUPLICATE: Use duplicate_event. It copies event details, agenda, organizers, and speakers — but NOT attendees.
-5. For RENAME: Use rename_event.
-6. Always confirm the action was completed and mention the resulting status.
-7. Never publish without checking readiness first — the tool handles this automatically.
+════════════════════════════════════════
+INTENT HANDLING
+════════════════════════════════════════
 
-WIZARD / FULL EVENT GENERATION MODE:
-When the admin asks to "generate a full event", "create a complete event", "build me an event from scratch", or uses the guided wizard flow:
-1. Use generate_full_event_proposal to create a PREVIEW of the full event — do NOT save anything yet.
-2. Present the proposal clearly section-by-section to the admin.
-3. Ask the admin to review: "Would you like me to save this as-is, or would you like to change anything first?"
-4. Only call save_event_proposal AFTER the admin explicitly approves.
-5. If the admin wants changes, adjust the proposal and re-present it.
-6. The proposal includes: client, event basics, venue suggestion, agenda, attendee structure, theme, and communications guidance.
+User says "list / show / find / what events" → call retrieval tools (list_workspace_events, list_workspace_clients, get_event_details, get_client_details, list_events_by_client)
+User says "create / add / update / set" → call mutation tools
+User says "publish / unpublish / archive / duplicate / rename" → call lifecycle tools
+User says "analyze / metrics / how is / RSVP rate / readiness" → call intelligence tools (get_missing_fields, recommend_next_actions, check_publish_readiness)
+User says "use template / start from template" → call apply_template
+User says "generate event / build complete event" → call generate_full_event_proposal, then wait for approval before save_event_proposal
 
-TEMPLATE MARKETPLACE:
-When the admin mentions using a template (e.g., "use the summit template", "start from the sales kickoff template"):
-1. Use apply_template with the search query to find matching templates.
-2. If multiple templates are found, present them and ask the admin to pick one.
+════════════════════════════════════════
+WORKFLOW: EVENT CREATION
+════════════════════════════════════════
+
+Guide admins through: Client → Event basics → Venue → Organizers → Attendees → Agenda → Readiness check.
+- Ask ONE focused question at a time. Never dump walls of questions.
+- If the admin gives enough info, call the tool immediately.
+- After each tool call, summarize what was done and suggest the next step.
+
+════════════════════════════════════════
+CONFIRMATION RULES
+════════════════════════════════════════
+
+Before: sending invites, publishing, deleting, archiving → You MUST ask: "Do you want me to proceed?"
+
+════════════════════════════════════════
+VENUE SEARCH
+════════════════════════════════════════
+
+When the admin mentions a venue by name:
+1. Use search_venue_on_maps to find it.
+2. Present top results with address and rating.
+3. Ask admin to confirm which one.
+4. After saving, fetch photos with get_venue_photos automatically.
+
+════════════════════════════════════════
+WIZARD / FULL EVENT GENERATION
+════════════════════════════════════════
+
+When admin asks to "generate a full event" or uses wizard flow:
+1. Use generate_full_event_proposal to create a PREVIEW — do NOT save yet.
+2. Present proposal section-by-section.
+3. Ask: "Would you like me to save this as-is, or change something first?"
+4. Only call save_event_proposal AFTER explicit approval.
+
+════════════════════════════════════════
+TEMPLATE MARKETPLACE
+════════════════════════════════════════
+
+When admin mentions templates:
+1. Use apply_template with search_query to find matches.
+2. If multiple found, present them and ask admin to pick.
 3. Once selected, ask for event title and date if not provided.
-4. Call apply_template again with the template_id, event_title, and event_date to create the event.
-5. After applying, summarize what was created and suggest next steps.`;
+4. Apply and summarize what was created.
+
+════════════════════════════════════════
+INTELLIGENCE
+════════════════════════════════════════
+
+When admin asks "what should I do next", "what's missing", "is this ready":
+1. Use get_missing_fields to check what the event still needs.
+2. Use recommend_next_actions to suggest practical next steps.
+3. Present recommendations as a prioritized numbered list.
+
+════════════════════════════════════════
+ERROR HANDLING
+════════════════════════════════════════
+
+If a tool fails:
+- Explain the issue clearly in plain language
+- Suggest the next step (fix input, retry, skip, continue)
+- Do NOT retry blindly
+- If multiple tools run and some succeed / some fail, list both separately
+
+════════════════════════════════════════
+COMMUNICATION STYLE
+════════════════════════════════════════
+
+- Short and structured
+- No long explanations or filler
+- No technical jargon
+- Use bullet points and numbered lists
+- Example: "Here are your draft events:\\n1. Sales Kickoff — March 10\\n2. Tech Summit — April 5"
+
+════════════════════════════════════════
+GOAL
+════════════════════════════════════════
+
+Act as an execution partner, not a chatbot. Help the admin move faster, avoid mistakes, and know what to do next.`;
 
 
 // ─── Tool Definitions for OpenAI ───────────────────────────
@@ -706,6 +757,34 @@ const TOOL_DEFINITIONS = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "get_missing_fields",
+      description: "Analyze what an event is missing for completeness. Returns missing fields, readiness score, and prioritized gaps.",
+      parameters: {
+        type: "object",
+        properties: {
+          event_id: { type: "string", description: "Event UUID" },
+        },
+        required: ["event_id"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "recommend_next_actions",
+      description: "Get smart recommendations for what the admin should do next based on current event state. Returns prioritized action suggestions.",
+      parameters: {
+        type: "object",
+        properties: {
+          event_id: { type: "string", description: "Event UUID (optional — if not provided, gives workspace-level recommendations)" },
+        },
+        required: [],
+      },
+    },
+  },
 ];
 
 // ─── Tool Executor ─────────────────────────────────────────
@@ -777,6 +856,10 @@ async function executeTool(
         return await toolDuplicateEvent(db, userId, args as any);
       case "rename_event":
         return await toolRenameEvent(db, userId, args as any);
+      case "get_missing_fields":
+        return await toolGetMissingFields(db, userId, args as any);
+      case "recommend_next_actions":
+        return await toolRecommendNextActions(db, userId, args as any);
       default:
         return { success: false, result: {}, error: `Unknown tool: ${toolName}`, category: "internal" };
     }
@@ -2059,7 +2142,152 @@ async function toolRenameEvent(
   return { success: true, result: { event_id: args.event_id, old_title: oldTitle, new_title: args.new_title.trim(), message: `Renamed "${oldTitle}" → "${args.new_title.trim()}"` } };
 }
 
-// ─── Draft State Builder ───────────────────────────────────
+// ─── Intelligence Tools ────────────────────────────────────
+
+async function toolGetMissingFields(
+  db: SupabaseClient, userId: string,
+  args: { event_id: string }
+): Promise<ToolResult> {
+  if (!args.event_id) return { success: false, result: {}, error: "event_id is required", category: "validation" };
+
+  const { allowed, event: evt } = await canManageEvent(db, userId, args.event_id);
+  if (!allowed || !evt) return { success: false, result: {}, error: "Event not found or access denied", category: "permission" };
+
+  const [attRes, agdRes, orgRes, invRes] = await Promise.all([
+    db.from("attendees").select("id", { count: "exact", head: true }).eq("event_id", args.event_id),
+    db.from("agenda_items").select("id", { count: "exact", head: true }).eq("event_id", args.event_id),
+    db.from("organizers").select("id", { count: "exact", head: true }).eq("event_id", args.event_id),
+    db.from("event_invites").select("id", { count: "exact", head: true }).eq("event_id", args.event_id),
+  ]);
+
+  const fields = [
+    { field: "client", label: "Client linked", ok: !!evt.client_id, priority: "high" },
+    { field: "title", label: "Event title", ok: !!evt.title?.trim(), priority: "critical" },
+    { field: "description", label: "Description", ok: !!evt.description?.trim(), priority: "high" },
+    { field: "dates", label: "Start & end dates", ok: !!evt.start_date && !!evt.end_date, priority: "critical" },
+    { field: "slug", label: "Public URL slug", ok: !!evt.slug?.trim(), priority: "high" },
+    { field: "venue", label: "Venue or location", ok: !!(evt.venue_name?.trim() || evt.location?.trim()), priority: "medium" },
+    { field: "hero_image", label: "Hero/cover image", ok: Array.isArray(evt.hero_images) && evt.hero_images.length > 0, priority: "medium" },
+    { field: "attendees", label: "Attendees added", ok: (attRes.count ?? 0) > 0, priority: "high" },
+    { field: "agenda", label: "Agenda items", ok: (agdRes.count ?? 0) > 0, priority: "medium" },
+    { field: "organizers", label: "Organizers", ok: (orgRes.count ?? 0) > 0, priority: "low" },
+  ];
+
+  const missing = fields.filter(f => !f.ok);
+  const complete = fields.filter(f => f.ok);
+  const score = Math.round((complete.length / fields.length) * 100);
+
+  // Persist readiness to events table
+  const readinessDetails = { score, missing: missing.map(m => m.field), complete: complete.map(c => c.field), checked_at: new Date().toISOString() };
+  await db.from("events").update({ readiness: missing.length === 0, readiness_details: readinessDetails }).eq("id", args.event_id);
+
+  return {
+    success: true,
+    result: {
+      event_id: args.event_id,
+      title: evt.title,
+      score,
+      ready: missing.length === 0,
+      missing: missing.map(m => ({ field: m.field, label: m.label, priority: m.priority })),
+      complete: complete.map(c => c.label),
+      counts: {
+        attendees: attRes.count ?? 0,
+        agenda_items: agdRes.count ?? 0,
+        organizers: orgRes.count ?? 0,
+        invitations_sent: invRes.count ?? 0,
+      },
+    },
+  };
+}
+
+async function toolRecommendNextActions(
+  db: SupabaseClient, userId: string,
+  args: { event_id?: string }
+): Promise<ToolResult> {
+  const recommendations: Array<{ action: string; reason: string; priority: "high" | "medium" | "low"; tool?: string }> = [];
+
+  if (args.event_id) {
+    const { allowed, event: evt } = await canManageEvent(db, userId, args.event_id);
+    if (!allowed || !evt) return { success: false, result: {}, error: "Event not found or access denied", category: "permission" };
+
+    const [attRes, agdRes, orgRes, invRes] = await Promise.all([
+      db.from("attendees").select("id", { count: "exact", head: true }).eq("event_id", args.event_id),
+      db.from("agenda_items").select("id", { count: "exact", head: true }).eq("event_id", args.event_id),
+      db.from("organizers").select("id", { count: "exact", head: true }).eq("event_id", args.event_id),
+      db.from("event_invites").select("id", { count: "exact", head: true }).eq("event_id", args.event_id),
+    ]);
+
+    const attCount = attRes.count ?? 0;
+    const agdCount = agdRes.count ?? 0;
+    const orgCount = orgRes.count ?? 0;
+    const invCount = invRes.count ?? 0;
+
+    if (!evt.description?.trim()) recommendations.push({ action: "Add event description", reason: "Helps attendees understand the event purpose", priority: "high", tool: "update_event_basics" });
+    if (!evt.venue_name?.trim() && !evt.location?.trim()) recommendations.push({ action: "Set event venue", reason: "Attendees need to know where to go", priority: "high", tool: "search_venue_on_maps" });
+    if (attCount === 0) recommendations.push({ action: "Add attendees", reason: "No attendees added yet", priority: "high", tool: "add_attendees_from_text" });
+    if (agdCount === 0) recommendations.push({ action: "Create agenda", reason: "Structured agenda improves event quality", priority: "medium", tool: "add_agenda_items" });
+    if (orgCount === 0) recommendations.push({ action: "Add organizers", reason: "Shows who is running the event", priority: "low" });
+    if (!(Array.isArray(evt.hero_images) && evt.hero_images.length > 0)) recommendations.push({ action: "Upload hero image", reason: "Visual appeal for the public page", priority: "medium" });
+    if (attCount > 0 && invCount === 0) recommendations.push({ action: "Send invitations", reason: `${attCount} attendees added but no invitations sent`, priority: "high" });
+    if (evt.status === "draft" && !evt.description?.trim()) {
+      // Don't recommend publish if basics are missing
+    } else if (evt.status === "draft" && attCount > 0 && agdCount > 0) {
+      recommendations.push({ action: "Check publish readiness", reason: "Event may be ready to go live", priority: "medium", tool: "check_publish_readiness" });
+    }
+
+    // Sort by priority
+    const priorityOrder = { high: 0, medium: 1, low: 2 };
+    recommendations.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]);
+
+    return {
+      success: true,
+      result: {
+        event_id: args.event_id,
+        title: evt.title,
+        status: evt.status,
+        recommendations: recommendations.slice(0, 5),
+        total_recommendations: recommendations.length,
+      },
+    };
+  }
+
+  // Workspace-level recommendations
+  const isPrivileged = await isAdminOrOwnerRole(db, userId);
+  let evQuery = db.from("events").select("id, title, status, start_date").eq("status", "draft").order("updated_at", { ascending: false }).limit(5);
+  if (!isPrivileged) evQuery = evQuery.eq("created_by", userId);
+  const { data: drafts } = await evQuery;
+
+  if (drafts?.length) {
+    recommendations.push({ action: `Review ${drafts.length} draft event(s)`, reason: "Draft events may need attention", priority: "medium" });
+  } else {
+    recommendations.push({ action: "Create a new event", reason: "No draft events in workspace", priority: "high", tool: "create_event_draft" });
+  }
+
+  return { success: true, result: { recommendations, scope: "workspace" } };
+}
+
+// ─── Action Log Persistence ────────────────────────────────
+
+async function persistActionLog(
+  db: SupabaseClient,
+  sessionId: string,
+  userId: string,
+  entries: ActionLogEntry[],
+): Promise<void> {
+  if (entries.length === 0) return;
+  const rows = entries.map(e => ({
+    session_id: sessionId,
+    user_id: userId,
+    action_name: e.action,
+    status: e.status,
+    message: e.message,
+    category: e.category || null,
+    metadata: e.metadata || {},
+  }));
+  const { error } = await db.from("ai_action_logs").insert(rows);
+  if (error) console.error(`[persistActionLog] error: ${error.message}`);
+}
+
 
 async function buildDraftState(
   db: SupabaseClient,
@@ -2399,6 +2627,9 @@ serve(async (req) => {
         await db.from("ai_chat_sessions").update({ state_json: stateJson }).eq("id", session.id);
       }
 
+      // ── Persist action log to ai_action_logs table ──
+      await persistActionLog(db, session.id, user.id, actionLog);
+
       // Build frontend-compatible actions from action log
       const executedActions = actionLog.map(entry => ({
         type: entry.status === "failed" ? "warning" as const
@@ -2507,6 +2738,8 @@ function formatToolDisplayName(toolName: string): string {
     archive_event: "Archive Event",
     duplicate_event: "Duplicate Event",
     rename_event: "Rename Event",
+    get_missing_fields: "Check Missing Fields",
+    recommend_next_actions: "Get Recommendations",
   };
   return names[toolName] || toolName;
 }
@@ -2525,13 +2758,15 @@ function resolveToolTarget(toolName: string, args: Record<string, unknown>): str
   if (toolName === "list_events_by_client") return (args.client_name as string) || "client events";
   if (toolName === "publish_event" || toolName === "unpublish_event" || toolName === "archive_event" || toolName === "rename_event") return `event:${(args.event_id as string)?.slice(0, 8) || ""}`;
   if (toolName === "duplicate_event") return (args.new_title as string) || `event:${(args.event_id as string)?.slice(0, 8) || ""}`;
+  if (toolName === "get_missing_fields") return `event:${(args.event_id as string)?.slice(0, 8) || ""}`;
+  if (toolName === "recommend_next_actions") return args.event_id ? `event:${(args.event_id as string)?.slice(0, 8) || ""}` : "workspace";
   if (args.event_id) return `event:${(args.event_id as string).slice(0, 8)}`;
   return toolName;
 }
 
 function filterSafeMetadata(result: Record<string, unknown>): Record<string, unknown> {
   const safe: Record<string, unknown> = {};
-  const allowed = ["client_id", "event_id", "action", "name", "title", "slug", "added", "score", "ready", "saved_count", "updated_fields", "venue_name", "template_name", "templates", "cloned", "events", "clients", "total", "message", "found", "event", "counts", "status", "old_title", "new_title", "source_event_id", "missing", "event_count", "recent_events", "client"];
+  const allowed = ["client_id", "event_id", "action", "name", "title", "slug", "added", "score", "ready", "saved_count", "updated_fields", "venue_name", "template_name", "templates", "cloned", "events", "clients", "total", "message", "found", "event", "counts", "status", "old_title", "new_title", "source_event_id", "missing", "event_count", "recent_events", "client", "recommendations", "total_recommendations", "complete", "scope"];
   for (const k of allowed) {
     if (result[k] !== undefined) safe[k] = result[k];
   }
@@ -2622,6 +2857,10 @@ function formatToolLabel(toolName: string, result: Record<string, unknown>): str
       return (result.message as string) || `Duplicated event`;
     case "rename_event":
       return (result.message as string) || `Renamed event`;
+    case "get_missing_fields":
+      return result.ready ? `Event is complete (${result.score}%)` : `${(result.missing as any[])?.length || 0} fields missing (${result.score}% complete)`;
+    case "recommend_next_actions":
+      return `${(result.recommendations as any[])?.length || 0} recommendations`;
     default:
       return toolName;
   }
