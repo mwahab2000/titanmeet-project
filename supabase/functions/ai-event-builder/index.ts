@@ -1781,6 +1781,273 @@ async function toolGetEventDetails(
   };
 }
 
+// ─── Phase 1 Additional Retrieval Tools ────────────────────
+
+async function toolGetClientDetails(
+  db: SupabaseClient, userId: string,
+  args: { client_id?: string; name_search?: string }
+): Promise<ToolResult> {
+  if (!args.client_id && !args.name_search) {
+    return { success: false, result: {}, error: "Provide either client_id or name_search", category: "validation" };
+  }
+
+  const isPrivileged = await isAdminOrOwnerRole(db, userId);
+  let clientData: any = null;
+
+  if (args.client_id) {
+    const canManage = await canManageClient(db, userId, args.client_id);
+    if (!canManage) return { success: false, result: {}, error: "Client not found or access denied", category: "permission" };
+    const { data } = await db.from("clients").select("*").eq("id", args.client_id).single();
+    clientData = data;
+  } else {
+    let query = db.from("clients").select("*").ilike("name", `%${args.name_search}%`).limit(1);
+    if (!isPrivileged) query = query.eq("created_by", userId);
+    const { data } = await query.single();
+    if (!data) return { success: true, result: { found: false, message: `No client found matching "${args.name_search}".` } };
+    clientData = data;
+  }
+
+  // Count events for this client
+  let evQuery = db.from("events").select("id, title, status, start_date", { count: "exact" }).eq("client_id", clientData.id).limit(5).order("updated_at", { ascending: false });
+  if (!isPrivileged) evQuery = evQuery.eq("created_by", userId);
+  const { data: recentEvents, count: eventCount } = await evQuery;
+
+  return {
+    success: true,
+    result: {
+      found: true,
+      client: { id: clientData.id, name: clientData.name, slug: clientData.slug, created_at: clientData.created_at },
+      event_count: eventCount ?? 0,
+      recent_events: (recentEvents || []).map((e: any) => ({ id: e.id, title: e.title, status: e.status, date: e.start_date })),
+    },
+  };
+}
+
+async function toolListEventsByClient(
+  db: SupabaseClient, userId: string,
+  args: { client_id?: string; client_name?: string; status_filter?: string; limit?: number }
+): Promise<ToolResult> {
+  const isPrivileged = await isAdminOrOwnerRole(db, userId);
+  let clientId = args.client_id;
+
+  if (!clientId && args.client_name) {
+    let cq = db.from("clients").select("id").ilike("name", `%${args.client_name}%`).limit(1);
+    if (!isPrivileged) cq = cq.eq("created_by", userId);
+    const { data: cl } = await cq.single();
+    if (!cl) return { success: true, result: { events: [], total: 0, message: `No client found matching "${args.client_name}".` } };
+    clientId = cl.id;
+  }
+
+  if (!clientId) return { success: false, result: {}, error: "Provide either client_id or client_name", category: "validation" };
+
+  const maxResults = Math.min(args.limit || 20, 50);
+  let query = db.from("events")
+    .select("id, title, slug, status, start_date, end_date, location, venue_name, event_date")
+    .eq("client_id", clientId)
+    .order("updated_at", { ascending: false })
+    .limit(maxResults);
+
+  if (!isPrivileged) query = query.eq("created_by", userId);
+  if (args.status_filter) query = query.eq("status", args.status_filter);
+
+  const { data, error } = await query;
+  if (error) {
+    const classified = classifyError(error, error.code);
+    return { success: false, result: {}, error: classified.userMessage, category: classified.category };
+  }
+
+  const events = (data || []).map((e: any) => ({
+    id: e.id, title: e.title, status: e.status, date: e.event_date || e.start_date, location: e.location || e.venue_name,
+  }));
+
+  return { success: true, result: { events, total: events.length, message: events.length === 0 ? "No events found for this client." : `Found ${events.length} event${events.length !== 1 ? "s" : ""}.` } };
+}
+
+// ─── Phase 2 — Event Lifecycle Tools ───────────────────────
+
+async function toolPublishEvent(
+  db: SupabaseClient, userId: string,
+  args: { event_id: string }
+): Promise<ToolResult> {
+  const check = await canManageEvent(db, userId, args.event_id);
+  if (!check.allowed) return { success: false, result: {}, error: "Event not found or access denied", category: "permission" };
+
+  const evt = check.event;
+  if (evt.status === "published" || evt.status === "ongoing") {
+    return { success: true, result: { event_id: evt.id, status: evt.status, message: "Event is already published." } };
+  }
+  if (evt.status === "archived") {
+    return { success: false, result: {}, error: "Cannot publish an archived event. Unarchive it first.", category: "validation" };
+  }
+
+  // Readiness check
+  const missing: string[] = [];
+  if (!evt.title?.trim()) missing.push("title");
+  if (!evt.start_date) missing.push("start date");
+  if (!evt.end_date) missing.push("end date");
+  if (!evt.description?.trim()) missing.push("description");
+
+  const { count: attCount } = await db.from("attendees").select("id", { count: "exact", head: true }).eq("event_id", args.event_id);
+  if ((attCount ?? 0) === 0) missing.push("at least 1 attendee");
+
+  if (missing.length > 0) {
+    return {
+      success: false,
+      result: { missing },
+      error: `Cannot publish — missing: ${missing.join(", ")}. Fix these and try again.`,
+      category: "validation",
+    };
+  }
+
+  const { error } = await db.from("events").update({ status: "published", updated_at: new Date().toISOString() }).eq("id", args.event_id);
+  if (error) {
+    const classified = classifyError(error, error.code);
+    return { success: false, result: {}, error: classified.userMessage, category: classified.category };
+  }
+
+  return { success: true, result: { event_id: args.event_id, status: "published", title: evt.title, message: `"${evt.title}" is now published!` } };
+}
+
+async function toolUnpublishEvent(
+  db: SupabaseClient, userId: string,
+  args: { event_id: string }
+): Promise<ToolResult> {
+  const check = await canManageEvent(db, userId, args.event_id);
+  if (!check.allowed) return { success: false, result: {}, error: "Event not found or access denied", category: "permission" };
+
+  const evt = check.event;
+  if (evt.status === "draft") {
+    return { success: true, result: { event_id: evt.id, status: "draft", message: "Event is already a draft." } };
+  }
+  if (evt.status !== "published" && evt.status !== "ongoing") {
+    return { success: false, result: {}, error: `Cannot unpublish event with status "${evt.status}".`, category: "validation" };
+  }
+
+  const { error } = await db.from("events").update({ status: "draft", updated_at: new Date().toISOString() }).eq("id", args.event_id);
+  if (error) {
+    const classified = classifyError(error, error.code);
+    return { success: false, result: {}, error: classified.userMessage, category: classified.category };
+  }
+
+  return { success: true, result: { event_id: args.event_id, status: "draft", title: evt.title, message: `"${evt.title}" reverted to draft.` } };
+}
+
+async function toolArchiveEvent(
+  db: SupabaseClient, userId: string,
+  args: { event_id: string }
+): Promise<ToolResult> {
+  const check = await canManageEvent(db, userId, args.event_id);
+  if (!check.allowed) return { success: false, result: {}, error: "Event not found or access denied", category: "permission" };
+
+  const evt = check.event;
+  if (evt.status === "archived") {
+    return { success: true, result: { event_id: evt.id, status: "archived", message: "Event is already archived." } };
+  }
+
+  const { error } = await db.from("events").update({ status: "archived", updated_at: new Date().toISOString() }).eq("id", args.event_id);
+  if (error) {
+    const classified = classifyError(error, error.code);
+    return { success: false, result: {}, error: classified.userMessage, category: classified.category };
+  }
+
+  return { success: true, result: { event_id: args.event_id, status: "archived", title: evt.title, message: `"${evt.title}" has been archived.` } };
+}
+
+async function toolDuplicateEvent(
+  db: SupabaseClient, userId: string,
+  args: { event_id: string; new_title?: string }
+): Promise<ToolResult> {
+  const check = await canManageEvent(db, userId, args.event_id);
+  if (!check.allowed) return { success: false, result: {}, error: "Event not found or access denied", category: "permission" };
+
+  const src = check.event;
+  const newTitle = args.new_title || `${src.title} (Copy)`;
+  const newSlug = newTitle.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+
+  const { data: newEvt, error: evErr } = await db.from("events").insert({
+    created_by: userId,
+    title: newTitle,
+    slug: newSlug,
+    description: src.description,
+    start_date: src.start_date,
+    end_date: src.end_date,
+    location: src.location,
+    venue_name: src.venue_name,
+    venue_address: src.venue_address,
+    venue_lat: src.venue_lat,
+    venue_lng: src.venue_lng,
+    venue_place_id: src.venue_place_id,
+    venue_map_link: src.venue_map_link,
+    venue_notes: src.venue_notes,
+    venue_images: src.venue_images,
+    venue_photo_refs: src.venue_photo_refs,
+    theme_id: src.theme_id,
+    client_id: src.client_id,
+    max_attendees: src.max_attendees,
+    transportation_notes: src.transportation_notes,
+    status: "draft",
+  }).select("id, title, slug").single();
+
+  if (evErr) {
+    const classified = classifyError(evErr, evErr.code);
+    return { success: false, result: {}, error: classified.userMessage, category: classified.category };
+  }
+
+  const cloned: string[] = [];
+
+  // Copy agenda
+  const { data: agendaItems } = await db.from("agenda_items").select("title, description, start_time, end_time, day_number, order_index").eq("event_id", args.event_id);
+  if (agendaItems?.length) {
+    await db.from("agenda_items").insert(agendaItems.map((a: any) => ({ ...a, event_id: newEvt.id })));
+    cloned.push(`${agendaItems.length} agenda items`);
+  }
+
+  // Copy organizers
+  const { data: organizers } = await db.from("organizers").select("name, role, email, mobile, photo_url").eq("event_id", args.event_id);
+  if (organizers?.length) {
+    await db.from("organizers").insert(organizers.map((o: any) => ({ ...o, event_id: newEvt.id })));
+    cloned.push(`${organizers.length} organizers`);
+  }
+
+  // Copy speakers
+  const { data: speakers } = await db.from("speakers" as any).select("name, title, bio, photo_url").eq("event_id", args.event_id);
+  if (speakers?.length) {
+    await db.from("speakers" as any).insert((speakers as any[]).map((s: any) => ({ ...s, event_id: newEvt.id })));
+    cloned.push(`${speakers.length} speakers`);
+  }
+
+  return {
+    success: true,
+    result: {
+      event_id: newEvt.id,
+      title: newEvt.title,
+      slug: newEvt.slug,
+      source_event_id: args.event_id,
+      cloned,
+      message: `Duplicated "${src.title}" → "${newEvt.title}" (draft). Copied: ${cloned.join(", ") || "event details only"}.`,
+    },
+  };
+}
+
+async function toolRenameEvent(
+  db: SupabaseClient, userId: string,
+  args: { event_id: string; new_title: string }
+): Promise<ToolResult> {
+  if (!args.new_title?.trim()) return { success: false, result: {}, error: "New title is required", category: "validation" };
+
+  const check = await canManageEvent(db, userId, args.event_id);
+  if (!check.allowed) return { success: false, result: {}, error: "Event not found or access denied", category: "permission" };
+
+  const oldTitle = check.event.title;
+  const { error } = await db.from("events").update({ title: args.new_title.trim(), updated_at: new Date().toISOString() }).eq("id", args.event_id);
+  if (error) {
+    const classified = classifyError(error, error.code);
+    return { success: false, result: {}, error: classified.userMessage, category: classified.category };
+  }
+
+  return { success: true, result: { event_id: args.event_id, old_title: oldTitle, new_title: args.new_title.trim(), message: `Renamed "${oldTitle}" → "${args.new_title.trim()}"` } };
+}
+
 // ─── Draft State Builder ───────────────────────────────────
 
 async function buildDraftState(
