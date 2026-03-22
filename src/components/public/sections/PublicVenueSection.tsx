@@ -32,43 +32,17 @@ export const PublicVenueSection: React.FC<Props> = ({ data, className = "" }) =>
   if (!venue.name && !venue.address && images.length === 0) return null;
 
   return (
-    <MotionReveal id="venue" className={`max-w-5xl mx-auto px-6 sm:px-8 py-24 ${className}`}>
-      <div className="flex items-center gap-4 mb-12">
-        <h2 className="text-3xl md:text-4xl font-bold font-display tracking-tight">Venue</h2>
+    <MotionReveal id="venue" className={`max-w-5xl mx-auto px-4 sm:px-8 py-16 sm:py-24 ${className}`}>
+      <div className="flex items-center gap-3 sm:gap-4 mb-8 sm:mb-12">
+        <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold font-display tracking-tight">Venue</h2>
         <div className="flex-1 h-px bg-border" />
       </div>
 
       <div className="rounded-2xl border border-border bg-card overflow-hidden">
         <div className="grid md:grid-cols-2">
-          {/* Info side */}
-          <div className="p-8 sm:p-10 flex flex-col justify-center space-y-5">
-            {venue.name && (
-              <h3 className="text-2xl font-bold font-display flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-                  <MapPin className="h-5 w-5 text-primary" />
-                </div>
-                {venue.name}
-              </h3>
-            )}
-            {venue.address && <p className="text-muted-foreground leading-relaxed pl-[52px]">{venue.address}</p>}
-            {venue.notes && <p className="text-sm text-muted-foreground leading-relaxed pl-[52px]">{venue.notes}</p>}
-            {venue.mapLink && (
-              <div className="pl-[52px]">
-                <a
-                  href={venue.mapLink}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline underline-offset-4 transition-colors"
-                >
-                  <ExternalLink className="h-4 w-4" /> Open in Maps
-                </a>
-              </div>
-            )}
-          </div>
-
-          {/* Image slideshow side */}
+          {/* Image slideshow — show first on mobile */}
           {images.length > 0 && (
-            <div className="relative h-64 md:h-full min-h-[280px] overflow-hidden select-none">
+            <div className="relative h-48 sm:h-64 md:h-full min-h-[200px] md:min-h-[280px] overflow-hidden select-none order-first md:order-last">
               {images.map((src, i) => (
                 <img
                   key={src}
@@ -93,6 +67,32 @@ export const PublicVenueSection: React.FC<Props> = ({ data, className = "" }) =>
               )}
             </div>
           )}
+
+          {/* Info side */}
+          <div className="p-5 sm:p-8 md:p-10 flex flex-col justify-center space-y-4 sm:space-y-5">
+            {venue.name && (
+              <h3 className="text-xl sm:text-2xl font-bold font-display flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                  <MapPin className="h-5 w-5 text-primary" />
+                </div>
+                <span>{venue.name}</span>
+              </h3>
+            )}
+            {venue.address && <p className="text-muted-foreground leading-relaxed sm:pl-[52px]">{venue.address}</p>}
+            {venue.notes && <p className="text-sm text-muted-foreground leading-relaxed sm:pl-[52px]">{venue.notes}</p>}
+            {venue.mapLink && (
+              <div className="sm:pl-[52px]">
+                <a
+                  href={venue.mapLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline underline-offset-4 transition-colors min-h-[44px]"
+                >
+                  <ExternalLink className="h-4 w-4" /> Open in Maps
+                </a>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </MotionReveal>

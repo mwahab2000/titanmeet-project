@@ -13,23 +13,23 @@ function getDefaultAvatar(gender: string) {
 export const PublicSpeakersSection: React.FC<Props> = ({ data, className = "" }) => {
   if (data.speakers.length === 0) return null;
   return (
-    <MotionReveal id="speakers" className={`max-w-6xl mx-auto px-6 sm:px-8 py-24 ${className}`}>
-      <div className="flex items-center gap-4 mb-12">
-        <h2 className="text-3xl md:text-4xl font-bold font-display tracking-tight">Speakers</h2>
+    <MotionReveal id="speakers" className={`max-w-6xl mx-auto px-4 sm:px-8 py-16 sm:py-24 ${className}`}>
+      <div className="flex items-center gap-3 sm:gap-4 mb-8 sm:mb-12">
+        <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold font-display tracking-tight">Speakers</h2>
         <div className="flex-1 h-px bg-border" />
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
         {data.speakers.map((s, i) => (
           <MotionRevealItem
             key={s.id}
             index={i}
             className="group relative rounded-2xl border border-border bg-card overflow-hidden hover:shadow-[var(--shadow-elevated)] hover:border-primary/15 transition-all duration-300"
           >
-            <div className="p-6 sm:p-7 flex flex-col items-center text-center space-y-4">
+            <div className="p-5 sm:p-7 flex flex-col items-center text-center space-y-3 sm:space-y-4">
               {/* Avatar */}
               <div className="relative">
-                <div className="w-24 h-24 rounded-2xl overflow-hidden ring-2 ring-border group-hover:ring-primary/20 transition-all duration-300 rotate-3 group-hover:rotate-0">
+                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden ring-2 ring-border group-hover:ring-primary/20 transition-all duration-300 rotate-3 group-hover:rotate-0">
                   <img
                     src={s.photoUrl || getDefaultAvatar(s.gender)}
                     alt={s.name}
@@ -40,8 +40,8 @@ export const PublicSpeakersSection: React.FC<Props> = ({ data, className = "" })
               </div>
 
               {/* Info */}
-              <div className="space-y-1.5">
-                <h3 className="font-bold text-lg font-display leading-tight">{s.name}</h3>
+              <div className="space-y-1">
+                <h3 className="font-bold text-base sm:text-lg font-display leading-tight">{s.name}</h3>
                 {s.title && <p className="text-sm text-primary font-medium">{s.title}</p>}
               </div>
 
@@ -56,7 +56,7 @@ export const PublicSpeakersSection: React.FC<Props> = ({ data, className = "" })
                   href={s.linkedinUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary font-medium transition-colors"
+                  className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary font-medium transition-colors min-h-[44px]"
                 >
                   <Linkedin className="h-4 w-4" /> LinkedIn
                 </a>

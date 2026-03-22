@@ -36,9 +36,11 @@ export const PublicAnnouncementsSection: React.FC<Props> = ({ data, className = 
       className={`relative overflow-hidden ${className}`}
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
+      onTouchStart={() => setPaused(true)}
+      onTouchEnd={() => setPaused(false)}
     >
       <div className="bg-primary/5 border-y border-primary/15">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-3">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-2 sm:gap-3">
           <div className="shrink-0 text-primary">
             <Megaphone className="h-4 w-4" />
           </div>
@@ -48,27 +50,27 @@ export const PublicAnnouncementsSection: React.FC<Props> = ({ data, className = 
               animating ? "opacity-0 -translate-y-2" : "opacity-100 translate-y-0"
             }`}
           >
-            <p className="text-sm text-foreground line-clamp-1">{current.text}</p>
+            <p className="text-sm text-foreground line-clamp-2 sm:line-clamp-1">{current.text}</p>
           </div>
 
           {items.length > 1 && (
-            <div className="shrink-0 flex items-center gap-1">
+            <div className="shrink-0 flex items-center gap-0.5">
               <button
                 onClick={() => goTo("prev")}
-                className="p-1 rounded hover:bg-foreground/5 transition-colors"
+                className="p-2 rounded hover:bg-foreground/5 transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center"
                 aria-label="Previous announcement"
               >
-                <ChevronLeft className="h-3.5 w-3.5 text-muted-foreground" />
+                <ChevronLeft className="h-4 w-4 text-muted-foreground" />
               </button>
               <span className="text-[10px] text-muted-foreground tabular-nums min-w-[28px] text-center">
                 {idx + 1}/{items.length}
               </span>
               <button
                 onClick={() => goTo("next")}
-                className="p-1 rounded hover:bg-foreground/5 transition-colors"
+                className="p-2 rounded hover:bg-foreground/5 transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center"
                 aria-label="Next announcement"
               >
-                <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
               </button>
             </div>
           )}

@@ -52,17 +52,17 @@ export const PublicStatsSection: React.FC<Props> = ({ data, className = "" }) =>
 
   return (
     <div ref={sectionRef}>
-      <MotionReveal className={`max-w-5xl mx-auto px-6 sm:px-8 py-20 ${className}`}>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
+      <MotionReveal className={`max-w-5xl mx-auto px-4 sm:px-8 py-14 sm:py-20 ${className}`}>
+        <div className={`grid gap-4 sm:gap-6 ${stats.length <= 3 ? "grid-cols-3" : "grid-cols-2 sm:grid-cols-4"}`}>
           {stats.map((s, i) => {
             const count = useCountUp(s.value, 1200, triggered);
             return (
-              <MotionRevealItem key={s.label} index={i} className="text-center space-y-3">
-                <div className="w-14 h-14 mx-auto rounded-2xl bg-primary/8 border border-primary/10 flex items-center justify-center">
-                  <s.icon className="h-6 w-6 text-primary" />
+              <MotionRevealItem key={s.label} index={i} className="text-center space-y-2 sm:space-y-3">
+                <div className="w-12 h-12 sm:w-14 sm:h-14 mx-auto rounded-2xl bg-primary/8 border border-primary/10 flex items-center justify-center">
+                  <s.icon className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
                 </div>
-                <p className="text-4xl sm:text-5xl font-bold font-display tabular-nums">{count}</p>
-                <p className="text-xs text-muted-foreground uppercase tracking-[0.15em] font-semibold">{s.label}</p>
+                <p className="text-3xl sm:text-4xl md:text-5xl font-bold font-display tabular-nums">{count}</p>
+                <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-[0.15em] font-semibold">{s.label}</p>
               </MotionRevealItem>
             );
           })}
