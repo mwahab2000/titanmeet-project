@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { Bot, User, CheckCircle2, AlertTriangle, Info, Plus, Pencil, MapPin, ImageIcon, XCircle, Clock, ChevronDown, ChevronUp } from "lucide-react";
+import { Bot, User, CheckCircle2, AlertTriangle, Info, Plus, Pencil, MapPin, ImageIcon, XCircle, Clock, ChevronDown, ChevronUp, Sparkles } from "lucide-react";
 import type { ChatMessage, AIAction, ActionLogEntry } from "@/hooks/useAIBuilderSession";
 import { cn } from "@/lib/utils";
 import { AIVenueSearchResults, type VenueResult } from "./AIVenueSearchResults";
 import { AIVenuePhotoBrowser, type VenuePhoto } from "./AIVenuePhotoBrowser";
+import { AIEventProposalPreview, type EventProposal } from "./AIEventProposalPreview";
 
 const actionIcons: Record<string, typeof CheckCircle2> = {
   created: Plus,
