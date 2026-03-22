@@ -1,209 +1,458 @@
-import { useRef, useState, useEffect } from "react";
-import { motion, useInView, AnimatePresence } from "framer-motion";
-import { Bot, User, CheckCircle2, Sparkles } from "lucide-react";
+import { useRef, useState, useEffect, useCallback } from "react";
+import { motion, useInView, useReducedMotion } from "framer-motion";
+import {
+  Bot,
+  User,
+  Sparkles,
+  CheckCircle2,
+  Image,
+  MessageSquare,
+  Mail,
+  BarChart3,
+  MapPin,
+  Calendar,
+  Users,
+} from "lucide-react";
 
-const chatSequence = [
-  { role: "user" as const, text: "Create a leadership summit in Cairo for 200 attendees", delay: 0 },
-  { role: "ai" as const, text: "Creating your event…", delay: 1.2 },
-  { role: "status" as const, items: [
-    { label: "Event created", delay: 2.0 },
-    { label: "Venue: JW Marriott Cairo", delay: 2.6 },
-    { label: "Hero image generated", delay: 3.2 },
-    { label: "2-day agenda drafted", delay: 3.8 },
-  ]},
-  { role: "user" as const, text: "Send confirmation to all attendees via WhatsApp and email", delay: 5.0 },
-  { role: "ai" as const, text: "Sending attendance confirmation to 200 attendees…", delay: 6.2 },
-  { role: "status" as const, items: [
-    { label: "WhatsApp: 200 sent", delay: 7.0 },
-    { label: "Email: 200 sent", delay: 7.4 },
-    { label: "148 confirmed · 52 pending", delay: 8.2 },
-  ]},
+/* ------------------------------------------------------------------ */
+/*  Data                                                               */
+/* ------------------------------------------------------------------ */
+
+interface ChatMsg {
+  role: "user" | "ai";
+  text: string;
+  /** Seconds after stage starts */
+  offset: number;
+}
+
+interface PreviewSlice {
+  title?: string;
+  date?: string;
+  location?: string;
+  heroVisible?: boolean;
+  comms?: { whatsapp: number; email: number };
+  analytics?: { confirmed: number; pending: number; rate: string };
+}
+
+interface Stage {
+  chat: ChatMsg[];
+  preview: PreviewSlice;
+  /** Total duration of this stage in seconds */
+  duration: number;
+}
+
+const STAGES: Stage[] = [
+  {
+    chat: [
+      { role: "user", text: "Create a leadership summit in Cairo for 150 attendees", offset: 0.3 },
+      { role: "ai", text: "Done — I created a draft event and set the basics.", offset: 1.4 },
+    ],
+    preview: { title: "Leadership Summit 2026", date: "Oct 15 – 16, 2026", location: "Cairo, Egypt" },
+    duration: 4,
+  },
+  {
+    chat: [
+      { role: "user", text: "Generate a premium hero image", offset: 0.3 },
+      { role: "ai", text: "I generated 3 options. I selected one for preview.", offset: 1.6 },
+    ],
+    preview: { heroVisible: true },
+    duration: 4,
+  },
+  {
+    chat: [
+      { role: "user", text: "Send confirmation through WhatsApp and email", offset: 0.3 },
+      { role: "ai", text: "Sent. Tracking confirmations now.", offset: 1.6 },
+    ],
+    preview: { comms: { whatsapp: 150, email: 150 } },
+    duration: 4,
+  },
+  {
+    chat: [
+      { role: "ai", text: "42 attendees confirmed. 106 still need a reminder.", offset: 0.6 },
+    ],
+    preview: { analytics: { confirmed: 42, pending: 106, rate: "28%" } },
+    duration: 5,
+  },
 ];
 
-const previewSteps = [
-  { label: "Leadership Summit 2026", sub: "Cairo, Egypt · Oct 15–16", progress: 0 },
-  { label: "Venue Selected", sub: "JW Marriott Hotel Cairo", progress: 25 },
-  { label: "Hero Image Set", sub: "AI-generated premium visual", progress: 50 },
-  { label: "Agenda Ready", sub: "12 sessions · 2 days", progress: 75 },
-  { label: "Attendees Contacted", sub: "148 confirmed · 74% rate", progress: 100 },
-];
+const TOTAL_CYCLE = STAGES.reduce((s, st) => s + st.duration, 0) + 2; // +2s pause
+
+/* ------------------------------------------------------------------ */
+/*  Sub-components                                                     */
+/* ------------------------------------------------------------------ */
+
+const ChatBubble = ({
+  msg,
+  visible,
+  reducedMotion,
+}: {
+  msg: ChatMsg;
+  visible: boolean;
+  reducedMotion: boolean;
+}) => {
+  const isUser = msg.role === "user";
+  return (
+    <motion.div
+      initial={reducedMotion ? { opacity: 0 } : { opacity: 0, y: 12 }}
+      animate={visible ? { opacity: 1, y: 0 } : { opacity: 0, y: reducedMotion ? 0 : 12 }}
+      transition={{ duration: reducedMotion ? 0.15 : 0.4, ease: "easeOut" }}
+      className={`flex items-end gap-2 ${isUser ? "justify-end" : "justify-start"}`}
+    >
+      {!isUser && (
+        <div className="h-7 w-7 rounded-full bg-[hsl(var(--titan-green)/0.15)] flex items-center justify-center flex-shrink-0">
+          <Sparkles className="h-3.5 w-3.5 text-[hsl(var(--titan-green))]" />
+        </div>
+      )}
+      <div
+        className={`max-w-[82%] rounded-xl px-3.5 py-2.5 text-[13px] leading-snug ${
+          isUser
+            ? "bg-[hsl(var(--titan-blue)/0.12)] border border-[hsl(var(--titan-blue)/0.2)] text-[hsl(var(--landing-fg)/0.85)]"
+            : "bg-[hsl(var(--landing-fg)/0.05)] border border-[hsl(var(--landing-border)/0.25)] text-[hsl(var(--landing-fg)/0.8)]"
+        }`}
+      >
+        {msg.text}
+      </div>
+      {isUser && (
+        <div className="h-7 w-7 rounded-full bg-[hsl(var(--titan-blue)/0.12)] flex items-center justify-center flex-shrink-0">
+          <User className="h-3.5 w-3.5 text-[hsl(var(--titan-blue))]" />
+        </div>
+      )}
+    </motion.div>
+  );
+};
+
+/* ------------------------------------------------------------------ */
+/*  Main component                                                     */
+/* ------------------------------------------------------------------ */
 
 export const LandingAIShowcase = () => {
-  const ref = useRef(null);
-  const isInView = useInView(ref, { once: true, margin: "-100px" });
-  const [activeStep, setActiveStep] = useState(0);
+  const sectionRef = useRef<HTMLElement>(null);
+  const isInView = useInView(sectionRef, { once: false, margin: "-120px" });
+  const reducedMotion = !!useReducedMotion();
 
+  const [stageIdx, setStageIdx] = useState(0);
+  const [visibleMsgs, setVisibleMsgs] = useState<Set<number>>(new Set());
+  // Accumulated preview state across stages
+  const [preview, setPreview] = useState<PreviewSlice>({});
+
+  const advanceStage = useCallback(
+    (idx: number) => {
+      const stage = STAGES[idx];
+      if (!stage) return;
+
+      // Merge preview slice
+      setPreview((prev) => ({ ...prev, ...stage.preview }));
+
+      // Reveal chat messages with stagger
+      stage.chat.forEach((msg, mi) => {
+        const delay = reducedMotion ? 0 : msg.offset * 1000;
+        setTimeout(() => {
+          setVisibleMsgs((prev) => new Set(prev).add(idx * 10 + mi));
+        }, delay);
+      });
+    },
+    [reducedMotion],
+  );
+
+  // Cycle loop
   useEffect(() => {
     if (!isInView) return;
-    const timers = [2.0, 3.8, 5.0, 7.0, 8.5].map((t, i) =>
-      setTimeout(() => setActiveStep(i), t * 1000)
-    );
-    return () => timers.forEach(clearTimeout);
-  }, [isInView]);
+
+    let cancelled = false;
+    let timeouts: ReturnType<typeof setTimeout>[] = [];
+
+    const runCycle = () => {
+      if (cancelled) return;
+      setStageIdx(0);
+      setVisibleMsgs(new Set());
+      setPreview({});
+
+      let elapsed = 0;
+      STAGES.forEach((stage, idx) => {
+        const t = setTimeout(() => {
+          if (cancelled) return;
+          setStageIdx(idx);
+          advanceStage(idx);
+        }, elapsed * 1000);
+        timeouts.push(t);
+        elapsed += stage.duration;
+      });
+
+      // Reset after full cycle
+      const resetT = setTimeout(() => {
+        if (!cancelled) runCycle();
+      }, TOTAL_CYCLE * 1000);
+      timeouts.push(resetT);
+    };
+
+    runCycle();
+    return () => {
+      cancelled = true;
+      timeouts.forEach(clearTimeout);
+    };
+  }, [isInView, advanceStage]);
+
+  const stage = STAGES[stageIdx];
 
   return (
-    <section id="ai-builder" className="py-24 bg-[hsl(var(--landing-bg-alt))] overflow-hidden" ref={ref}>
+    <section
+      id="ai-builder"
+      ref={sectionRef}
+      className="py-24 md:py-32 bg-[hsl(var(--landing-bg-alt))] overflow-hidden"
+    >
       <div className="container">
+        {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={isInView ? { opacity: 1, y: 0 } : {}}
           className="text-center mb-4"
         >
-          <span className="text-sm font-semibold text-[hsl(var(--titan-green))] tracking-wide uppercase">AI Builder</span>
+          <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-[hsl(var(--titan-green))] tracking-wide uppercase">
+            <Bot className="h-4 w-4" /> AI Builder
+          </span>
         </motion.div>
         <motion.h2
           initial={{ opacity: 0, y: 20 }}
           animate={isInView ? { opacity: 1, y: 0 } : {}}
           transition={{ delay: 0.1 }}
-          className="font-display text-3xl font-bold md:text-4xl text-center mb-4"
+          className="font-display text-3xl font-bold md:text-5xl text-center mb-4"
         >
-          Describe your event. AI builds it.
+          Describe your event.{" "}
+          <span className="gradient-titan-text">AI builds it.</span>
         </motion.h2>
         <motion.p
           initial={{ opacity: 0, y: 20 }}
           animate={isInView ? { opacity: 1, y: 0 } : {}}
           transition={{ delay: 0.2 }}
-          className="mx-auto max-w-2xl text-center text-[hsl(var(--landing-fg-muted))] mb-14"
+          className="mx-auto max-w-xl text-center text-[hsl(var(--landing-fg-muted))] mb-16"
         >
           From creation to communication — one conversation handles everything.
         </motion.p>
 
-        <div className="grid lg:grid-cols-2 gap-8 max-w-6xl mx-auto items-start">
-          {/* Chat Panel */}
+        {/* Two-panel demo */}
+        <div className="grid lg:grid-cols-2 gap-6 max-w-6xl mx-auto items-stretch">
+          {/* ====== LEFT: Chat ====== */}
           <motion.div
-            initial={{ opacity: 0, x: -30 }}
+            initial={reducedMotion ? { opacity: 0 } : { opacity: 0, x: -30 }}
             animate={isInView ? { opacity: 1, x: 0 } : {}}
             transition={{ delay: 0.3, duration: 0.6 }}
-            className="glass-card-landing rounded-xl border border-[hsl(var(--landing-border)/0.3)] p-5 min-h-[420px] flex flex-col"
+            className="glass-card-landing rounded-2xl border border-[hsl(var(--landing-border)/0.3)] flex flex-col min-h-[480px]"
           >
-            <div className="flex items-center gap-2 mb-4 pb-3 border-b border-[hsl(var(--landing-border)/0.2)]">
+            {/* Chrome bar */}
+            <div className="flex items-center gap-2 px-5 py-3.5 border-b border-[hsl(var(--landing-border)/0.2)]">
               <div className="h-8 w-8 rounded-lg gradient-titan flex items-center justify-center">
                 <Bot className="h-4 w-4 text-white" />
               </div>
-              <div>
+              <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-[hsl(var(--landing-fg))]">AI Builder</p>
-                <p className="text-[10px] text-[hsl(var(--landing-fg-muted)/0.6)]">TitanMeet Assistant</p>
+                <p className="text-[10px] text-[hsl(var(--landing-fg-muted)/0.5)] truncate">
+                  TitanMeet Assistant
+                </p>
               </div>
-              <div className="ml-auto flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5">
                 <span className="h-2 w-2 rounded-full bg-[hsl(var(--titan-green))] animate-pulse" />
-                <span className="text-[10px] text-[hsl(var(--titan-green))]">Live</span>
+                <span className="text-[10px] font-medium text-[hsl(var(--titan-green))]">Live</span>
               </div>
             </div>
 
-            <div className="flex-1 space-y-3 overflow-hidden">
-              {chatSequence.map((msg, i) => {
-                if (msg.role === "status") {
-                  return (
-                    <div key={i} className="space-y-1.5 pl-4">
-                      {msg.items!.map((item, j) => (
-                        <motion.div
-                          key={j}
-                          initial={{ opacity: 0, x: -10 }}
-                          animate={isInView ? { opacity: 1, x: 0 } : {}}
-                          transition={{ delay: item.delay }}
-                          className="flex items-center gap-2"
-                        >
-                          <CheckCircle2 className="h-3.5 w-3.5 text-[hsl(var(--titan-green))]" />
-                          <span className="text-xs text-[hsl(var(--landing-fg)/0.7)]">{item.label}</span>
-                        </motion.div>
-                      ))}
-                    </div>
-                  );
-                }
+            {/* Messages */}
+            <div className="flex-1 px-5 py-4 space-y-3 overflow-hidden">
+              {STAGES.slice(0, stageIdx + 1).flatMap((st, si) =>
+                st.chat.map((msg, mi) => (
+                  <ChatBubble
+                    key={`${si}-${mi}`}
+                    msg={msg}
+                    visible={visibleMsgs.has(si * 10 + mi)}
+                    reducedMotion={reducedMotion}
+                  />
+                )),
+              )}
+            </div>
 
-                return (
-                  <motion.div
-                    key={i}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={isInView ? { opacity: 1, y: 0 } : {}}
-                    transition={{ delay: msg.delay }}
-                    className={`flex gap-2 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-                  >
-                    {msg.role === "ai" && (
-                      <div className="h-6 w-6 rounded-full bg-[hsl(var(--titan-green)/0.15)] flex items-center justify-center flex-shrink-0 mt-0.5">
-                        <Sparkles className="h-3 w-3 text-[hsl(var(--titan-green))]" />
-                      </div>
-                    )}
-                    <div className={`max-w-[80%] rounded-lg px-3 py-2 ${
-                      msg.role === "user"
-                        ? "bg-[hsl(var(--titan-green)/0.1)] border border-[hsl(var(--titan-green)/0.2)]"
-                        : "bg-[hsl(var(--landing-fg)/0.05)] border border-[hsl(var(--landing-border)/0.2)]"
-                    }`}>
-                      <p className="text-xs text-[hsl(var(--landing-fg)/0.8)]">{msg.text}</p>
-                    </div>
-                    {msg.role === "user" && (
-                      <div className="h-6 w-6 rounded-full bg-[hsl(var(--titan-blue)/0.15)] flex items-center justify-center flex-shrink-0 mt-0.5">
-                        <User className="h-3 w-3 text-[hsl(var(--titan-blue))]" />
-                      </div>
-                    )}
-                  </motion.div>
-                );
-              })}
+            {/* Fake input */}
+            <div className="px-5 pb-4">
+              <div className="rounded-xl bg-[hsl(var(--landing-fg)/0.04)] border border-[hsl(var(--landing-border)/0.2)] px-4 py-2.5 text-xs text-[hsl(var(--landing-fg-muted)/0.4)] flex items-center gap-2">
+                <MessageSquare className="h-3.5 w-3.5" />
+                Type a message…
+              </div>
             </div>
           </motion.div>
 
-          {/* Preview Panel */}
+          {/* ====== RIGHT: Preview ====== */}
           <motion.div
-            initial={{ opacity: 0, x: 30 }}
+            initial={reducedMotion ? { opacity: 0 } : { opacity: 0, x: 30 }}
             animate={isInView ? { opacity: 1, x: 0 } : {}}
             transition={{ delay: 0.4, duration: 0.6 }}
-            className="glass-card-landing rounded-xl border border-[hsl(var(--landing-border)/0.3)] p-5 min-h-[420px] flex flex-col"
+            className="glass-card-landing rounded-2xl border border-[hsl(var(--landing-border)/0.3)] flex flex-col min-h-[480px]"
           >
-            <div className="flex items-center gap-2 mb-4 pb-3 border-b border-[hsl(var(--landing-border)/0.2)]">
-              <span className="text-sm font-semibold text-[hsl(var(--landing-fg))]">Event Status</span>
-              <span className="ml-auto text-[10px] bg-[hsl(var(--titan-green)/0.15)] text-[hsl(var(--titan-green))] px-2 py-0.5 rounded-full font-medium">
-                Building…
+            {/* Chrome bar */}
+            <div className="flex items-center gap-2 px-5 py-3.5 border-b border-[hsl(var(--landing-border)/0.2)]">
+              <span className="text-sm font-semibold text-[hsl(var(--landing-fg))]">
+                Event Preview
               </span>
+              <motion.span
+                key={stageIdx}
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="ml-auto text-[10px] font-medium px-2.5 py-0.5 rounded-full bg-[hsl(var(--titan-green)/0.12)] text-[hsl(var(--titan-green))]"
+              >
+                {stageIdx < 3 ? "Building…" : "Ready"}
+              </motion.span>
             </div>
 
-            <div className="flex-1 space-y-4">
-              <AnimatePresence mode="wait">
-                {previewSteps.map((step, i) => (
-                  <motion.div
-                    key={i}
-                    initial={{ opacity: 0.3 }}
-                    animate={{ opacity: i <= activeStep ? 1 : 0.3 }}
-                    transition={{ duration: 0.4 }}
-                    className="flex items-start gap-3"
-                  >
-                    <div className={`mt-1 h-5 w-5 rounded-full flex items-center justify-center flex-shrink-0 transition-colors duration-300 ${
-                      i <= activeStep
-                        ? "bg-[hsl(var(--titan-green)/0.2)]"
-                        : "bg-[hsl(var(--landing-fg)/0.06)]"
-                    }`}>
-                      {i <= activeStep ? (
-                        <CheckCircle2 className="h-3.5 w-3.5 text-[hsl(var(--titan-green))]" />
-                      ) : (
-                        <div className="h-2 w-2 rounded-full bg-[hsl(var(--landing-fg)/0.2)]" />
-                      )}
-                    </div>
-                    <div>
-                      <p className={`text-sm font-medium transition-colors duration-300 ${
-                        i <= activeStep ? "text-[hsl(var(--landing-fg))]" : "text-[hsl(var(--landing-fg)/0.4)]"
-                      }`}>{step.label}</p>
-                      <p className="text-[11px] text-[hsl(var(--landing-fg-muted)/0.6)]">{step.sub}</p>
-                    </div>
-                  </motion.div>
-                ))}
-              </AnimatePresence>
+            <div className="flex-1 px-5 py-5 space-y-5 overflow-hidden">
+              {/* Event basics */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: preview.title ? 1 : 0.15 }}
+                transition={{ duration: 0.5 }}
+              >
+                <p className="font-display text-lg font-bold text-[hsl(var(--landing-fg))]">
+                  {preview.title || "Event Title"}
+                </p>
+                <div className="flex flex-wrap items-center gap-3 mt-1.5 text-xs text-[hsl(var(--landing-fg-muted)/0.7)]">
+                  <span className="flex items-center gap-1">
+                    <Calendar className="h-3 w-3" />
+                    {preview.date || "—"}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <MapPin className="h-3 w-3" />
+                    {preview.location || "—"}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Users className="h-3 w-3" />
+                    150 attendees
+                  </span>
+                </div>
+              </motion.div>
 
-              {/* Progress bar */}
-              <div className="mt-auto pt-4">
-                <div className="flex justify-between text-[10px] text-[hsl(var(--landing-fg-muted)/0.5)] mb-1">
-                  <span>Event Readiness</span>
-                  <span>{previewSteps[activeStep]?.progress ?? 0}%</span>
-                </div>
-                <div className="h-2 rounded-full bg-[hsl(var(--landing-fg)/0.06)] overflow-hidden">
-                  <motion.div
-                    className="h-full rounded-full gradient-titan"
-                    initial={{ width: "0%" }}
-                    animate={{ width: `${previewSteps[activeStep]?.progress ?? 0}%` }}
-                    transition={{ duration: 0.6, ease: "easeOut" }}
+              {/* Hero image placeholder */}
+              <motion.div
+                initial={{ opacity: 0, scale: 0.97 }}
+                animate={{
+                  opacity: preview.heroVisible ? 1 : 0.12,
+                  scale: preview.heroVisible ? 1 : 0.97,
+                }}
+                transition={{ duration: 0.6 }}
+                className="rounded-xl overflow-hidden border border-[hsl(var(--landing-border)/0.2)]"
+              >
+                <div className="aspect-[16/7] bg-gradient-to-br from-[hsl(var(--titan-green)/0.15)] via-[hsl(var(--titan-blue)/0.1)] to-[hsl(var(--landing-fg)/0.04)] flex items-center justify-center relative">
+                  <Image
+                    className={`h-8 w-8 transition-colors duration-500 ${
+                      preview.heroVisible
+                        ? "text-[hsl(var(--titan-green)/0.6)]"
+                        : "text-[hsl(var(--landing-fg)/0.15)]"
+                    }`}
                   />
+                  {preview.heroVisible && (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="absolute bottom-2 right-2 text-[9px] px-2 py-0.5 rounded-full bg-[hsl(var(--titan-green)/0.2)] text-[hsl(var(--titan-green))] font-medium"
+                    >
+                      AI Generated
+                    </motion.div>
+                  )}
                 </div>
-              </div>
+              </motion.div>
+
+              {/* Communication counters */}
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{
+                  opacity: preview.comms ? 1 : 0.12,
+                  y: preview.comms ? 0 : 8,
+                }}
+                transition={{ duration: 0.5 }}
+                className="grid grid-cols-2 gap-3"
+              >
+                <div className="rounded-lg bg-[hsl(var(--landing-fg)/0.04)] border border-[hsl(var(--landing-border)/0.15)] p-3">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <MessageSquare className="h-3.5 w-3.5 text-[hsl(var(--titan-green))]" />
+                    <span className="text-[10px] text-[hsl(var(--landing-fg-muted)/0.6)]">
+                      WhatsApp
+                    </span>
+                  </div>
+                  <p className="font-display text-xl font-bold text-[hsl(var(--landing-fg))]">
+                    {preview.comms?.whatsapp ?? "—"}
+                  </p>
+                  <p className="text-[9px] text-[hsl(var(--landing-fg-muted)/0.5)]">sent</p>
+                </div>
+                <div className="rounded-lg bg-[hsl(var(--landing-fg)/0.04)] border border-[hsl(var(--landing-border)/0.15)] p-3">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <Mail className="h-3.5 w-3.5 text-[hsl(var(--titan-blue))]" />
+                    <span className="text-[10px] text-[hsl(var(--landing-fg-muted)/0.6)]">Email</span>
+                  </div>
+                  <p className="font-display text-xl font-bold text-[hsl(var(--landing-fg))]">
+                    {preview.comms?.email ?? "—"}
+                  </p>
+                  <p className="text-[9px] text-[hsl(var(--landing-fg-muted)/0.5)]">sent</p>
+                </div>
+              </motion.div>
+
+              {/* Analytics summary */}
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{
+                  opacity: preview.analytics ? 1 : 0.08,
+                  y: preview.analytics ? 0 : 8,
+                }}
+                transition={{ duration: 0.5 }}
+                className="rounded-lg bg-[hsl(var(--landing-fg)/0.04)] border border-[hsl(var(--landing-border)/0.15)] p-3"
+              >
+                <div className="flex items-center gap-1.5 mb-2">
+                  <BarChart3 className="h-3.5 w-3.5 text-[hsl(var(--titan-green))]" />
+                  <span className="text-[10px] font-medium text-[hsl(var(--landing-fg-muted)/0.6)]">
+                    Confirmation Status
+                  </span>
+                </div>
+                <div className="flex items-baseline gap-4">
+                  <div>
+                    <span className="font-display text-xl font-bold text-[hsl(var(--titan-green))]">
+                      {preview.analytics?.confirmed ?? "—"}
+                    </span>
+                    <span className="text-[10px] text-[hsl(var(--landing-fg-muted)/0.5)] ml-1">
+                      confirmed
+                    </span>
+                  </div>
+                  <div>
+                    <span className="font-display text-xl font-bold text-[hsl(var(--landing-fg)/0.6)]">
+                      {preview.analytics?.pending ?? "—"}
+                    </span>
+                    <span className="text-[10px] text-[hsl(var(--landing-fg-muted)/0.5)] ml-1">
+                      pending
+                    </span>
+                  </div>
+                </div>
+                {preview.analytics && (
+                  <div className="mt-2 h-1.5 rounded-full bg-[hsl(var(--landing-fg)/0.06)] overflow-hidden">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: preview.analytics.rate }}
+                      transition={{ duration: 0.8, ease: "easeOut" }}
+                      className="h-full rounded-full gradient-titan"
+                    />
+                  </div>
+                )}
+              </motion.div>
             </div>
           </motion.div>
+        </div>
+
+        {/* Stage dots */}
+        <div className="flex items-center justify-center gap-2 mt-8">
+          {STAGES.map((_, i) => (
+            <motion.div
+              key={i}
+              className={`h-1.5 rounded-full transition-all duration-300 ${
+                i === stageIdx
+                  ? "w-6 gradient-titan"
+                  : i < stageIdx
+                    ? "w-1.5 bg-[hsl(var(--titan-green)/0.4)]"
+                    : "w-1.5 bg-[hsl(var(--landing-fg)/0.12)]"
+              }`}
+            />
+          ))}
         </div>
       </div>
     </section>
