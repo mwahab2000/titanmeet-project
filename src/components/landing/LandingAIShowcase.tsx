@@ -276,6 +276,16 @@ export const LandingAIShowcase = () => {
                   />
                 )),
               )}
+              <AnimatePresence>
+                {showTyping && (
+                  <div className="flex items-end gap-2 justify-start">
+                    <div className="h-7 w-7 rounded-full bg-[hsl(var(--titan-green)/0.15)] flex items-center justify-center flex-shrink-0">
+                      <Sparkles className="h-3.5 w-3.5 text-[hsl(var(--titan-green))]" />
+                    </div>
+                    <TypingIndicator />
+                  </div>
+                )}
+              </AnimatePresence>
             </div>
 
             {/* Fake input */}
