@@ -1107,6 +1107,95 @@ const TOOL_DEFINITIONS = [
       },
     },
   },
+  // ─── Communication Tools ───────────────────────────────
+  {
+    type: "function",
+    function: {
+      name: "prepare_communication_campaign",
+      description: "Create a draft communication campaign for an event. Returns a preview summary with audience count and channels. Requires confirmation before sending.",
+      parameters: {
+        type: "object",
+        properties: {
+          event_id: { type: "string", description: "Event UUID" },
+          campaign_type: { type: "string", enum: ["invitation", "attendance_confirmation", "reminder", "check_in", "follow_up"], description: "Type of campaign" },
+          channels: { type: "array", items: { type: "string", enum: ["email", "whatsapp"] }, description: "Delivery channels" },
+          audience_segment: { type: "string", enum: ["all", "pending", "confirmed"], description: "Audience segment (default: all)" },
+        },
+        required: ["event_id", "campaign_type", "channels"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "send_communication_campaign",
+      description: "Send a previously prepared draft campaign. Only call AFTER admin confirms the preview.",
+      parameters: {
+        type: "object",
+        properties: {
+          campaign_id: { type: "string", description: "Campaign UUID to send" },
+          event_id: { type: "string", description: "Event UUID" },
+        },
+        required: ["campaign_id", "event_id"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_event_confirmation_stats",
+      description: "Get attendance confirmation statistics for an event: invited, confirmed, pending, declined, confirmation rate, and channel breakdown.",
+      parameters: {
+        type: "object",
+        properties: {
+          event_id: { type: "string", description: "Event UUID" },
+        },
+        required: ["event_id"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "list_confirmation_segments",
+      description: "List attendee segments: confirmed, pending, needs reminder. Returns counts and sample names for each segment.",
+      parameters: {
+        type: "object",
+        properties: {
+          event_id: { type: "string", description: "Event UUID" },
+        },
+        required: ["event_id"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_communication_performance",
+      description: "Get communication delivery performance for an event: sent, delivered, opened, replied, failed — with channel breakdown.",
+      parameters: {
+        type: "object",
+        properties: {
+          event_id: { type: "string", description: "Event UUID" },
+        },
+        required: ["event_id"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "list_event_campaigns",
+      description: "List all communication campaigns for an event with their status and delivery stats.",
+      parameters: {
+        type: "object",
+        properties: {
+          event_id: { type: "string", description: "Event UUID" },
+        },
+        required: ["event_id"],
+      },
+    },
+  },
 ];
 
 // ─── Tool Executor ─────────────────────────────────────────
