@@ -2583,12 +2583,18 @@ serve(async (req) => {
           }
         }
 
+        // Determine tool category for action log
+        const isRetrievalTool = ["list_workspace_events", "list_workspace_clients", "get_event_details", "get_client_details", "list_events_by_client"].includes(toolName);
+        const isIntelligenceTool = ["get_missing_fields", "recommend_next_actions", "check_publish_readiness"].includes(toolName);
+        const toolCategory = isRetrievalTool ? "retrieval" : isIntelligenceTool ? "intelligence" : undefined;
+
         // Add pending entry
         const logEntry: ActionLogEntry = {
           action: toolName,
           target: resolveToolTarget(toolName, toolArgs),
           status: "pending",
           message: `Executing ${formatToolDisplayName(toolName)}...`,
+          category: toolCategory,
           timestamp: new Date().toISOString(),
         };
         actionLog.push(logEntry);
