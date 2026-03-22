@@ -2142,7 +2142,152 @@ async function toolRenameEvent(
   return { success: true, result: { event_id: args.event_id, old_title: oldTitle, new_title: args.new_title.trim(), message: `Renamed "${oldTitle}" → "${args.new_title.trim()}"` } };
 }
 
-// ─── Draft State Builder ───────────────────────────────────
+// ─── Intelligence Tools ────────────────────────────────────
+
+async function toolGetMissingFields(
+  db: SupabaseClient, userId: string,
+  args: { event_id: string }
+): Promise<ToolResult> {
+  if (!args.event_id) return { success: false, result: {}, error: "event_id is required", category: "validation" };
+
+  const { allowed, event: evt } = await canManageEvent(db, userId, args.event_id);
+  if (!allowed || !evt) return { success: false, result: {}, error: "Event not found or access denied", category: "permission" };
+
+  const [attRes, agdRes, orgRes, invRes] = await Promise.all([
+    db.from("attendees").select("id", { count: "exact", head: true }).eq("event_id", args.event_id),
+    db.from("agenda_items").select("id", { count: "exact", head: true }).eq("event_id", args.event_id),
+    db.from("organizers").select("id", { count: "exact", head: true }).eq("event_id", args.event_id),
+    db.from("event_invites").select("id", { count: "exact", head: true }).eq("event_id", args.event_id),
+  ]);
+
+  const fields = [
+    { field: "client", label: "Client linked", ok: !!evt.client_id, priority: "high" },
+    { field: "title", label: "Event title", ok: !!evt.title?.trim(), priority: "critical" },
+    { field: "description", label: "Description", ok: !!evt.description?.trim(), priority: "high" },
+    { field: "dates", label: "Start & end dates", ok: !!evt.start_date && !!evt.end_date, priority: "critical" },
+    { field: "slug", label: "Public URL slug", ok: !!evt.slug?.trim(), priority: "high" },
+    { field: "venue", label: "Venue or location", ok: !!(evt.venue_name?.trim() || evt.location?.trim()), priority: "medium" },
+    { field: "hero_image", label: "Hero/cover image", ok: Array.isArray(evt.hero_images) && evt.hero_images.length > 0, priority: "medium" },
+    { field: "attendees", label: "Attendees added", ok: (attRes.count ?? 0) > 0, priority: "high" },
+    { field: "agenda", label: "Agenda items", ok: (agdRes.count ?? 0) > 0, priority: "medium" },
+    { field: "organizers", label: "Organizers", ok: (orgRes.count ?? 0) > 0, priority: "low" },
+  ];
+
+  const missing = fields.filter(f => !f.ok);
+  const complete = fields.filter(f => f.ok);
+  const score = Math.round((complete.length / fields.length) * 100);
+
+  // Persist readiness to events table
+  const readinessDetails = { score, missing: missing.map(m => m.field), complete: complete.map(c => c.field), checked_at: new Date().toISOString() };
+  await db.from("events").update({ readiness: missing.length === 0, readiness_details: readinessDetails }).eq("id", args.event_id);
+
+  return {
+    success: true,
+    result: {
+      event_id: args.event_id,
+      title: evt.title,
+      score,
+      ready: missing.length === 0,
+      missing: missing.map(m => ({ field: m.field, label: m.label, priority: m.priority })),
+      complete: complete.map(c => c.label),
+      counts: {
+        attendees: attRes.count ?? 0,
+        agenda_items: agdRes.count ?? 0,
+        organizers: orgRes.count ?? 0,
+        invitations_sent: invRes.count ?? 0,
+      },
+    },
+  };
+}
+
+async function toolRecommendNextActions(
+  db: SupabaseClient, userId: string,
+  args: { event_id?: string }
+): Promise<ToolResult> {
+  const recommendations: Array<{ action: string; reason: string; priority: "high" | "medium" | "low"; tool?: string }> = [];
+
+  if (args.event_id) {
+    const { allowed, event: evt } = await canManageEvent(db, userId, args.event_id);
+    if (!allowed || !evt) return { success: false, result: {}, error: "Event not found or access denied", category: "permission" };
+
+    const [attRes, agdRes, orgRes, invRes] = await Promise.all([
+      db.from("attendees").select("id", { count: "exact", head: true }).eq("event_id", args.event_id),
+      db.from("agenda_items").select("id", { count: "exact", head: true }).eq("event_id", args.event_id),
+      db.from("organizers").select("id", { count: "exact", head: true }).eq("event_id", args.event_id),
+      db.from("event_invites").select("id", { count: "exact", head: true }).eq("event_id", args.event_id),
+    ]);
+
+    const attCount = attRes.count ?? 0;
+    const agdCount = agdRes.count ?? 0;
+    const orgCount = orgRes.count ?? 0;
+    const invCount = invRes.count ?? 0;
+
+    if (!evt.description?.trim()) recommendations.push({ action: "Add event description", reason: "Helps attendees understand the event purpose", priority: "high", tool: "update_event_basics" });
+    if (!evt.venue_name?.trim() && !evt.location?.trim()) recommendations.push({ action: "Set event venue", reason: "Attendees need to know where to go", priority: "high", tool: "search_venue_on_maps" });
+    if (attCount === 0) recommendations.push({ action: "Add attendees", reason: "No attendees added yet", priority: "high", tool: "add_attendees_from_text" });
+    if (agdCount === 0) recommendations.push({ action: "Create agenda", reason: "Structured agenda improves event quality", priority: "medium", tool: "add_agenda_items" });
+    if (orgCount === 0) recommendations.push({ action: "Add organizers", reason: "Shows who is running the event", priority: "low" });
+    if (!(Array.isArray(evt.hero_images) && evt.hero_images.length > 0)) recommendations.push({ action: "Upload hero image", reason: "Visual appeal for the public page", priority: "medium" });
+    if (attCount > 0 && invCount === 0) recommendations.push({ action: "Send invitations", reason: `${attCount} attendees added but no invitations sent`, priority: "high" });
+    if (evt.status === "draft" && !evt.description?.trim()) {
+      // Don't recommend publish if basics are missing
+    } else if (evt.status === "draft" && attCount > 0 && agdCount > 0) {
+      recommendations.push({ action: "Check publish readiness", reason: "Event may be ready to go live", priority: "medium", tool: "check_publish_readiness" });
+    }
+
+    // Sort by priority
+    const priorityOrder = { high: 0, medium: 1, low: 2 };
+    recommendations.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]);
+
+    return {
+      success: true,
+      result: {
+        event_id: args.event_id,
+        title: evt.title,
+        status: evt.status,
+        recommendations: recommendations.slice(0, 5),
+        total_recommendations: recommendations.length,
+      },
+    };
+  }
+
+  // Workspace-level recommendations
+  const isPrivileged = await isAdminOrOwnerRole(db, userId);
+  let evQuery = db.from("events").select("id, title, status, start_date").eq("status", "draft").order("updated_at", { ascending: false }).limit(5);
+  if (!isPrivileged) evQuery = evQuery.eq("created_by", userId);
+  const { data: drafts } = await evQuery;
+
+  if (drafts?.length) {
+    recommendations.push({ action: `Review ${drafts.length} draft event(s)`, reason: "Draft events may need attention", priority: "medium" });
+  } else {
+    recommendations.push({ action: "Create a new event", reason: "No draft events in workspace", priority: "high", tool: "create_event_draft" });
+  }
+
+  return { success: true, result: { recommendations, scope: "workspace" } };
+}
+
+// ─── Action Log Persistence ────────────────────────────────
+
+async function persistActionLog(
+  db: SupabaseClient,
+  sessionId: string,
+  userId: string,
+  entries: ActionLogEntry[],
+): Promise<void> {
+  if (entries.length === 0) return;
+  const rows = entries.map(e => ({
+    session_id: sessionId,
+    user_id: userId,
+    action_name: e.action,
+    status: e.status,
+    message: e.message,
+    category: e.category || null,
+    metadata: e.metadata || {},
+  }));
+  const { error } = await db.from("ai_action_logs").insert(rows);
+  if (error) console.error(`[persistActionLog] error: ${error.message}`);
+}
+
 
 async function buildDraftState(
   db: SupabaseClient,
