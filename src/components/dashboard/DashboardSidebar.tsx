@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { Calendar, LayoutDashboard, Settings, LogOut, Plus, Building2, Image, Images, Info, ListOrdered, UserCog, UsersRound, Layers, Bus, MapPin, Megaphone, ClipboardList, MessageSquare, Users, Mic, Globe, Shirt, CreditCard, LifeBuoy, Shield, FileEdit, Copy, MailPlus, ChevronDown, ChevronRight as ChevronRightIcon, Palette, UserCheck, Truck, Sparkles, Send, Bot, type LucideIcon } from "lucide-react";
+import { Calendar, LayoutDashboard, Settings, LogOut, Plus, Building2, Image, Images, Info, ListOrdered, UserCog, UsersRound, Layers, Bus, MapPin, Megaphone, ClipboardList, MessageSquare, Users, Mic, Globe, Shirt, CreditCard, LifeBuoy, Shield, FileEdit, Copy, MailPlus, ChevronDown, ChevronRight as ChevronRightIcon, Palette, UserCheck, Truck, Sparkles, Send, Bot, BarChart3, type LucideIcon } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -79,6 +79,7 @@ const sectionGroups: SectionGroup[] = [
       { icon: Megaphone, label: "Event Alerts", path: "event-announcements" },
       { icon: ClipboardList, label: "Survey", path: "survey" },
       { icon: MessageSquare, label: "Communications Center", path: "communications" },
+      { icon: BarChart3, label: "Analytics", path: "analytics" },
     ],
   },
 ];

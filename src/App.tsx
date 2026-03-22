@@ -66,6 +66,7 @@ const WebsiteSection = lazy(() => import("./pages/workspace/WebsiteSection"));
 const DressCodeSection = lazy(() => import("./pages/workspace/DressCodeSection"));
 const GallerySection = lazy(() => import("./pages/workspace/GallerySection"));
 const PreviewEventPage = lazy(() => import("./pages/workspace/PreviewEventPage"));
+const AnalyticsSection = lazy(() => import("./pages/workspace/AnalyticsSection"));
 
 const queryClient = new QueryClient();
 
@@ -137,6 +138,7 @@ const App = () => (
                         <Route path="survey" element={<SurveySection />} />
                         <Route path="communications" element={<CommunicationsSection />} />
                         <Route path="website" element={<WebsiteSection />} />
+                        <Route path="analytics" element={<AnalyticsSection />} />
                       </Route>
                     </Route>
                     <Route path="/dashboard/events/:id/preview" element={<ProtectedRoute><PreviewEventPage /></ProtectedRoute>} />

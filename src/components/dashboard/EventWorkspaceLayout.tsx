@@ -18,7 +18,7 @@ const sectionLabels: Record<string, string> = {
   hero: "Hero", info: "Event Info", agenda: "Agenda", organizers: "Organizers", speakers: "Speakers",
   attendees: "Attendees", groups: "Groups", "assign-groups": "Assign Groups",
   transportation: "Transportation", venue: "Venue", gallery: "Gallery", announcements: "Announcements",
-  "event-announcements": "Event Alerts",
+  "event-announcements": "Event Alerts", analytics: "Analytics",
   survey: "Survey", communications: "Communications Center",
 };
 
