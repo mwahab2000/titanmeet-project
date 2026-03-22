@@ -169,7 +169,7 @@ const DressCodeSection = () => {
           
           const { data, error } = await supabase.from("dress_codes").insert(payload).select();
           if (error) { console.error("Insert error:", error); toast.error("Save failed: " + error.message); setSaving(false); return; }
-          console.log("Insert result:", data);
+          
         }
       }
       toast.success("Dress codes saved");
