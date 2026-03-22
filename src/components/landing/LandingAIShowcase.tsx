@@ -173,6 +173,7 @@ export const LandingAIShowcase = () => {
       if (cancelled) return;
       setStageIdx(0);
       setVisibleMsgs(new Set());
+      setShowTyping(false);
       setPreview({});
 
       let elapsed = 0;
