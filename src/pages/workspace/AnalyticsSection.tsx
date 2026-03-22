@@ -23,11 +23,14 @@ interface AnalyticsData {
   checkedIn: number;
   noShow: number;
   messagesSent: number;
+  messagesDelivered: number;
   messagesOpened: number;
   surveysSent: number;
   surveysCompleted: number;
   checkinTimeline: { hour: string; count: number }[];
   rsvpTimeline: { date: string; confirmed: number; total: number }[];
+  messageFunnel: { stage: string; count: number }[];
+  insights: { text: string; type: "info" | "warning" | "success" }[];
 }
 
 const COLORS = {
