@@ -3877,6 +3877,16 @@ function formatToolLabel(toolName: string, result: Record<string, unknown>): str
       return result.ready ? `Event is complete (${result.score}%)` : `${(result.missing as any[])?.length || 0} fields missing (${result.score}% complete)`;
     case "recommend_next_actions":
       return `${(result.recommendations as any[])?.length || 0} recommendations`;
+    case "register_uploaded_media":
+      return (result.message as string) || "Registered uploaded image";
+    case "create_brand_kit":
+      return (result.message as string) || `Created brand kit "${result.name}"`;
+    case "get_brand_kit":
+      return result.found ? `Found ${(result.brand_kits as any[])?.length || 0} brand kit(s)` : "No brand kits found";
+    case "save_visual_pack":
+      return (result.message as string) || `Saved visual pack`;
+    case "apply_visual_pack":
+      return (result.message as string) || `Applied visual pack`;
     default:
       return toolName;
   }
