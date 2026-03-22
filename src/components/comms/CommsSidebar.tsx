@@ -2,7 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard, Inbox, Send, Clock, FileText, ScrollText,
-  AlertCircle, Settings, Mail,
+  AlertCircle, Settings, Mail, QrCode,
 } from "lucide-react";
 
 export type CommsView =
@@ -10,6 +10,7 @@ export type CommsView =
   | "inbox"
   | "sent"
   | "scheduled"
+  | "checkin"
   | "templates"
   | "log"
   | "unassigned"
@@ -30,6 +31,7 @@ const viewItems: { id: CommsView; icon: any; label: string; countKey?: "inbox" |
   { id: "inbox", icon: Inbox, label: "Inbox", countKey: "inbox" },
   { id: "sent", icon: Send, label: "Sent" },
   { id: "scheduled", icon: Clock, label: "Scheduled" },
+  { id: "checkin", icon: QrCode, label: "Check-in" },
   { id: "templates", icon: FileText, label: "Templates" },
   { id: "log", icon: ScrollText, label: "Message Log" },
   { id: "unassigned", icon: AlertCircle, label: "Unassigned", countKey: "unassigned" },
