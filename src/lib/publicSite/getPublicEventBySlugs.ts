@@ -44,20 +44,31 @@ export async function getPublicEventBySlugs(clientSlug: string, eventSlug: strin
       return { status: "private" };
     }
 
-    // 4. Parallel-fetch related data
+    // 4. Check if attendees should be shown publicly
+    const showAttendees = !!(event as any).show_attendees_publicly;
+
+    // 5. Parallel-fetch related data — only fetch attendees if explicitly enabled
     const [agendaRes, speakersRes, organizersRes, announcementsRes, surveyRes, dressCodeRes, transportSettingsRes, transportRoutesRes, transportStopsRes, attendeesRes, groupsRes, attendeeGroupsRes] = await Promise.all([
       supabase.from("agenda_items").select("id, title, description, start_time, end_time, day_number, speaker_id").eq("event_id", event.id).order("day_number").order("order_index"),
       supabase.from("speakers").select("id, name, title, bio, photo_url, linkedin_url").eq("event_id", event.id),
-      supabase.from("organizers").select("id, name, role, email, mobile, photo_url").eq("event_id", event.id),
+      // Only fetch organizer name, role, photo for public — no email/mobile
+      supabase.from("organizers").select("id, name, role, photo_url").eq("event_id", event.id),
       supabase.from("announcements").select("id, text").eq("event_id", event.id).order("order_index"),
       supabase.from("surveys").select("id", { count: "exact", head: true }).eq("event_id", event.id),
       supabase.from("dress_codes").select("day_number, dress_type, custom_instructions, reference_images").eq("event_id", event.id).order("day_number"),
       supabase.from("transport_settings").select("enabled, general_instructions, meetup_time").eq("event_id", event.id).maybeSingle(),
       supabase.from("transport_routes").select("id, name, day_number, departure_time, vehicle_type, notes").eq("event_id", event.id).order("day_number").order("name"),
       supabase.from("transport_pickup_points").select("id, name, address, pickup_time, stop_type, map_url, notes, route_id, order_index").eq("event_id", event.id).order("order_index"),
-      supabase.from("attendees").select("id, name").eq("event_id", event.id),
-      supabase.from("groups").select("id, name").eq("event_id", event.id),
-      supabase.from("attendee_groups").select("attendee_id, group_id"),
+      // Only fetch attendee names if show_attendees_publicly is true
+      showAttendees
+        ? supabase.from("attendees").select("id, name").eq("event_id", event.id)
+        : Promise.resolve({ data: [], error: null }),
+      showAttendees
+        ? supabase.from("groups").select("id, name").eq("event_id", event.id)
+        : Promise.resolve({ data: [], error: null }),
+      showAttendees
+        ? supabase.from("attendee_groups").select("attendee_id, group_id")
+        : Promise.resolve({ data: [], error: null }),
     ]);
 
     // Build speaker name map for agenda

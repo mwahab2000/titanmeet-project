@@ -1,7 +1,7 @@
 import { useEventWorkspace } from "@/contexts/EventWorkspaceContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Check, X, ExternalLink, Globe, Eye, Copy, Sparkles, Loader2, ArrowRight, ClipboardCheck } from "lucide-react";
+import { Check, X, ExternalLink, Globe, Eye, Copy, Sparkles, Loader2, ArrowRight, ClipboardCheck, AlertTriangle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
