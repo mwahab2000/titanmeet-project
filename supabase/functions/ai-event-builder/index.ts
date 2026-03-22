@@ -509,6 +509,24 @@ const TOOL_DEFINITIONS = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "apply_template",
+      description: "Search the internal template marketplace and apply a template to create a new event draft. Use when admin says 'use the executive summit template' or 'start from internal sales kickoff template'.",
+      parameters: {
+        type: "object",
+        properties: {
+          search_query: { type: "string", description: "Template name or keyword to search for" },
+          template_id: { type: "string", description: "Specific template ID if already known" },
+          event_title: { type: "string", description: "Title for the new event (required if applying)" },
+          client_id: { type: "string", description: "Client ID for the new event" },
+          event_date: { type: "string", description: "Event date in YYYY-MM-DD format" },
+        },
+        required: ["search_query"],
+      },
+    },
+  },
 ];
 
 // ─── Tool Executor ─────────────────────────────────────────
