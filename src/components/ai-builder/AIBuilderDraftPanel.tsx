@@ -190,6 +190,7 @@ export const AIBuilderDraftPanel = ({
                 <SectionRow icon={<UserCog className="h-3.5 w-3.5" />} label="Organizers" status={draft.organizers.status} details={draft.organizers.count > 0 ? `${draft.organizers.count} added` : "None"} />
                 <SectionRow icon={<UsersRound className="h-3.5 w-3.5" />} label="Attendees" status={draft.attendees.status} details={draft.attendees.count > 0 ? `${draft.attendees.count} added` : "None"} />
                 <SectionRow icon={<ListOrdered className="h-3.5 w-3.5" />} label="Agenda" status={draft.agenda.status} details={draft.agenda.items > 0 ? `${draft.agenda.items} items` : "No items"} />
+                <SectionRow icon={<ImageIcon className="h-3.5 w-3.5" />} label="Media" status={draft.media.status} details={draft.media.heroCount > 0 ? `Hero: ${draft.media.heroCount} • Gallery: ${draft.media.galleryCount}${draft.media.hasBanner ? " • Banner ✓" : ""}` : "No images"} />
                 <SectionRow icon={<MessageSquare className="h-3.5 w-3.5" />} label="Communications" status={draft.communications.status} details={draft.communications.status === "done" ? "Ready" : "Not configured"} />
               </div>
             </div>
