@@ -172,21 +172,7 @@ export function CommsOverview({ onNavigate }: { onNavigate: (view: string) => vo
 
       {/* Channel Performance */}
       <div className="grid md:grid-cols-2 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <MessageSquare className="h-4 w-4 text-emerald-500" /> WhatsApp
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 gap-2">
-              <StatCard icon={Send} label="Sent" value={stats.whatsappSent} />
-              <StatCard icon={CheckCircle2} label="Delivered" value={stats.whatsappDelivered} variant="success" />
-              <StatCard icon={Inbox} label="Replies" value={stats.whatsappReplied} />
-              <StatCard icon={AlertTriangle} label="Unresolved" value={stats.unresolvedInbound} variant={stats.unresolvedInbound > 0 ? "warning" : "default"} />
-            </div>
-          </CardContent>
-        </Card>
+        <WhatsAppMetricsDashboard />
 
         <Card>
           <CardHeader className="pb-2">
