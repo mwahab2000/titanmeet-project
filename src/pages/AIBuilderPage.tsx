@@ -140,7 +140,7 @@ const AIBuilderPage = () => {
       {/* Desktop draft summary panel */}
       {effectiveShowPanel && (
         <div className="w-72 shrink-0">
-          <AIBuilderDraftPanel draft={draft} />
+          <AIBuilderDraftPanel draft={draft} onApplyRecommendation={(p) => sendMessage(p)} isLoading={isLoading} />
         </div>
       )}
     </div>
