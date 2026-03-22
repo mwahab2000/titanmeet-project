@@ -1,4 +1,5 @@
-import { Bot, Sparkles } from "lucide-react";
+import { Bot, Sparkles, Wand2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 const suggestedPrompts = [
   "Create a new event for Titan Cement Egypt",
