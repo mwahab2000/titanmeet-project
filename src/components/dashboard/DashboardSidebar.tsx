@@ -79,6 +79,7 @@ const sectionGroups: SectionGroup[] = [
       { icon: Megaphone, label: "Event Alerts", path: "event-announcements" },
       { icon: ClipboardList, label: "Survey", path: "survey" },
       { icon: MessageSquare, label: "Communications Center", path: "communications" },
+      { icon: BarChart3, label: "Analytics", path: "analytics" },
     ],
   },
 ];
