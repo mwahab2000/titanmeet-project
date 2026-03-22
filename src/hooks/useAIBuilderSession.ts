@@ -77,6 +77,7 @@ const emptyDraft: DraftState = {
   attendees: { count: 0, status: "empty" },
   agenda: { items: 0, status: "empty" },
   communications: { status: "empty" },
+  media: { heroCount: 0, galleryCount: 0, hasBanner: false, status: "empty" },
   publishReadiness: { score: 0, missing: [], status: "empty" },
 };
 
