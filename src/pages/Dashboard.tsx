@@ -310,6 +310,19 @@ const Dashboard = () => {
           <GlobalCommsWidget />
         </motion.div>
 
+        {/* Workspace Analytics */}
+        <motion.div
+          className="md:col-span-4"
+          variants={cellVariants}
+          initial="hidden"
+          animate="visible"
+          custom={cellIndex++}
+        >
+          <Suspense fallback={<div className="h-64 animate-pulse rounded-lg bg-muted" />}>
+            <WorkspaceAnalytics />
+          </Suspense>
+        </motion.div>
+
         {/* AI Insights */}
         <motion.div
           className="md:col-span-4"
