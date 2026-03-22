@@ -97,6 +97,24 @@ export const PLANS: Record<string, PlanConfig> = {
 export const PLAN_ORDER = ['starter', 'professional', 'enterprise'] as const;
 export type PlanId = (typeof PLAN_ORDER)[number];
 
+/** Validate pricing env vars and log warnings for missing ones */
+export function validatePricingConfig(): { valid: boolean; missing: string[] } {
+  const missing: string[] = [];
+  for (const planId of PLAN_ORDER) {
+    const plan = PLANS[planId];
+    if (!plan.paddlePriceIdMonthly) {
+      missing.push(`VITE_PADDLE_PRICE_${planId.toUpperCase()}_MONTHLY`);
+    }
+  }
+  if (missing.length > 0) {
+    console.warn(
+      `[TitanMeet Pricing] Missing Paddle price IDs for: ${missing.join(', ')}. ` +
+      `Set these in your .env file or Lovable secrets to enable checkout.`
+    );
+  }
+  return { valid: missing.length === 0, missing };
+}
+
 /** Format a limit value for display (handles Infinity → "Unlimited") */
 export function formatLimit(value: number): string {
   if (value === Infinity) return 'Unlimited';

@@ -113,6 +113,7 @@ const PaddleCheckoutButton = ({
     }
 
     if (!priceId) {
+      console.warn(`[PaddleCheckout] No priceId for plan "${planId}". Check VITE_PADDLE_PRICE_* env vars.`);
       toast.error("Price not configured for this plan.");
       return;
     }
