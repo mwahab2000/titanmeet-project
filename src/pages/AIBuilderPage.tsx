@@ -11,6 +11,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { AIBuilderUsageBanner } from "@/components/ai-builder/AIBuilderUsageBanner";
 import type { VenueResult } from "@/components/ai-builder/AIVenueSearchResults";
 import type { VenuePhoto } from "@/components/ai-builder/AIVenuePhotoBrowser";
+import type { EventProposal } from "@/components/ai-builder/AIEventProposalPreview";
 
 const AIBuilderPage = () => {
   const { messages, draft, isLoading, sendMessage, clearSession } = useAIBuilderSession();
