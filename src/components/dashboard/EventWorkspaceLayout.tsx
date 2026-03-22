@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { PUBLISH_CHECKS, getPublishStatus } from "@/lib/publishChecks";
 import { SaveAsTemplateDialog } from "@/components/templates/SaveAsTemplateDialog";
 import AiChatWidget from "@/components/ai/AiChatWidget";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const sectionLabels: Record<string, string> = {
   hero: "Hero", info: "Event Info", agenda: "Agenda", organizers: "Organizers", speakers: "Speakers",
@@ -33,6 +34,7 @@ const checkKeyToSection: Record<string, string> = {
 
 const PublishReadinessStrip = () => {
   const { event } = useEventWorkspace();
+  const isMobile = useIsMobile();
   if (!event || event.status === "archived") return null;
 
   const publishStatus = getPublishStatus(event);
@@ -41,7 +43,7 @@ const PublishReadinessStrip = () => {
   let pillLabel = "Incomplete";
   let pillClass = "bg-destructive/10 text-destructive border-destructive/20";
   if (allPass) {
-    pillLabel = "✓ Ready to Publish";
+    pillLabel = "✓ Ready";
     pillClass = "bg-primary/10 text-primary border-primary/20";
   } else if (pct >= 50) {
     pillLabel = "Almost Ready";
@@ -49,19 +51,19 @@ const PublishReadinessStrip = () => {
   }
 
   return (
-    <div className="h-12 flex items-center gap-4 px-6 border-b border-border bg-muted/30">
-      <Progress value={pct} className="w-48 h-1.5" />
-      <span className="text-xs text-muted-foreground">
-        {passed} / {total} required fields complete
+    <div className="flex items-center gap-3 sm:gap-4 px-4 sm:px-6 py-2 sm:py-3 border-b border-border bg-muted/30">
+      <Progress value={pct} className="w-24 sm:w-48 h-1.5" />
+      <span className="text-xs text-muted-foreground whitespace-nowrap">
+        {passed}/{total}
       </span>
       <div className="ml-auto">
         <Dialog>
           <DialogTrigger asChild>
-            <button className={`text-xs font-medium px-3 py-1 rounded-full border cursor-pointer transition-colors hover:opacity-80 ${pillClass}`}>
+            <button className={`text-xs font-medium px-2.5 sm:px-3 py-1 rounded-full border cursor-pointer transition-colors hover:opacity-80 whitespace-nowrap ${pillClass}`}>
               {pillLabel}
             </button>
           </DialogTrigger>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-md max-h-[80dvh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="font-display">Publish Readiness</DialogTitle>
             </DialogHeader>
@@ -79,7 +81,7 @@ const PublishReadinessStrip = () => {
                   {!r.ok && checkKeyToSection[r.key] && event && (
                     <Link
                       to={`/dashboard/events/${event.id}/${checkKeyToSection[r.key]}`}
-                      className="text-xs text-primary hover:underline"
+                      className="text-xs text-primary hover:underline whitespace-nowrap"
                     >
                       Fix →
                     </Link>
@@ -103,7 +105,7 @@ export const EventWorkspaceLayout: React.FC = () => {
     <EventWorkspaceProvider eventId={id}>
       <div className="flex flex-col h-full">
         <WorkspaceHeader />
-        <div className="flex-1 overflow-auto p-6">
+        <div className="flex-1 overflow-auto p-3 sm:p-6">
           <Outlet />
         </div>
         <AiChatWidget />
@@ -116,6 +118,7 @@ const WorkspaceHeader: React.FC = () => {
   const { event, saveStatus, manualSave, setEvent, isArchived } = useEventWorkspace();
   const { user } = useAuth();
   const location = useLocation();
+  const isMobile = useIsMobile();
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
   const sectionSlug = location.pathname.split("/").pop() || "";
   const sectionName = sectionLabels[sectionSlug] || sectionSlug;
@@ -153,36 +156,41 @@ const WorkspaceHeader: React.FC = () => {
 
   return (
     <>
-      <div className="border-b border-border px-6 py-3 bg-card space-y-1">
-        <nav className="flex items-center gap-1 text-xs text-muted-foreground">
-          <Link to="/dashboard" className="hover:text-foreground transition-colors">Dashboard</Link>
-          <ChevronRight className="h-3 w-3" />
-          <Link to="/dashboard/events" className="hover:text-foreground transition-colors">Events</Link>
-          <ChevronRight className="h-3 w-3" />
-          <span className="text-foreground font-medium truncate max-w-[200px]">{event.title || "Untitled"}</span>
-          <ChevronRight className="h-3 w-3" />
-          <span className="text-foreground font-medium">{sectionName}</span>
-        </nav>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <h2 className="font-display text-lg font-bold truncate max-w-[300px]">{event.title || "Untitled Event"}</h2>
-            <Badge className={statusColor}>{event.status}</Badge>
-            <span className="text-xs text-muted-foreground flex items-center gap-1">
+      <div className="border-b border-border px-4 sm:px-6 py-2 sm:py-3 bg-card space-y-1">
+        {/* Breadcrumb — hide on mobile */}
+        {!isMobile && (
+          <nav className="flex items-center gap-1 text-xs text-muted-foreground">
+            <Link to="/dashboard" className="hover:text-foreground transition-colors">Dashboard</Link>
+            <ChevronRight className="h-3 w-3" />
+            <Link to="/dashboard/events" className="hover:text-foreground transition-colors">Events</Link>
+            <ChevronRight className="h-3 w-3" />
+            <span className="text-foreground font-medium truncate max-w-[200px]">{event.title || "Untitled"}</span>
+            <ChevronRight className="h-3 w-3" />
+            <span className="text-foreground font-medium">{sectionName}</span>
+          </nav>
+        )}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <h2 className="font-display text-base sm:text-lg font-bold truncate">{event.title || "Untitled Event"}</h2>
+            <Badge className={`${statusColor} shrink-0 text-[10px] sm:text-xs`}>{event.status}</Badge>
+            <span className="text-xs text-muted-foreground items-center gap-1 hidden sm:flex">
               {saveStatus === "saving" && <><Loader2 className="h-3 w-3 animate-spin" /> Saving...</>}
               {saveStatus === "saved" && <><Check className="h-3 w-3" /> Saved</>}
               {saveStatus === "error" && <><AlertCircle className="h-3 w-3 text-destructive" /> Error</>}
             </span>
           </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => setTemplateDialogOpen(true)}>
-              <Copy className="h-4 w-4 mr-1" /> Save as Template
-            </Button>
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            {!isMobile && (
+              <Button variant="outline" size="sm" onClick={() => setTemplateDialogOpen(true)}>
+                <Copy className="h-4 w-4 mr-1" /> Save as Template
+              </Button>
+            )}
             {event.status === "draft" && (
-              <Button size="sm" className="gradient-titan border-0 text-primary-foreground" onClick={handlePublish}>
+              <Button size="sm" className="gradient-titan border-0 text-primary-foreground text-xs sm:text-sm" onClick={handlePublish}>
                 Publish
               </Button>
             )}
-            {event.status !== "archived" && (
+            {event.status !== "archived" && !isMobile && (
               <Button variant="ghost" size="sm" onClick={handleArchive}>Archive</Button>
             )}
           </div>
