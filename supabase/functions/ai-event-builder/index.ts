@@ -2627,6 +2627,9 @@ serve(async (req) => {
         await db.from("ai_chat_sessions").update({ state_json: stateJson }).eq("id", session.id);
       }
 
+      // ── Persist action log to ai_action_logs table ──
+      await persistActionLog(db, session.id, user.id, actionLog);
+
       // Build frontend-compatible actions from action log
       const executedActions = actionLog.map(entry => ({
         type: entry.status === "failed" ? "warning" as const
