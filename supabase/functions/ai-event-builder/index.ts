@@ -4137,6 +4137,10 @@ function formatToolLabel(toolName: string, result: Record<string, unknown>): str
       return (result.message as string) || `Saved visual pack`;
     case "apply_visual_pack":
       return (result.message as string) || `Applied visual pack`;
+    case "get_event_analytics_summary":
+      return `Analytics: ${(result.metrics as any)?.rsvpRate ?? 0}% RSVP, ${(result.metrics as any)?.attendanceRate ?? 0}% attendance`;
+    case "get_workspace_analytics_summary":
+      return `Workspace: ${result.totalEvents} events, ${result.totalAttendees} attendees`;
     default:
       return toolName;
   }
