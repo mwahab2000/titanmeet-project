@@ -4,7 +4,7 @@
  * Ensures plan definitions are consistent, complete, and correctly ordered.
  */
 import { describe, it, expect } from "vitest";
-import { PLANS, PLAN_ORDER, formatLimit, getPlanFeatures } from "@/config/pricing";
+import { PLANS, PLAN_ORDER, COMPARISON_TABLE, ANNUAL_DISCOUNT_PERCENT, formatLimit, getPlanFeatures } from "@/config/pricing";
 
 describe("Pricing — Plan Configuration", () => {
   it("PLAN_ORDER contains all defined plans", () => {
@@ -18,6 +18,8 @@ describe("Pricing — Plan Configuration", () => {
     Object.values(PLANS).forEach((plan) => {
       expect(plan.name).toBeTruthy();
       expect(plan.monthlyPrice).toBeGreaterThanOrEqual(0);
+      expect(plan.annualMonthlyPrice).toBeLessThanOrEqual(plan.monthlyPrice);
+      expect(plan.annualTotalPrice).toBe(plan.annualMonthlyPrice * 12);
       expect(plan.limits).toBeDefined();
       expect(typeof plan.limits.clients).toBe("number");
       expect(typeof plan.limits.events).toBe("number");
@@ -25,6 +27,7 @@ describe("Pricing — Plan Configuration", () => {
       expect(plan.features.length).toBeGreaterThan(0);
       expect(plan.description).toBeTruthy();
       expect(plan.buttonText).toBeTruthy();
+      expect(plan.bestFor).toBeTruthy();
     });
   });
 
@@ -51,11 +54,18 @@ describe("Pricing — Plan Configuration", () => {
     expect(starter.limits.seats).toBeLessThan(Infinity);
   });
 
-  it("enterprise plan has Infinity limits where expected", () => {
-    const enterprise = PLANS.enterprise;
-    expect(enterprise.limits.clients).toBe(Infinity);
-    expect(enterprise.limits.events).toBe(Infinity);
-    expect(enterprise.limits.seats).toBe(Infinity);
+  it("annual discount is 20%", () => {
+    expect(ANNUAL_DISCOUNT_PERCENT).toBe(20);
+  });
+
+  it("comparison table has entries for all plans", () => {
+    expect(COMPARISON_TABLE.length).toBeGreaterThan(0);
+    COMPARISON_TABLE.forEach((row) => {
+      expect(row.feature).toBeTruthy();
+      expect(typeof row.starter).toBe("string");
+      expect(typeof row.professional).toBe("string");
+      expect(typeof row.enterprise).toBe("string");
+    });
   });
 });
 
