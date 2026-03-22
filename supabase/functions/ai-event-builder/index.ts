@@ -1024,6 +1024,194 @@ async function toolCheckPublishReadiness(
   };
 }
 
+// ─── Event Proposal Tools ──────────────────────────────────
+
+async function toolGenerateFullEventProposal(
+  db: SupabaseClient, userId: string,
+  args: { description: string; client_name?: string; event_type?: string; expected_attendees?: number; duration_days?: number },
+  correlationId: string,
+): Promise<ToolResult> {
+  if (!args.description?.trim()) return { success: false, result: {}, error: "Event description is required", category: "validation" };
+
+  const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+  if (!OPENAI_API_KEY) return { success: false, result: {}, error: "AI not configured", category: "internal" };
+
+  const model = Deno.env.get("AI_MODEL") || "gpt-4o-mini";
+  const durationDays = args.duration_days || 1;
+
+  const generationPrompt = `Generate a complete event proposal as JSON. The event should be professional and realistic.
+
+Input:
+- Description: ${args.description}
+${args.client_name ? `- Client: ${args.client_name}` : ""}
+${args.event_type ? `- Type: ${args.event_type}` : ""}
+${args.expected_attendees ? `- Expected attendees: ${args.expected_attendees}` : ""}
+- Duration: ${durationDays} day(s)
+
+Return ONLY a JSON object with this exact structure:
+{
+  "client": { "name": "string", "slug": "lowercase-hyphenated" },
+  "event": {
+    "title": "string",
+    "slug": "lowercase-hyphenated",
+    "description": "2-3 sentence description",
+    "start_date": "ISO datetime",
+    "end_date": "ISO datetime",
+    "location": "city/region text",
+    "theme_id": "one of: corporate, elegant, modern, midnight-gala, creative-festival, tech-summit, nature-wellness, corporate-mui",
+    "max_attendees": number
+  },
+  "agenda": [
+    { "title": "string", "description": "string", "start_time": "HH:MM", "end_time": "HH:MM", "day_number": number }
+  ],
+  "venue_suggestion": "suggested venue name and city",
+  "attendee_structure": {
+    "target_count": number,
+    "suggested_groups": ["group name 1", "group name 2"],
+    "audience_description": "who should attend"
+  },
+  "communications": {
+    "invitation_subject": "string",
+    "invitation_body": "short invitation text",
+    "reminder_subject": "string",
+    "reminder_body": "short reminder text"
+  },
+  "branding": {
+    "theme_id": "same as event.theme_id",
+    "color_mood": "description of color palette mood",
+    "tagline": "short catchy tagline for the event"
+  },
+  "publish_guidance": ["list of things needed before publishing"]
+}
+
+Create a realistic, well-paced agenda with appropriate breaks for ${durationDays} day(s). Set dates starting 30 days from now.`;
+
+  try {
+    const resp = await fetch(OPENAI_API_URL, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: "system", content: "You are an expert event planner. Return ONLY valid JSON, no markdown fences." },
+          { role: "user", content: generationPrompt },
+        ],
+        temperature: 0.6,
+        max_completion_tokens: 3000,
+      }),
+    });
+
+    if (!resp.ok) {
+      console.error(`[${correlationId}] proposal generation OpenAI error: ${resp.status}`);
+      return { success: false, result: {}, error: "AI service temporarily unavailable", category: "external_api" };
+    }
+
+    const aiResult = await resp.json();
+    const rawContent = aiResult.choices?.[0]?.message?.content || "";
+
+    let proposal: any;
+    try {
+      const jsonMatch = rawContent.match(/```(?:json)?\s*([\s\S]*?)```/);
+      const jsonStr = jsonMatch ? jsonMatch[1].trim() : rawContent.trim();
+      proposal = JSON.parse(jsonStr);
+    } catch {
+      console.error(`[${correlationId}] Failed to parse proposal JSON:`, rawContent.substring(0, 200));
+      return { success: false, result: {}, error: "AI returned an invalid proposal format. Please try again.", category: "parsing" };
+    }
+
+    return {
+      success: true,
+      result: {
+        proposal,
+        action: "proposal_generated",
+        message: "Event proposal generated — awaiting admin review before saving.",
+      },
+    };
+  } catch (err) {
+    console.error(`[${correlationId}] proposal generation error:`, err);
+    return { success: false, result: {}, error: "Failed to generate event proposal", category: "internal" };
+  }
+}
+
+async function toolSaveEventProposal(
+  db: SupabaseClient, userId: string,
+  args: { proposal: any },
+  correlationId: string,
+): Promise<ToolResult> {
+  const proposal = args.proposal;
+  if (!proposal?.event?.title) return { success: false, result: {}, error: "Invalid proposal — missing event title", category: "validation" };
+
+  const savedEntities: Record<string, unknown> = {};
+  const failures: string[] = [];
+
+  // 1. Find or create client
+  if (proposal.client?.name) {
+    const clientResult = await toolFindOrCreateClient(db, userId, {
+      name: proposal.client.name,
+      slug: proposal.client.slug,
+    });
+    if (clientResult.success) {
+      savedEntities.client_id = clientResult.result.client_id;
+      savedEntities.client_name = clientResult.result.name;
+    } else {
+      failures.push(`Client: ${clientResult.error}`);
+    }
+  }
+
+  // 2. Create event draft
+  const eventArgs: any = {
+    title: proposal.event.title,
+    description: proposal.event.description,
+    start_date: proposal.event.start_date,
+    end_date: proposal.event.end_date,
+    location: proposal.event.location,
+    slug: proposal.event.slug,
+  };
+  if (savedEntities.client_id) eventArgs.client_id = savedEntities.client_id;
+
+  const eventResult = await toolCreateEventDraft(db, userId, eventArgs);
+  if (!eventResult.success) {
+    return { success: false, result: { savedEntities, failures }, error: `Failed to create event: ${eventResult.error}`, category: eventResult.category };
+  }
+  const eventId = eventResult.result.event_id as string;
+  savedEntities.event_id = eventId;
+  savedEntities.event_title = eventResult.result.title;
+
+  // 3. Update theme if specified
+  if (proposal.event.theme_id || proposal.event.max_attendees) {
+    const updateArgs: any = { event_id: eventId };
+    if (proposal.event.theme_id) updateArgs.theme_id = proposal.event.theme_id;
+    if (proposal.event.max_attendees) updateArgs.max_attendees = proposal.event.max_attendees;
+    const updateResult = await toolUpdateEventBasics(db, userId, updateArgs);
+    if (!updateResult.success) failures.push(`Theme/settings: ${updateResult.error}`);
+  }
+
+  // 4. Add agenda items
+  if (proposal.agenda?.length > 0) {
+    const agendaResult = await toolAddAgendaItems(db, userId, {
+      event_id: eventId,
+      items: proposal.agenda,
+    });
+    if (agendaResult.success) {
+      savedEntities.agenda_count = agendaResult.result.added;
+    } else {
+      failures.push(`Agenda: ${agendaResult.error}`);
+    }
+  }
+
+  return {
+    success: true,
+    result: {
+      ...savedEntities,
+      failures: failures.length > 0 ? failures : undefined,
+      action: "proposal_saved",
+      venue_suggestion: proposal.venue_suggestion || null,
+      communications: proposal.communications || null,
+      branding: proposal.branding || null,
+    },
+  };
+}
+
 // ─── Draft State Builder ───────────────────────────────────
 
 async function buildDraftState(
