@@ -13,9 +13,6 @@ export default defineConfig(({ mode }) => ({
       overlay: false,
     },
   },
-  build: {
-    sourcemap: true,
-  },
   plugins: [
     react(),
     mode === "development" && componentTagger(),
@@ -28,19 +25,18 @@ export default defineConfig(({ mode }) => ({
         release: { name: process.env.SENTRY_RELEASE },
         sourcemaps: { filesToDeleteAfterUpload: ["./dist/**/*.map"] },
       }),
-  ].filter(Boolean),
+  ].filter(Boolean) as any,
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
   },
   build: {
+    sourcemap: true,
     rollupOptions: {
       output: {
         manualChunks: {
-          // Vendor: React core
           "vendor-react": ["react", "react-dom", "react-router-dom"],
-          // Vendor: UI framework
           "vendor-radix": [
             "@radix-ui/react-dialog",
             "@radix-ui/react-dropdown-menu",
@@ -50,24 +46,17 @@ export default defineConfig(({ mode }) => ({
             "@radix-ui/react-select",
             "@radix-ui/react-accordion",
           ],
-          // Vendor: MUI (heavy — used only by corporate MUI theme)
           "vendor-mui": [
             "@mui/material",
             "@mui/icons-material",
             "@emotion/react",
             "@emotion/styled",
           ],
-          // Vendor: Charts & data
           "vendor-charts": ["recharts"],
-          // Vendor: Supabase
           "vendor-supabase": ["@supabase/supabase-js"],
-          // Vendor: Three.js (shader background)
           "vendor-three": ["three"],
-          // Vendor: Animation
           "vendor-framer": ["framer-motion"],
-          // Vendor: Utilities
           "vendor-utils": ["date-fns", "zod"],
-          // ExcelJS is large; isolate so it only loads when exporting
           "vendor-exceljs": ["exceljs"],
         },
       },
