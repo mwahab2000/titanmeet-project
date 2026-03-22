@@ -448,14 +448,8 @@ async function toolCheckPublishReadiness(
 ) {
   if (!args.event_id) return { success: false, result: {}, error: "event_id is required" };
 
-  const { data: evt, error: evtErr } = await db
-    .from("events")
-    .select("*")
-    .eq("id", args.event_id)
-    .single();
-
-  if (evtErr || !evt) return { success: false, result: {}, error: "Event not found" };
-  if (evt.created_by !== userId) return { success: false, result: {}, error: "Access denied" };
+  const { allowed, event: evt } = await canManageEvent(db, userId, args.event_id);
+  if (!allowed || !evt) return { success: false, result: {}, error: "Event not found or access denied" };
 
   const { count: attendeeCount } = await db.from("attendees").select("id", { count: "exact", head: true }).eq("event_id", args.event_id);
   const { count: agendaCount } = await db.from("agenda_items").select("id", { count: "exact", head: true }).eq("event_id", args.event_id);
