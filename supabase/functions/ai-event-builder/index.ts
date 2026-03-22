@@ -543,6 +543,54 @@ const TOOL_DEFINITIONS = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "list_workspace_events",
+      description: "List events in the admin's workspace. Supports filtering by status, search text, and date range. Returns up to 20 events sorted by most recently updated.",
+      parameters: {
+        type: "object",
+        properties: {
+          status_filter: { type: "string", description: "Filter by event status: draft, published, ongoing, completed, archived. Leave empty for all." },
+          search: { type: "string", description: "Search text to match against event title or location" },
+          date_from: { type: "string", description: "ISO date string — only events starting on or after this date" },
+          date_to: { type: "string", description: "ISO date string — only events starting on or before this date" },
+          limit: { type: "number", description: "Max results to return (default 20, max 50)" },
+        },
+        required: [],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "list_workspace_clients",
+      description: "List clients in the admin's workspace. Supports search by name.",
+      parameters: {
+        type: "object",
+        properties: {
+          search: { type: "string", description: "Search text to match against client name" },
+          limit: { type: "number", description: "Max results (default 20, max 50)" },
+        },
+        required: [],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_event_details",
+      description: "Get full details for a specific event by ID or by searching title. Returns event info, venue, counts of attendees/agenda/organizers, and readiness status.",
+      parameters: {
+        type: "object",
+        properties: {
+          event_id: { type: "string", description: "Event UUID" },
+          title_search: { type: "string", description: "Search by event title if ID is not known" },
+        },
+        required: [],
+      },
+    },
+  },
 ];
 
 // ─── Tool Executor ─────────────────────────────────────────
