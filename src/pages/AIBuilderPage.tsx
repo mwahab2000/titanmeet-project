@@ -11,6 +11,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { AIBuilderUsageBanner } from "@/components/ai-builder/AIBuilderUsageBanner";
 import type { VenueResult } from "@/components/ai-builder/AIVenueSearchResults";
 import type { VenuePhoto } from "@/components/ai-builder/AIVenuePhotoBrowser";
+import type { EventProposal } from "@/components/ai-builder/AIEventProposalPreview";
 
 const AIBuilderPage = () => {
   const { messages, draft, isLoading, sendMessage, clearSession } = useAIBuilderSession();
@@ -41,6 +42,14 @@ const AIBuilderPage = () => {
         attributions: p.attributions,
       })))}`
     );
+  };
+
+  const handleProposalApprove = (proposal: EventProposal) => {
+    sendMessage(`I approve this proposal. Please save it now. Here is the proposal: ${JSON.stringify(proposal)}`);
+  };
+
+  const handleProposalReject = () => {
+    sendMessage("I'd like to make some changes to the proposal before saving. What would you like to adjust?");
   };
 
   const effectiveShowPanel = !isMobile && showPanel;
@@ -103,6 +112,8 @@ const AIBuilderPage = () => {
                   message={msg}
                   onVenueSelect={handleVenueSelect}
                   onPhotosConfirm={handlePhotosConfirm}
+                  onProposalApprove={handleProposalApprove}
+                  onProposalReject={handleProposalReject}
                   isProcessing={isLoading}
                 />
               ))}

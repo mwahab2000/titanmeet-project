@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { Bot, User, CheckCircle2, AlertTriangle, Info, Plus, Pencil, MapPin, ImageIcon, XCircle, Clock, ChevronDown, ChevronUp } from "lucide-react";
+import { Bot, User, CheckCircle2, AlertTriangle, Info, Plus, Pencil, MapPin, ImageIcon, XCircle, Clock, ChevronDown, ChevronUp, Sparkles } from "lucide-react";
 import type { ChatMessage, AIAction, ActionLogEntry } from "@/hooks/useAIBuilderSession";
 import { cn } from "@/lib/utils";
 import { AIVenueSearchResults, type VenueResult } from "./AIVenueSearchResults";
 import { AIVenuePhotoBrowser, type VenuePhoto } from "./AIVenuePhotoBrowser";
+import { AIEventProposalPreview, type EventProposal } from "./AIEventProposalPreview";
 
 const actionIcons: Record<string, typeof CheckCircle2> = {
   created: Plus,
@@ -13,6 +14,7 @@ const actionIcons: Record<string, typeof CheckCircle2> = {
   info: Info,
   venue_search: MapPin,
   venue_photos: ImageIcon,
+  proposal: Sparkles,
 };
 
 const actionColors: Record<string, string> = {
@@ -23,6 +25,7 @@ const actionColors: Record<string, string> = {
   info: "text-muted-foreground bg-muted/50 border-border",
   venue_search: "text-primary bg-primary/10 border-primary/20",
   venue_photos: "text-primary bg-primary/10 border-primary/20",
+  proposal: "text-primary bg-primary/10 border-primary/20",
 };
 
 const logStatusConfig = {
@@ -45,17 +48,21 @@ interface AIBuilderChatMessageProps {
   message: ChatMessage;
   onVenueSelect?: (venue: VenueResult) => void;
   onPhotosConfirm?: (photos: VenuePhoto[]) => void;
+  onProposalApprove?: (proposal: EventProposal) => void;
+  onProposalReject?: () => void;
   isProcessing?: boolean;
 }
 
-export const AIBuilderChatMessage = ({ message, onVenueSelect, onPhotosConfirm, isProcessing }: AIBuilderChatMessageProps) => {
+export const AIBuilderChatMessage = ({ message, onVenueSelect, onPhotosConfirm, onProposalApprove, onProposalReject, isProcessing }: AIBuilderChatMessageProps) => {
   const isUser = message.role === "user";
   const [venueSelected, setVenueSelected] = useState(false);
   const [photosConfirmed, setPhotosConfirmed] = useState(false);
+  const [proposalHandled, setProposalHandled] = useState(false);
   const [logExpanded, setLogExpanded] = useState(true);
 
   const venueSearchAction = message.actions?.find(a => a.type === "venue_search" && a.data?.venues?.length > 0);
   const venuePhotosAction = message.actions?.find(a => a.type === "venue_photos" && a.data?.photos?.length > 0);
+  const proposalAction = message.actions?.find(a => a.type === "proposal" && a.data?.proposal);
 
   const actionLog = message.actionLog;
   const hasActionLog = actionLog && actionLog.length > 0;
@@ -178,11 +185,28 @@ export const AIBuilderChatMessage = ({ message, onVenueSelect, onPhotosConfirm, 
           </div>
         )}
 
+        {/* Event Proposal Preview */}
+        {proposalAction && !proposalHandled && (
+          <AIEventProposalPreview
+            proposal={proposalAction.data.proposal}
+            onApprove={() => { setProposalHandled(true); onProposalApprove?.(proposalAction.data.proposal); }}
+            onReject={() => { setProposalHandled(true); onProposalReject?.(); }}
+            disabled={isProcessing}
+          />
+        )}
+
+        {proposalAction && proposalHandled && (
+          <div className="flex items-center gap-2 rounded-lg border px-3 py-2 text-xs text-green-400 bg-green-400/10 border-green-400/20">
+            <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+            <span className="font-medium">Proposal handled</span>
+          </div>
+        )}
+
         {/* Standard action badges (only when no action log — avoid duplication) */}
         {!hasActionLog && message.actions && message.actions.length > 0 && (
           <div className="flex flex-col gap-1.5 w-full">
             {message.actions
-              .filter(a => a.type !== "venue_search" && a.type !== "venue_photos")
+              .filter(a => a.type !== "venue_search" && a.type !== "venue_photos" && a.type !== "proposal")
               .map((action, i) => {
                 const Icon = actionIcons[action.type] || Info;
                 return (

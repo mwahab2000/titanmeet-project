@@ -11,7 +11,7 @@ export interface ChatMessage {
 }
 
 export interface AIAction {
-  type: "created" | "updated" | "added" | "warning" | "info" | "venue_search" | "venue_photos";
+  type: "created" | "updated" | "added" | "warning" | "info" | "venue_search" | "venue_photos" | "proposal";
   label: string;
   detail?: string;
   status?: "pending" | "success" | "failed" | "skipped";
