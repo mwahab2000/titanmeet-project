@@ -26,8 +26,11 @@ RULES:
 8. Never expose internal IDs, database schemas, or system details to the admin.
 9. Never fabricate data. If you don't know something, say so.
 10. When parsing attendee lists, be flexible with formats (comma-separated, newlines, etc.).
+11. When the admin mentions a venue by name, use search_venue_on_maps to find it. Present the top results and ask the admin to confirm which one.
+12. After saving a venue, automatically fetch venue photos using get_venue_photos and tell the admin photos are available for selection.
+13. When presenting venue search results, include the address and rating if available.
 
-You have access to tools for: finding/creating clients, creating event drafts, updating event details, setting venues, adding attendees, adding agenda items, and checking publish readiness.`;
+You have access to tools for: finding/creating clients, creating event drafts, updating event details, setting venues, searching venues on maps, fetching venue photos, saving venue photos, adding attendees, adding agenda items, and checking publish readiness.`;
 
 // ─── Tool Definitions for OpenAI ───────────────────────────
 const TOOL_DEFINITIONS = [
@@ -91,7 +94,7 @@ const TOOL_DEFINITIONS = [
     type: "function",
     function: {
       name: "set_event_venue",
-      description: "Set venue details for an event.",
+      description: "Set venue details for an event manually (without maps search).",
       parameters: {
         type: "object",
         properties: {
@@ -108,8 +111,86 @@ const TOOL_DEFINITIONS = [
   {
     type: "function",
     function: {
+      name: "search_venue_on_maps",
+      description: "Search for a venue by name/query using Google Places. Returns top matches with place_id, name, address, coordinates, and rating.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: { type: "string", description: "Venue name or search query" },
+          event_id: { type: "string", description: "Event UUID (for workspace validation)" },
+        },
+        required: ["query"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "save_selected_venue",
+      description: "Save a selected venue from maps search results to the event. Updates venue_name, venue_address, venue_lat, venue_lng, venue_place_id.",
+      parameters: {
+        type: "object",
+        properties: {
+          event_id: { type: "string", description: "Event UUID" },
+          place_id: { type: "string", description: "Google Places place_id" },
+          name: { type: "string", description: "Venue name" },
+          address: { type: "string", description: "Formatted address" },
+          lat: { type: "number", description: "Latitude" },
+          lng: { type: "number", description: "Longitude" },
+          map_url: { type: "string", description: "Google Maps URL" },
+        },
+        required: ["event_id", "place_id", "name", "address", "lat", "lng"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_venue_photos",
+      description: "Fetch available photos for a venue using its place_id. Returns photo references for browsing — does NOT download images.",
+      parameters: {
+        type: "object",
+        properties: {
+          place_id: { type: "string", description: "Google Places place_id" },
+          event_id: { type: "string", description: "Event UUID (for authorization)" },
+        },
+        required: ["place_id"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "save_selected_venue_photos",
+      description: "Save admin-selected venue photo references to the event. Only saves selected photos, not all.",
+      parameters: {
+        type: "object",
+        properties: {
+          event_id: { type: "string", description: "Event UUID" },
+          selected_photos: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                photo_reference: { type: "string" },
+                width: { type: "number" },
+                height: { type: "number" },
+                attributions: { type: "array", items: { type: "string" } },
+              },
+              required: ["photo_reference"],
+            },
+            description: "Array of selected photo references",
+          },
+        },
+        required: ["event_id", "selected_photos"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "add_attendees_from_text",
-      description: "Parse a free-text list of attendee names (and optionally emails) and add them to the event. Supports comma-separated, newline-separated, or 'Name <email>' format.",
+      description: "Parse a free-text list of attendee names (and optionally emails) and add them to the event.",
       parameters: {
         type: "object",
         properties: {
@@ -187,6 +268,14 @@ async function executeTool(
         return await toolUpdateEventBasics(db, userId, args as any);
       case "set_event_venue":
         return await toolSetEventVenue(db, userId, args as any);
+      case "search_venue_on_maps":
+        return await toolSearchVenueOnMaps(db, userId, args as any, correlationId);
+      case "save_selected_venue":
+        return await toolSaveSelectedVenue(db, userId, args as any);
+      case "get_venue_photos":
+        return await toolGetVenuePhotos(db, userId, args as any, correlationId);
+      case "save_selected_venue_photos":
+        return await toolSaveSelectedVenuePhotos(db, userId, args as any);
       case "add_attendees_from_text":
         return await toolAddAttendeesFromText(db, userId, args as any);
       case "add_agenda_items":
@@ -243,7 +332,6 @@ async function toolFindOrCreateClient(
 
   const isPrivileged = await isAdminOrOwnerRole(db, userId);
 
-  // Search: own clients + admin sees all
   let query = db.from("clients").select("id, name, slug").ilike("name", name.trim()).limit(1);
   if (!isPrivileged) query = query.eq("created_by", userId);
 
@@ -253,7 +341,6 @@ async function toolFindOrCreateClient(
     return { success: true, result: { client_id: existing.id, name: existing.name, slug: existing.slug, action: "found_existing" } };
   }
 
-  // Create new — always owned by current user
   const clientSlug = slug || name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
   const { data: created, error } = await db
     .from("clients")
@@ -279,7 +366,6 @@ async function toolCreateEventDraft(
 ) {
   if (!args.title?.trim()) return { success: false, result: {}, error: "Event title is required" };
 
-  // If client_id provided, verify user can manage that client
   if (args.client_id) {
     const canManage = await canManageClient(db, userId, args.client_id);
     if (!canManage) return { success: false, result: {}, error: "You don't have permission to create events for this client" };
@@ -317,7 +403,6 @@ async function toolUpdateEventBasics(
 ) {
   if (!args.event_id) return { success: false, result: {}, error: "event_id is required" };
 
-  // Verify ownership
   const { allowed, event: evt } = await canManageEvent(db, userId, args.event_id);
   if (!allowed || !evt) return { success: false, result: {}, error: "Event not found or access denied" };
 
@@ -358,6 +443,166 @@ async function toolSetEventVenue(
   return { success: true, result: { event_id: args.event_id, venue: updateFields } };
 }
 
+// ─── Venue Search & Photos Tools ───────────────────────────
+
+const GOOGLE_PLACES_BASE = "https://maps.googleapis.com/maps/api/place";
+
+async function toolSearchVenueOnMaps(
+  db: SupabaseClient, userId: string,
+  args: { query: string; event_id?: string },
+  correlationId: string,
+) {
+  if (!args.query?.trim()) return { success: false, result: {}, error: "Search query is required" };
+
+  const apiKey = Deno.env.get("GOOGLE_MAPS_API_KEY");
+  if (!apiKey) return { success: false, result: {}, error: "Google Maps integration is not configured. Please add GOOGLE_MAPS_API_KEY." };
+
+  // If event_id provided, validate access
+  if (args.event_id) {
+    const { allowed } = await canManageEvent(db, userId, args.event_id);
+    if (!allowed) return { success: false, result: {}, error: "Event not found or access denied" };
+  }
+
+  try {
+    const url = `${GOOGLE_PLACES_BASE}/textsearch/json?query=${encodeURIComponent(args.query)}&key=${apiKey}`;
+    console.log(`[${correlationId}] Google Places search: "${args.query}"`);
+
+    const resp = await fetch(url);
+    if (!resp.ok) {
+      console.error(`[${correlationId}] Google Places API error: ${resp.status}`);
+      return { success: false, result: {}, error: "Venue search service temporarily unavailable" };
+    }
+
+    const data = await resp.json();
+
+    if (data.status !== "OK" || !data.results?.length) {
+      return { success: true, result: { venues: [], message: "No venues found for that query. Try a different name or add the city." } };
+    }
+
+    const venues = data.results.slice(0, 5).map((r: any) => ({
+      place_id: r.place_id,
+      name: r.name,
+      address: r.formatted_address,
+      lat: r.geometry?.location?.lat,
+      lng: r.geometry?.location?.lng,
+      rating: r.rating || null,
+      user_ratings_total: r.user_ratings_total || 0,
+      map_url: `https://www.google.com/maps/place/?q=place_id:${r.place_id}`,
+      has_photos: (r.photos?.length || 0) > 0,
+    }));
+
+    return { success: true, result: { venues, query: args.query } };
+  } catch (err) {
+    console.error(`[${correlationId}] venue search error:`, err);
+    return { success: false, result: {}, error: "Failed to search for venues. Please try again." };
+  }
+}
+
+async function toolSaveSelectedVenue(
+  db: SupabaseClient, userId: string,
+  args: { event_id: string; place_id: string; name: string; address: string; lat: number; lng: number; map_url?: string }
+) {
+  if (!args.event_id) return { success: false, result: {}, error: "event_id is required" };
+  if (!args.place_id || !args.name) return { success: false, result: {}, error: "place_id and name are required" };
+
+  const { allowed } = await canManageEvent(db, userId, args.event_id);
+  if (!allowed) return { success: false, result: {}, error: "Event not found or access denied" };
+
+  const updateFields: Record<string, unknown> = {
+    venue_name: args.name.trim(),
+    venue_address: args.address.trim(),
+    venue_lat: args.lat,
+    venue_lng: args.lng,
+    venue_place_id: args.place_id,
+  };
+  if (args.map_url) updateFields.venue_map_link = args.map_url;
+
+  const { error } = await db.from("events").update(updateFields).eq("id", args.event_id);
+  if (error) return { success: false, result: {}, error: `Failed to save venue: ${error.message}` };
+
+  return {
+    success: true,
+    result: {
+      event_id: args.event_id,
+      venue_name: args.name,
+      venue_address: args.address,
+      place_id: args.place_id,
+      action: "venue_saved",
+    },
+  };
+}
+
+async function toolGetVenuePhotos(
+  db: SupabaseClient, userId: string,
+  args: { place_id: string; event_id?: string },
+  correlationId: string,
+) {
+  if (!args.place_id) return { success: false, result: {}, error: "place_id is required" };
+
+  const apiKey = Deno.env.get("GOOGLE_MAPS_API_KEY");
+  if (!apiKey) return { success: false, result: {}, error: "Google Maps integration is not configured." };
+
+  // Validate access if event_id provided
+  if (args.event_id) {
+    const { allowed } = await canManageEvent(db, userId, args.event_id);
+    if (!allowed) return { success: false, result: {}, error: "Event not found or access denied" };
+  }
+
+  try {
+    const url = `${GOOGLE_PLACES_BASE}/details/json?place_id=${encodeURIComponent(args.place_id)}&fields=photos&key=${apiKey}`;
+    console.log(`[${correlationId}] Google Places details for photos: ${args.place_id}`);
+
+    const resp = await fetch(url);
+    if (!resp.ok) return { success: false, result: {}, error: "Photo service temporarily unavailable" };
+
+    const data = await resp.json();
+
+    if (data.status !== "OK" || !data.result?.photos?.length) {
+      return { success: true, result: { photos: [], message: "No photos available for this venue." } };
+    }
+
+    const photos = data.result.photos.slice(0, 10).map((p: any, idx: number) => ({
+      index: idx,
+      photo_reference: p.photo_reference,
+      width: p.width,
+      height: p.height,
+      attributions: p.html_attributions || [],
+      // Build a proxied photo URL for preview
+      preview_url: `${GOOGLE_PLACES_BASE}/photo?maxwidth=800&photo_reference=${p.photo_reference}&key=${apiKey}`,
+    }));
+
+    return { success: true, result: { photos, place_id: args.place_id, total: data.result.photos.length } };
+  } catch (err) {
+    console.error(`[${correlationId}] venue photos error:`, err);
+    return { success: false, result: {}, error: "Failed to fetch venue photos." };
+  }
+}
+
+async function toolSaveSelectedVenuePhotos(
+  db: SupabaseClient, userId: string,
+  args: { event_id: string; selected_photos: Array<{ photo_reference: string; width?: number; height?: number; attributions?: string[] }> }
+) {
+  if (!args.event_id) return { success: false, result: {}, error: "event_id is required" };
+  if (!args.selected_photos?.length) return { success: false, result: {}, error: "No photos selected" };
+
+  const { allowed } = await canManageEvent(db, userId, args.event_id);
+  if (!allowed) return { success: false, result: {}, error: "Event not found or access denied" };
+
+  const photoRefs = args.selected_photos.map(p => ({
+    photo_reference: p.photo_reference,
+    width: p.width || null,
+    height: p.height || null,
+    attributions: p.attributions || [],
+  }));
+
+  const { error } = await db.from("events").update({ venue_photo_refs: photoRefs }).eq("id", args.event_id);
+  if (error) return { success: false, result: {}, error: `Failed to save photos: ${error.message}` };
+
+  return { success: true, result: { event_id: args.event_id, saved_count: photoRefs.length, action: "photos_saved" } };
+}
+
+// ─── Existing Tools ────────────────────────────────────────
+
 async function toolAddAttendeesFromText(
   db: SupabaseClient, userId: string,
   args: { event_id: string; text: string }
@@ -367,31 +612,26 @@ async function toolAddAttendeesFromText(
   const { allowed } = await canManageEvent(db, userId, args.event_id);
   if (!allowed) return { success: false, result: {}, error: "Event not found or access denied" };
 
-  // Parse: support "Name <email>", "Name, email", or just names
   const lines = args.text.split(/[\n,;]+/).map(l => l.trim()).filter(Boolean);
   const attendees: Array<{ name: string; email: string; event_id: string }> = [];
   const skipped: string[] = [];
 
   for (const line of lines) {
-    // Try "Name <email>" pattern
     const angleMatch = line.match(/^(.+?)\s*<([^>]+@[^>]+)>$/);
     if (angleMatch) {
       attendees.push({ name: angleMatch[1].trim(), email: angleMatch[2].trim(), event_id: args.event_id });
       continue;
     }
-    // Try "Name email@domain" pattern
     const spaceEmailMatch = line.match(/^(.+?)\s+(\S+@\S+\.\S+)$/);
     if (spaceEmailMatch) {
       attendees.push({ name: spaceEmailMatch[1].trim(), email: spaceEmailMatch[2].trim(), event_id: args.event_id });
       continue;
     }
-    // Check if it's just an email
     if (line.includes("@")) {
       const namePart = line.split("@")[0].replace(/[._]/g, " ");
       attendees.push({ name: namePart, email: line, event_id: args.event_id });
       continue;
     }
-    // Just a name — generate placeholder email
     if (line.length > 1) {
       const placeholder = `${line.toLowerCase().replace(/\s+/g, ".")}@placeholder.local`;
       attendees.push({ name: line, email: placeholder, event_id: args.event_id });
@@ -417,7 +657,6 @@ async function toolAddAgendaItems(
   const { allowed } = await canManageEvent(db, userId, args.event_id);
   if (!allowed) return { success: false, result: {}, error: "Event not found or access denied" };
 
-  // Get current max order_index
   const { data: existing } = await db
     .from("agenda_items")
     .select("order_index")
@@ -503,7 +742,6 @@ async function buildDraftState(
 ): Promise<Record<string, unknown>> {
   const state: Record<string, unknown> = { ...sessionState };
 
-  // If we have an event_id, enrich with live data
   const eventId = state.event_id as string | undefined;
   if (eventId) {
     const { data: evt } = await db.from("events").select("*, clients(id, name, slug)").eq("id", eventId).single();
@@ -514,7 +752,15 @@ async function buildDraftState(
 
       state.client = evt.clients ? { name: (evt.clients as any).name, slug: (evt.clients as any).slug, id: (evt.clients as any).id, status: "done" } : { status: "empty" };
       state.eventBasics = { title: evt.title, date: evt.event_date || evt.start_date, location: evt.location, status: evt.title ? "done" : "empty" };
-      state.venue = { name: evt.venue_name, address: evt.venue_address, status: evt.venue_name ? "done" : "empty" };
+      state.venue = {
+        name: evt.venue_name,
+        address: evt.venue_address,
+        lat: evt.venue_lat,
+        lng: evt.venue_lng,
+        place_id: evt.venue_place_id,
+        photo_count: Array.isArray(evt.venue_photo_refs) ? evt.venue_photo_refs.length : 0,
+        status: evt.venue_name ? "done" : "empty",
+      };
       state.organizers = { count: orgCount || 0, status: (orgCount || 0) > 0 ? "done" : "empty" };
       state.attendees = { count: attCount || 0, status: (attCount || 0) > 0 ? "done" : "empty" };
       state.agenda = { items: agdCount || 0, status: (agdCount || 0) > 0 ? "done" : "empty" };
@@ -546,7 +792,6 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    // Auth client to verify user
     const authClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
       global: { headers: { Authorization: authHeader } },
     });
@@ -558,7 +803,6 @@ serve(async (req) => {
       );
     }
 
-    // Service role client for DB operations
     const db = createClient(supabaseUrl, serviceKey, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
@@ -636,7 +880,6 @@ serve(async (req) => {
 
     const stateJson = session.state_json || {};
 
-    // Build context string for system prompt
     let contextStr = "";
     if (stateJson.event_id) contextStr += `\nCurrent event ID: ${stateJson.event_id}`;
     if (stateJson.client_id || context?.clientId) contextStr += `\nCurrent client ID: ${stateJson.client_id || context?.clientId}`;
@@ -649,7 +892,6 @@ serve(async (req) => {
       { role: "system", content: SYSTEM_PROMPT + (contextStr ? `\n\nCurrent context:${contextStr}` : "") },
     ];
 
-    // Add history (skip tool messages for simplicity, include as system notes)
     for (const msg of (history || [])) {
       if (msg.role === "tool") {
         aiMessages.push({ role: "assistant", content: `[Tool result]: ${msg.content}` });
@@ -687,13 +929,12 @@ serve(async (req) => {
 
     const aiResult = await openaiResp.json();
     const choice = aiResult.choices?.[0];
-    const executedActions: Array<{ type: string; label: string; detail?: string }> = [];
+    const executedActions: Array<{ type: string; label: string; detail?: string; data?: any }> = [];
 
     // ── Handle tool calls ──
     if (choice?.finish_reason === "tool_calls" && choice?.message?.tool_calls) {
       const toolCalls = choice.message.tool_calls;
 
-      // Add assistant message with tool_calls to context
       const toolCallMessages: Array<{ role: string; content: string; tool_calls?: any; tool_call_id?: string }> = [
         ...aiMessages,
         choice.message,
@@ -722,15 +963,26 @@ serve(async (req) => {
           }
           if (toolName === "create_event_draft" && toolResult.result.event_id) {
             stateJson.event_id = toolResult.result.event_id;
-            // Also link session to event
             await db.from("ai_chat_sessions").update({ event_id: toolResult.result.event_id as string }).eq("id", session.id);
           }
 
-          executedActions.push({
-            type: toolName.startsWith("check") ? "info" : "created",
+          const action: any = {
+            type: toolName.startsWith("check") ? "info" : toolName === "search_venue_on_maps" ? "venue_search" : toolName === "get_venue_photos" ? "venue_photos" : "created",
             label: formatToolLabel(toolName, toolResult.result),
-            detail: JSON.stringify(toolResult.result),
-          });
+          };
+
+          // Attach structured data for venue search results and photos
+          if (toolName === "search_venue_on_maps") {
+            action.data = { venues: toolResult.result.venues };
+          } else if (toolName === "get_venue_photos") {
+            action.data = { photos: toolResult.result.photos, place_id: toolResult.result.place_id };
+          } else if (toolName === "save_selected_venue") {
+            action.data = { venue_saved: toolResult.result };
+          } else {
+            action.detail = JSON.stringify(toolResult.result);
+          }
+
+          executedActions.push(action);
         } else {
           executedActions.push({
             type: "warning",
@@ -739,7 +991,6 @@ serve(async (req) => {
           });
         }
 
-        // Save tool result as message
         await db.from("ai_chat_messages").insert({
           session_id: session.id,
           role: "tool",
@@ -770,7 +1021,6 @@ serve(async (req) => {
         const summaryResult = await summaryResp.json();
         const summaryContent = summaryResult.choices?.[0]?.message?.content || "Actions completed.";
 
-        // Save and update state
         await db.from("ai_chat_messages").insert({ session_id: session.id, role: "assistant", content: summaryContent });
         await db.from("ai_chat_sessions").update({ state_json: stateJson }).eq("id", session.id);
 
@@ -830,6 +1080,14 @@ function formatToolLabel(toolName: string, result: Record<string, unknown>): str
       return `Updated event (${(result.updated_fields as string[])?.join(", ")})`;
     case "set_event_venue":
       return `Set venue details`;
+    case "search_venue_on_maps":
+      return `Found ${(result.venues as any[])?.length || 0} venue matches`;
+    case "save_selected_venue":
+      return `Saved venue "${result.venue_name}"`;
+    case "get_venue_photos":
+      return `Found ${(result.photos as any[])?.length || 0} venue photos`;
+    case "save_selected_venue_photos":
+      return `Saved ${result.saved_count} venue photos`;
     case "add_attendees_from_text":
       return `Added ${result.added} attendees`;
     case "add_agenda_items":

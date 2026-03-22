@@ -856,9 +856,13 @@ export type Database = {
           venue: string | null
           venue_address: string | null
           venue_images: Json | null
+          venue_lat: number | null
+          venue_lng: number | null
           venue_map_link: string | null
           venue_name: string | null
           venue_notes: string | null
+          venue_photo_refs: Json | null
+          venue_place_id: string | null
         }
         Insert: {
           client_id?: string | null
@@ -886,9 +890,13 @@ export type Database = {
           venue?: string | null
           venue_address?: string | null
           venue_images?: Json | null
+          venue_lat?: number | null
+          venue_lng?: number | null
           venue_map_link?: string | null
           venue_name?: string | null
           venue_notes?: string | null
+          venue_photo_refs?: Json | null
+          venue_place_id?: string | null
         }
         Update: {
           client_id?: string | null
@@ -916,9 +924,13 @@ export type Database = {
           venue?: string | null
           venue_address?: string | null
           venue_images?: Json | null
+          venue_lat?: number | null
+          venue_lng?: number | null
           venue_map_link?: string | null
           venue_name?: string | null
           venue_notes?: string | null
+          venue_photo_refs?: Json | null
+          venue_place_id?: string | null
         }
         Relationships: [
           {
