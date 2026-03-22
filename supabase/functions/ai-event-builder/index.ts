@@ -2685,8 +2685,13 @@ serve(async (req) => {
       delete stateJson.pending_action;
     }
 
+    // If user's message was resolved from a numbered option, inject context for the AI
+    const optionContext = resolvedMessage !== message
+      ? `\n\n[The user selected option: "${resolvedMessage}" (originally typed: "${message}")]`
+      : "";
+
     const aiMessages: Array<{ role: string; content: string }> = [
-      { role: "system", content: SYSTEM_PROMPT + (contextStr ? `\n\nCurrent context:${contextStr}` : "") + confirmationInjection },
+      { role: "system", content: SYSTEM_PROMPT + (contextStr ? `\n\nCurrent context:${contextStr}` : "") + confirmationInjection + optionContext },
     ];
 
     for (const msg of (history || [])) {
