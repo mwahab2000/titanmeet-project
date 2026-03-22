@@ -1017,6 +1017,26 @@ serve(async (req) => {
       );
     }
 
+    // ── Rate limit check: overall AI requests ──
+    const aiRateLimit = await checkAndIncrementUsage(db, user.id, "ai_requests", correlationId);
+    if (!aiRateLimit.allowed) {
+      const reason = aiRateLimit.burstBlocked
+        ? "Too many requests in a short time. Please wait a moment and try again."
+        : `You've reached your monthly AI request limit (${aiRateLimit.usage}/${aiRateLimit.limit}). Upgrade your plan for more.`;
+      return new Response(
+        JSON.stringify({
+          error: reason,
+          rateLimited: true,
+          resource: "ai_requests",
+          usage: aiRateLimit.usage,
+          limit: aiRateLimit.limit,
+          burstBlocked: aiRateLimit.burstBlocked,
+          correlationId,
+        }),
+        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     // ── Session Management ──
     let session: any;
 
