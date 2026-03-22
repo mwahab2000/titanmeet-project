@@ -197,6 +197,50 @@ export type Database = {
           },
         ]
       }
+      ai_action_logs: {
+        Row: {
+          action_name: string
+          category: string | null
+          created_at: string | null
+          id: string
+          message: string | null
+          metadata: Json | null
+          session_id: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          action_name: string
+          category?: string | null
+          created_at?: string | null
+          id?: string
+          message?: string | null
+          metadata?: Json | null
+          session_id: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          action_name?: string
+          category?: string | null
+          created_at?: string | null
+          id?: string
+          message?: string | null
+          metadata?: Json | null
+          session_id?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_action_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "ai_chat_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_chat_messages: {
         Row: {
           content: string
@@ -986,6 +1030,8 @@ export type Database = {
           id: string
           location: string | null
           max_attendees: number | null
+          readiness: boolean | null
+          readiness_details: Json | null
           show_attendees_publicly: boolean
           slug: string | null
           start_date: string
@@ -1020,6 +1066,8 @@ export type Database = {
           id?: string
           location?: string | null
           max_attendees?: number | null
+          readiness?: boolean | null
+          readiness_details?: Json | null
           show_attendees_publicly?: boolean
           slug?: string | null
           start_date: string
@@ -1054,6 +1102,8 @@ export type Database = {
           id?: string
           location?: string | null
           max_attendees?: number | null
+          readiness?: boolean | null
+          readiness_details?: Json | null
           show_attendees_publicly?: boolean
           slug?: string | null
           start_date?: string
