@@ -1,5 +1,6 @@
 import { useRef, useState, useEffect, useCallback } from "react";
-import { motion, useInView, useReducedMotion } from "framer-motion";
+import { motion, useInView, useReducedMotion, AnimatePresence } from "framer-motion";
+import { TypingIndicator } from "@/components/ui/typing-indicator";
 import {
   Bot,
   User,
@@ -132,6 +133,7 @@ export const LandingAIShowcase = () => {
 
   const [stageIdx, setStageIdx] = useState(0);
   const [visibleMsgs, setVisibleMsgs] = useState<Set<number>>(new Set());
+  const [showTyping, setShowTyping] = useState(false);
   // Accumulated preview state across stages
   const [preview, setPreview] = useState<PreviewSlice>({});
 
@@ -143,10 +145,16 @@ export const LandingAIShowcase = () => {
       // Merge preview slice
       setPreview((prev) => ({ ...prev, ...stage.preview }));
 
-      // Reveal chat messages with stagger
+      // Reveal chat messages with stagger, show typing before AI replies
       stage.chat.forEach((msg, mi) => {
         const delay = reducedMotion ? 0 : msg.offset * 1000;
+        // Show typing indicator before AI messages
+        if (msg.role === "ai" && !reducedMotion) {
+          const typingDelay = Math.max(0, delay - 600);
+          setTimeout(() => setShowTyping(true), typingDelay);
+        }
         setTimeout(() => {
+          if (msg.role === "ai") setShowTyping(false);
           setVisibleMsgs((prev) => new Set(prev).add(idx * 10 + mi));
         }, delay);
       });
@@ -165,6 +173,7 @@ export const LandingAIShowcase = () => {
       if (cancelled) return;
       setStageIdx(0);
       setVisibleMsgs(new Set());
+      setShowTyping(false);
       setPreview({});
 
       let elapsed = 0;
@@ -267,6 +276,16 @@ export const LandingAIShowcase = () => {
                   />
                 )),
               )}
+              <AnimatePresence>
+                {showTyping && (
+                  <div className="flex items-end gap-2 justify-start">
+                    <div className="h-7 w-7 rounded-full bg-[hsl(var(--titan-green)/0.15)] flex items-center justify-center flex-shrink-0">
+                      <Sparkles className="h-3.5 w-3.5 text-[hsl(var(--titan-green))]" />
+                    </div>
+                    <TypingIndicator />
+                  </div>
+                )}
+              </AnimatePresence>
             </div>
 
             {/* Fake input */}
@@ -328,12 +347,13 @@ export const LandingAIShowcase = () => {
 
               {/* Hero image placeholder */}
               <motion.div
-                initial={{ opacity: 0, scale: 0.97 }}
+                initial={{ opacity: 0, scale: 0.97, filter: "blur(8px)" }}
                 animate={{
                   opacity: preview.heroVisible ? 1 : 0.12,
                   scale: preview.heroVisible ? 1 : 0.97,
+                  filter: preview.heroVisible ? "blur(0px)" : "blur(8px)",
                 }}
-                transition={{ duration: 0.6 }}
+                transition={{ duration: reducedMotion ? 0.2 : 0.7, ease: "easeOut" }}
                 className="rounded-xl overflow-hidden border border-[hsl(var(--landing-border)/0.2)]"
               >
                 <div className="aspect-[16/7] bg-gradient-to-br from-[hsl(var(--titan-green)/0.15)] via-[hsl(var(--titan-blue)/0.1)] to-[hsl(var(--landing-fg)/0.04)] flex items-center justify-center relative">
