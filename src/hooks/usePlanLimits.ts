@@ -81,7 +81,7 @@ export function usePlanLimits(): PlanLimitsResult {
       const [subRes, usageRes, apiRes, bkRes] = await Promise.all([
         supabase
           .from("account_subscriptions")
-          .select(`plan_id, provider, current_period_start, subscription_plans(${ALL_PLAN_COLS})`)
+          .select("plan_id, provider, current_period_start")
           .eq("user_id", user.id)
           .eq("status", "active")
           .order("created_at", { ascending: false })
@@ -101,18 +101,22 @@ export function usePlanLimits(): PlanLimitsResult {
 
       if (cancelled) return;
 
-      const plan = subRes.data?.plan_id || "starter";
+      const subData = subRes.data as any;
+      const plan = subData?.plan_id || "starter";
       setPlanId(plan);
+      setBillingInterval("monthly");
 
-      // Detect annual billing from provider subscription ID convention
-      const provider = subRes.data?.provider || "paddle";
-      setBillingInterval(provider === "paddle" ? "monthly" : "monthly"); // Will be enhanced when Paddle annual is live
+      // Fetch plan limits separately to avoid complex select parsing
+      const { data: planData } = await supabase
+        .from("subscription_plans")
+        .select("*")
+        .eq("id", plan)
+        .maybeSingle();
 
-      const planData = (subRes.data as any)?.subscription_plans || {};
-      setSp(planData);
+      setSp(planData || {});
 
-      if (subRes.data?.current_period_start) {
-        setCycleStart(new Date(subRes.data.current_period_start));
+      if (subData?.current_period_start) {
+        setCycleStart(new Date(subData.current_period_start));
       }
 
       const u = usageRes.data as any;
