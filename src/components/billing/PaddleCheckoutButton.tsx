@@ -78,6 +78,8 @@ const PaddleCheckoutButton = ({
   type,
   disabled,
   paddleDiscountId,
+  discountCodeId,
+  billingInterval,
   onSuccess,
   onError,
 }: PaddleCheckoutButtonProps) => {
