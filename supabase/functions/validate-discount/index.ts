@@ -35,7 +35,46 @@ Deno.serve(async (req) => {
 
     // ── Record redemption (service-role insert) ──
     if (action === "record_redemption") {
-      const { discountCodeId, customerEmail, subscriptionId, paddleCustomerId, paddleTransactionId, planApplied, billingInterval } = body;
+      const { discountCodeId, customerEmail, subscriptionId, paddleCustomerId, paddleTransactionId, planApplied, billingInterval, status } = body;
+      const redemptionStatus = status || "pending";
+
+      // For "applied" status with a transaction ID, use upsert to prevent duplicates
+      if (redemptionStatus === "applied" && paddleTransactionId) {
+        // Try to find and update existing pending redemption first
+        const { data: existing } = await sb
+          .from("discount_code_redemptions")
+          .select("id")
+          .eq("discount_code_id", discountCodeId)
+          .eq("user_id", userId || body.userId)
+          .eq("status", "pending")
+          .order("redeemed_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (existing) {
+          // Finalize existing pending redemption
+          const { error } = await sb.from("discount_code_redemptions").update({
+            status: "applied",
+            subscription_id: subscriptionId,
+            paddle_customer_id: paddleCustomerId,
+            paddle_transaction_id: paddleTransactionId,
+            customer_email: customerEmail,
+            metadata: body.metadata || {},
+          }).eq("id", existing.id);
+
+          if (error) {
+            return new Response(JSON.stringify({ error: error.message }), {
+              status: 400,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+          return new Response(JSON.stringify({ ok: true, updated: true }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+      }
+
+      // Insert new redemption record
       const { error } = await sb.from("discount_code_redemptions").insert({
         discount_code_id: discountCodeId,
         user_id: userId || body.userId,
@@ -45,13 +84,36 @@ Deno.serve(async (req) => {
         paddle_transaction_id: paddleTransactionId,
         plan_applied: planApplied,
         billing_interval: billingInterval,
+        status: redemptionStatus,
         metadata: body.metadata || {},
       });
       if (error) {
+        // Handle unique constraint violation for duplicate transactions gracefully
+        if (error.code === "23505") {
+          return new Response(JSON.stringify({ ok: true, duplicate: true }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
         return new Response(JSON.stringify({ error: error.message }), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
+      }
+      return new Response(JSON.stringify({ ok: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ── Abandon stale pending redemptions ──
+    if (action === "abandon_pending") {
+      const { discountCodeId } = body;
+      const targetUserId = userId || body.userId;
+      if (targetUserId && discountCodeId) {
+        await sb.from("discount_code_redemptions")
+          .update({ status: "abandoned" })
+          .eq("discount_code_id", discountCodeId)
+          .eq("user_id", targetUserId)
+          .eq("status", "pending");
       }
       return new Response(JSON.stringify({ ok: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -112,12 +174,13 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Global limit
+    // Global limit — only count applied redemptions
     if (dc.max_redemptions != null) {
       const { count } = await sb
         .from("discount_code_redemptions")
         .select("id", { count: "exact", head: true })
-        .eq("discount_code_id", dc.id);
+        .eq("discount_code_id", dc.id)
+        .eq("status", "applied");
       if ((count ?? 0) >= dc.max_redemptions) {
         return new Response(JSON.stringify({ valid: false, error_code: "DISCOUNT_CODE_REDEMPTION_LIMIT_REACHED", error_message: "This discount code has reached its maximum uses." }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -125,13 +188,14 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Per-customer limit
+    // Per-customer limit — only count applied redemptions
     if (dc.max_redemptions_per_customer != null && userId) {
       const { count } = await sb
         .from("discount_code_redemptions")
         .select("id", { count: "exact", head: true })
         .eq("discount_code_id", dc.id)
-        .eq("user_id", userId);
+        .eq("user_id", userId)
+        .eq("status", "applied");
       if ((count ?? 0) >= dc.max_redemptions_per_customer) {
         return new Response(JSON.stringify({ valid: false, error_code: "DISCOUNT_CODE_PER_CUSTOMER_LIMIT_REACHED", error_message: "You've already used this discount code." }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
