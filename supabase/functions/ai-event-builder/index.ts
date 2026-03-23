@@ -4898,6 +4898,8 @@ function formatToolLabel(toolName: string, result: Record<string, unknown>): str
       return (result.message as string) || `Listed ${(result.campaigns as any[])?.length ?? 0} campaigns`;
     case "rank_hero_images":
       return (result.message as string) || `Ranked ${(result.ranked_images as any[])?.length ?? 0} images`;
+    case "refine_event_image":
+      return (result.message as string) || "Generated refined image version";
     default:
       return toolName;
   }
