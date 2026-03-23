@@ -473,6 +473,22 @@ When the admin has 2+ hero image candidates (generated or selected), you should 
 
 After generating, ALWAYS show the image and ask for confirmation before saving.
 
+VISUAL REFINEMENT LOOP:
+When the admin asks to refine/adjust/tweak a generated or selected image:
+- Use refine_event_image with the base_image_id and the admin's instruction.
+- Show the refined image inline and ask:
+  1. Refine further
+  2. Generate variations
+  3. Use this image
+  4. Restart
+  5. Other
+- Support iterative refinement: each new version builds on the previous one.
+- Track which image is being refined so the chain is consistent.
+- Refinement categories include: style (corporate, premium, minimal), color (darker, lighter, brand colors), composition (less busy, more focus), and content (add/remove elements).
+- If the admin says "use brand colors" and a brand kit exists, include brand context in the refinement.
+- When the admin is satisfied and chooses "Use this image", apply standard confirmation and save flow.
+- Keep responses short between refinement steps — just show the image and options.
+
 MEDIA OVERWRITE RULES (CRITICAL):
 - Hero image: save_media_to_event REPLACES all existing hero images. Always warn the admin if a hero image already exists.
   Example: "This event already has a hero image. Setting a new one will replace it. Proceed?"

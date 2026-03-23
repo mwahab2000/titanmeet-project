@@ -28,7 +28,7 @@ interface AIHeroImageCardProps {
   showRanking?: boolean;
 }
 
-export const AIHeroImageCard = ({ image, index, isSelected, onAdd, onRemove, selectionMode, showRanking }: AIHeroImageCardProps) => {
+export const AIHeroImageCard = ({ image, index, isSelected, onAdd, onRemove, onRefine, selectionMode, showRanking }: AIHeroImageCardProps) => {
   const [loaded, setLoaded] = useState(false);
 
   return (
