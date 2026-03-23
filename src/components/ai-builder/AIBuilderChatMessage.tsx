@@ -168,6 +168,7 @@ export const AIBuilderChatMessage = ({
             selectedIds={heroSelectedIds}
             onAdd={onHeroImageAdd}
             selectionMode={false}
+            showRanking={hasRankedImages}
           />
         )}
 
