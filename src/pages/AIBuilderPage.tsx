@@ -1,4 +1,5 @@
 import { useRef, useEffect, useState, useCallback, useMemo } from "react";
+import { Zap } from "lucide-react";
 import { useAIBuilderSession } from "@/hooks/useAIBuilderSession";
 import { AIBuilderChatMessage } from "@/components/ai-builder/AIBuilderChatMessage";
 import { AIBuilderComposer } from "@/components/ai-builder/AIBuilderComposer";
@@ -24,6 +25,9 @@ const AIBuilderPage = () => {
   const [draftSheetOpen, setDraftSheetOpen] = useState(false);
   const [pendingUpload, setPendingUpload] = useState<{ file: File; previewUrl: string } | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [ultraFastMode, setUltraFastMode] = useState(() => {
+    try { return localStorage.getItem("titanmeet_ultra_fast") === "true"; } catch { return false; }
+  });
   const isMobile = useIsMobile();
 
   const lastAssistantMessage = useMemo(() => {
@@ -34,10 +38,18 @@ const AIBuilderPage = () => {
   }, [messages]);
 
   const voiceMode = useVoiceMode({
-    onTranscript: (text) => sendMessage(text, undefined, undefined, true),
+    onTranscript: (text) => sendMessage(text, undefined, undefined, true, ultraFastMode),
     isAiLoading: isLoading,
     lastAssistantMessage,
   });
+
+  const toggleUltraFast = useCallback(() => {
+    setUltraFastMode(prev => {
+      const next = !prev;
+      try { localStorage.setItem("titanmeet_ultra_fast", String(next)); } catch {}
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -84,7 +96,7 @@ const AIBuilderPage = () => {
 
   const handleSendWithUpload = useCallback(async (message: string) => {
     if (!pendingUpload) {
-      sendMessage(message);
+      sendMessage(message, undefined, undefined, false, ultraFastMode);
       return;
     }
 
@@ -120,7 +132,7 @@ const AIBuilderPage = () => {
         : `I've uploaded an image. ${uploadContext}`;
 
       handleClearUpload();
-      sendMessage(fullMessage);
+      sendMessage(fullMessage, undefined, undefined, false, ultraFastMode);
     } catch (err) {
       console.error("Upload error:", err);
       toast.error("Upload failed");
@@ -147,6 +159,16 @@ const AIBuilderPage = () => {
             </div>
           </div>
           <div className="flex items-center gap-1">
+            <Button
+              variant={ultraFastMode ? "default" : "outline"}
+              size="sm"
+              className={`h-8 text-xs gap-1 ${ultraFastMode ? "bg-amber-500 hover:bg-amber-600 text-white border-0" : ""}`}
+              onClick={toggleUltraFast}
+              title={ultraFastMode ? "Ultra-Fast Mode ON" : "Enable Ultra-Fast Mode"}
+            >
+              <Zap className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">{ultraFastMode ? "Ultra-Fast" : "Fast"}</span>
+            </Button>
             {!voiceMode.isActive && (
               <AIBuilderVoiceMode
                 state={voiceMode.state}
