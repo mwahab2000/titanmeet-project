@@ -247,11 +247,11 @@ export const AIEventProposalPreview = ({ proposal, onApprove, onReject, onPartia
             <Section icon={<CheckCircle2 className="h-4 w-4" />} title="Readiness Summary" sectionKey="event" defaultOpen={true} partialMode={false}>
               {p.readiness_summary.completed?.length > 0 && (
                 <div className="mt-1">
-                  <p className="text-[10px] font-medium text-green-500 uppercase tracking-wider mb-1">Covered by this proposal</p>
+                  <p className="text-[10px] font-medium text-primary uppercase tracking-wider mb-1">Covered by this proposal</p>
                   <ul className="space-y-0.5">
                     {p.readiness_summary.completed.map((item, i) => (
                       <li key={i} className="text-xs text-foreground flex items-start gap-1.5">
-                        <CheckCircle2 className="h-3 w-3 text-green-500 mt-0.5 shrink-0" />
+                        <CheckCircle2 className="h-3 w-3 text-primary mt-0.5 shrink-0" />
                         {item}
                       </li>
                     ))}
@@ -260,11 +260,11 @@ export const AIEventProposalPreview = ({ proposal, onApprove, onReject, onPartia
               )}
               {p.readiness_summary.still_needed?.length > 0 && (
                 <div className="mt-2">
-                  <p className="text-[10px] font-medium text-amber-500 uppercase tracking-wider mb-1">Still needed</p>
+                  <p className="text-[10px] font-medium text-destructive uppercase tracking-wider mb-1">Still needed</p>
                   <ul className="space-y-0.5">
                     {p.readiness_summary.still_needed.map((item, i) => (
                       <li key={i} className="text-xs text-muted-foreground flex items-start gap-1.5">
-                        <span className="h-1 w-1 rounded-full bg-amber-500 mt-1.5 shrink-0" />
+                        <span className="h-1 w-1 rounded-full bg-destructive mt-1.5 shrink-0" />
                         {item}
                       </li>
                     ))}
