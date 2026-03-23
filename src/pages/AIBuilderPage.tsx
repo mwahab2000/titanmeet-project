@@ -14,12 +14,15 @@ import { AIBuilderUsageBanner } from "@/components/ai-builder/AIBuilderUsageBann
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useVoiceMode } from "@/hooks/useVoiceMode";
+import { useHeroImageSelection } from "@/hooks/useHeroImageSelection";
+import type { HeroImageCandidate } from "@/components/ai-builder/AIHeroImageCard";
 import type { VenueResult } from "@/components/ai-builder/AIVenueSearchResults";
 import type { VenuePhoto } from "@/components/ai-builder/AIVenuePhotoBrowser";
 import type { EventProposal } from "@/components/ai-builder/AIEventProposalPreview";
 
 const AIBuilderPage = () => {
   const { messages, draft, isLoading, sendMessage, clearSession } = useAIBuilderSession();
+  const heroSelection = useHeroImageSelection();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showPanel, setShowPanel] = useState(true);
   const [draftSheetOpen, setDraftSheetOpen] = useState(false);
@@ -81,6 +84,13 @@ const AIBuilderPage = () => {
   const handleProposalReject = () => {
     sendMessage("I'd like to make some changes to the proposal before saving. What would you like to adjust?");
   };
+
+  const handleHeroImageAdd = useCallback((image: HeroImageCandidate) => {
+    heroSelection.addCandidate(image);
+    heroSelection.selectImage(image.id);
+    const count = heroSelection.selectedCount + 1;
+    sendMessage(`I've added this image to my hero selection. I now have ${count} image(s) selected.`);
+  }, [heroSelection, sendMessage]);
 
   const handleFileUpload = useCallback((file: File) => {
     const previewUrl = URL.createObjectURL(file);
@@ -182,7 +192,7 @@ const AIBuilderPage = () => {
               />
             )}
             {messages.length > 0 && (
-              <Button variant="ghost" size="sm" className="h-8 text-xs gap-1.5" onClick={() => { voiceMode.stopVoiceMode(); clearSession(); }}>
+              <Button variant="ghost" size="sm" className="h-8 text-xs gap-1.5" onClick={() => { voiceMode.stopVoiceMode(); heroSelection.reset(); clearSession(); }}>
                 <RotateCcw className="h-3 w-3" />
                 <span className="hidden sm:inline">New Session</span>
               </Button>
@@ -239,6 +249,8 @@ const AIBuilderPage = () => {
                   onPhotosConfirm={handlePhotosConfirm}
                   onProposalApprove={handleProposalApprove}
                   onProposalReject={handleProposalReject}
+                  onHeroImageAdd={handleHeroImageAdd}
+                  heroSelectedIds={heroSelection.selectedIds}
                   isProcessing={isLoading}
                 />
               ))}
