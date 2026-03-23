@@ -85,6 +85,13 @@ const AIBuilderPage = () => {
     sendMessage("I'd like to make some changes to the proposal before saving. What would you like to adjust?");
   };
 
+  const handleHeroImageAdd = useCallback((image: HeroImageCandidate) => {
+    heroSelection.addCandidate(image);
+    heroSelection.selectImage(image.id);
+    const count = heroSelection.selectedCount + 1;
+    sendMessage(`I've added this image to my hero selection. I now have ${count} image(s) selected.`);
+  }, [heroSelection, sendMessage]);
+
   const handleFileUpload = useCallback((file: File) => {
     const previewUrl = URL.createObjectURL(file);
     setPendingUpload({ file, previewUrl });
