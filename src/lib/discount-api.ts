@@ -120,12 +120,13 @@ export async function validateDiscountCode(
     return { valid: false, error_code: "DISCOUNT_CODE_NOT_VALID_FOR_INTERVAL", error_message: ERROR_MESSAGES.DISCOUNT_CODE_NOT_VALID_FOR_INTERVAL, discount: null };
   }
 
-  // Check global redemption limit
+  // Check global redemption limit (only count applied redemptions)
   if (d.max_redemptions != null) {
     const { count } = await supabase
       .from("discount_code_redemptions" as any)
       .select("id", { count: "exact", head: true })
-      .eq("discount_code_id", d.id);
+      .eq("discount_code_id", d.id)
+      .eq("status", "applied");
     if ((count ?? 0) >= d.max_redemptions) {
       return { valid: false, error_code: "DISCOUNT_CODE_REDEMPTION_LIMIT_REACHED", error_message: ERROR_MESSAGES.DISCOUNT_CODE_REDEMPTION_LIMIT_REACHED, discount: null };
     }
