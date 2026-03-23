@@ -1193,6 +1193,25 @@ const TOOL_DEFINITIONS = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "rank_hero_images",
+      description: "AI-rank a set of candidate hero images for suitability to the current event. Uses event context, theme, audience, and optional brand kit to score and rank images. Returns ranked list with scores and explanations. Requires 2+ candidate images.",
+      parameters: {
+        type: "object",
+        properties: {
+          event_id: { type: "string", description: "Event UUID for context" },
+          candidate_ids: {
+            type: "array",
+            items: { type: "string" },
+            description: "Array of media_asset IDs to rank",
+          },
+        },
+        required: ["event_id", "candidate_ids"],
+      },
+    },
+  },
   // ─── Phase 2: Upload, Brand Kit, Visual Pack tools ───────
   {
     type: "function",
