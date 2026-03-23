@@ -17,7 +17,10 @@ interface Props {
 const stateLabels: Record<VoiceModeState, string> = {
   idle: "",
   listening: "Listening…",
-  processing: "Processing your command…",
+  silence_detected: "Got it…",
+  transcribing: "Transcribing…",
+  auto_submitting: "Sending…",
+  processing: "Processing…",
   responding: "AI is responding…",
   waiting_for_reply: "Getting ready to listen…",
   paused_due_to_inactivity: "Voice mode paused — no activity detected.",
