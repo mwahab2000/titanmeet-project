@@ -100,6 +100,7 @@ interface AIBuilderChatMessageProps {
   onPhotosConfirm?: (photos: VenuePhoto[]) => void;
   onProposalApprove?: (proposal: EventProposal) => void;
   onProposalReject?: () => void;
+  onPartialApply?: (sections: ProposalSection[]) => void;
   onHeroImageAdd?: (image: HeroImageCandidate) => void;
   onHeroImageRefine?: (image: HeroImageCandidate) => void;
   onVisualIdentityApply?: (identity: VisualIdentityData) => void;
