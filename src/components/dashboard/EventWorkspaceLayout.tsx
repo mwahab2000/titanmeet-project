@@ -11,7 +11,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { PUBLISH_CHECKS, getPublishStatus } from "@/lib/publishChecks";
 import { SaveAsTemplateDialog } from "@/components/templates/SaveAsTemplateDialog";
-import AiChatWidget from "@/components/ai/AiChatWidget";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 const sectionLabels: Record<string, string> = {
