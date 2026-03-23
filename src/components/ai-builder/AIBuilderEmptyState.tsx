@@ -1,34 +1,76 @@
-import { Bot, Sparkles, Building2, FilePlus, FileSearch, Wand2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Bot, Sparkles, Rocket, Building2, Palette, ImagePlus, Users, ClipboardCheck, BarChart3, MessageSquare, LayoutList, Lightbulb } from "lucide-react";
 
-const quickActions = [
+const demoPrompts = [
+  {
+    icon: Rocket,
+    title: "Full Event Creation",
+    description: "One command → complete event draft",
+    prompt:
+      "Create a two-day digital transformation summit for Titan Cement in New Cairo for 250 attendees, with a premium corporate look, AI-generated visuals, WhatsApp and email confirmations, and a draft agenda.",
+  },
   {
     icon: Building2,
-    label: "Select a client to start",
-    prompt: "List my clients so I can pick one to work with",
+    title: "Quick Corporate Event",
+    description: "Board meeting with RSVP tracking",
+    prompt:
+      "Set up a board meeting in Cairo for 40 executives with RSVP tracking and reminders.",
   },
   {
-    icon: FilePlus,
-    label: "Create a new event",
-    prompt: "I want to create a new event — let's start by choosing a client",
+    icon: Palette,
+    title: "Visual Identity",
+    description: "Hero, banner, colors & typography",
+    prompt:
+      "Generate a full visual identity for this event including hero image, banner, colors, and typography in a premium corporate style.",
   },
   {
-    icon: FileSearch,
-    label: "Continue a draft event",
-    prompt: "Show me my draft events so I can continue working on one",
+    icon: ImagePlus,
+    title: "AI Image + Refinement",
+    description: "Generate and iterate on hero images",
+    prompt:
+      "Generate a hero image for a tech conference in Cairo, then make it more futuristic and use darker blue tones.",
   },
   {
-    icon: Wand2,
-    label: "Generate full event with AI",
-    prompt: "Generate a complete event from scratch — guide me through it step by step",
+    icon: Users,
+    title: "Attendees & Comms Setup",
+    description: "Add attendees and prepare confirmations",
+    prompt:
+      "Add 100 attendees and prepare confirmation messages via WhatsApp and email, then show who needs reminders.",
   },
-];
-
-const advancedPrompts = [
-  "Check what's missing before publishing",
-  "List all my events",
-  "Add attendees from pasted text",
-  "Draft invitation emails for my event",
+  {
+    icon: ClipboardCheck,
+    title: "Readiness Check",
+    description: "What's missing before publishing?",
+    prompt:
+      "Check what's missing in this event and tell me what I need to complete before publishing.",
+  },
+  {
+    icon: BarChart3,
+    title: "Analytics Insight",
+    description: "RSVP rates and attendance forecast",
+    prompt:
+      "Show me RSVP rate, attendance forecast, and who hasn't confirmed yet.",
+  },
+  {
+    icon: MessageSquare,
+    title: "WhatsApp Campaign",
+    description: "Send reminders to pending attendees",
+    prompt:
+      "Send a reminder to all attendees who haven't confirmed yet via WhatsApp and email.",
+  },
+  {
+    icon: LayoutList,
+    title: "Multi-Event Overview",
+    description: "Review all drafts and readiness",
+    prompt:
+      "Show me all my draft events and which ones are closest to being ready.",
+  },
+  {
+    icon: Lightbulb,
+    title: "AI Recommendations",
+    description: "Next best actions for engagement",
+    prompt:
+      "Based on this event, what should I do next to improve attendance and engagement?",
+  },
 ];
 
 interface AIBuilderEmptyStateProps {
@@ -37,6 +79,7 @@ interface AIBuilderEmptyStateProps {
 
 export const AIBuilderEmptyState = ({ onSelectPrompt }: AIBuilderEmptyStateProps) => (
   <div className="flex flex-1 flex-col items-center justify-center px-4 sm:px-6 py-8 sm:py-12">
+    {/* Header */}
     <div className="relative mb-5 sm:mb-6">
       <div className="flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/20 to-secondary/20 border border-primary/20">
         <Bot className="h-7 w-7 sm:h-8 sm:w-8 text-primary" />
@@ -48,36 +91,28 @@ export const AIBuilderEmptyState = ({ onSelectPrompt }: AIBuilderEmptyStateProps
 
     <h2 className="text-lg sm:text-xl font-display font-bold text-foreground mb-1">AI Event Builder</h2>
     <p className="text-xs sm:text-sm text-muted-foreground text-center max-w-md mb-6 sm:mb-8 leading-relaxed">
-      Start by selecting a client, then create or continue an event. I'll guide you through every step.
+      Describe what you need and I'll handle the rest. Try one of these to get started:
     </p>
 
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 w-full max-w-lg mb-6">
-      {quickActions.map((action) => (
+    {/* Demo prompts grid */}
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full max-w-2xl">
+      {demoPrompts.map((item) => (
         <button
-          key={action.label}
-          onClick={() => onSelectPrompt(action.prompt)}
-          className="flex items-center gap-3 text-left rounded-xl border border-border bg-card/60 px-4 py-3.5 text-xs hover:bg-accent hover:text-accent-foreground hover:border-primary/30 transition-all duration-200 active:scale-[0.98] min-h-[52px]"
+          key={item.title}
+          onClick={() => onSelectPrompt(item.prompt)}
+          className="group flex items-start gap-3 text-left rounded-xl border border-border bg-card/60 px-3.5 py-3 hover:bg-accent hover:border-primary/30 transition-all duration-200 active:scale-[0.98] min-h-[52px]"
         >
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-            <action.icon className="h-4 w-4 text-primary" />
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 group-hover:bg-primary/15 transition-colors">
+            <item.icon className="h-4 w-4 text-primary" />
           </div>
-          <span className="font-medium text-foreground">{action.label}</span>
-        </button>
-      ))}
-    </div>
-
-    <p className="text-[11px] text-muted-foreground mb-3">Or try a specific task:</p>
-
-    <div className="flex flex-wrap justify-center gap-2 max-w-lg">
-      {advancedPrompts.map((prompt) => (
-        <button
-          key={prompt}
-          onClick={() => onSelectPrompt(prompt)}
-          className="rounded-full border border-border bg-card/40 px-3 py-1.5 text-[11px] text-muted-foreground hover:bg-accent hover:text-accent-foreground hover:border-primary/30 transition-all"
-        >
-          {prompt}
+          <div className="min-w-0">
+            <span className="block text-xs font-semibold text-foreground leading-tight">{item.title}</span>
+            <span className="block text-[11px] text-muted-foreground leading-snug mt-0.5">{item.description}</span>
+          </div>
         </button>
       ))}
     </div>
   </div>
 );
+
+export { demoPrompts };

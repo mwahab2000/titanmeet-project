@@ -261,6 +261,11 @@ const AIBuilderPage = () => {
         {/* Usage warning */}
         <AIBuilderUsageBanner />
 
+        {/* Persistent examples trigger (visible when conversation exists) */}
+        {messages.length > 0 && (
+          <AIBuilderExamplesTrigger onSelectPrompt={(p) => sendMessage(p)} />
+        )}
+
         {/* Messages */}
         <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 sm:px-4">
           {messages.length === 0 ? (
