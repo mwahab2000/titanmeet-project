@@ -1,22 +1,23 @@
 import { useState } from "react";
-import { MapPin, ListOrdered, Lightbulb, ChevronDown, ChevronUp, Check, X, RefreshCw } from "lucide-react";
+import { MapPin, ListOrdered, Lightbulb, ChevronDown, ChevronUp, Check, X, RefreshCw, Send, Image, BarChart3, Rocket } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { DraftState } from "@/hooks/useAIBuilderSession";
 
 export interface Recommendation {
   id: string;
-  type: "venue" | "agenda";
+  type: "venue" | "agenda" | "comms" | "media" | "analytics" | "lifecycle";
   title: string;
   description: string;
   prompt: string;
   priority: "high" | "medium" | "low";
+  reason?: string;
 }
 
 function generateRecommendations(draft: DraftState): Recommendation[] {
   const recs: Recommendation[] = [];
 
-  // --- Venue recommendations ---
+  // --- Venue ---
   if (draft.eventBasics.status !== "empty" && draft.venue.status === "empty") {
     recs.push({
       id: "venue-search",
@@ -29,6 +30,7 @@ function generateRecommendations(draft: DraftState): Recommendation[] {
         ? `Search for venues near ${draft.eventBasics.location} for this event`
         : "Help me find a suitable venue for this event",
       priority: "high",
+      reason: "No venue set yet",
     });
   }
 
@@ -37,13 +39,14 @@ function generateRecommendations(draft: DraftState): Recommendation[] {
       id: "venue-photos",
       type: "venue",
       title: "Add venue photos",
-      description: `Browse and select photos for ${draft.venue.name || "the venue"}`,
+      description: `Browse photos for ${draft.venue.name || "the venue"}`,
       prompt: `Fetch photos for the venue "${draft.venue.name}" so I can pick ones for the event page`,
       priority: "medium",
+      reason: "Venue set but no photos added",
     });
   }
 
-  // --- Agenda recommendations ---
+  // --- Agenda ---
   if (draft.eventBasics.status !== "empty" && draft.agenda.status === "empty") {
     const eventType = draft.eventBasics.title?.toLowerCase() || "";
     let agendaPrompt = "Generate a suggested agenda for this event";
@@ -51,13 +54,13 @@ function generateRecommendations(draft: DraftState): Recommendation[] {
 
     if (eventType.includes("summit") || eventType.includes("conference")) {
       agendaPrompt = "Generate a multi-session conference agenda with keynotes, panels, and networking breaks";
-      agendaDesc = "Build a conference-style agenda with keynotes, panels, and breaks";
+      agendaDesc = "Build a conference-style agenda with keynotes and panels";
     } else if (eventType.includes("workshop") || eventType.includes("training")) {
       agendaPrompt = "Generate a hands-on workshop agenda with sessions, exercises, and Q&A";
-      agendaDesc = "Build a workshop agenda with interactive sessions and exercises";
+      agendaDesc = "Build a workshop agenda with interactive sessions";
     } else if (eventType.includes("gala") || eventType.includes("dinner") || eventType.includes("ceremony")) {
       agendaPrompt = "Generate an event program with reception, ceremony, dinner, and entertainment";
-      agendaDesc = "Build a formal program with reception, ceremony, and entertainment";
+      agendaDesc = "Build a formal program with reception and ceremony";
     }
 
     recs.push({
@@ -67,6 +70,7 @@ function generateRecommendations(draft: DraftState): Recommendation[] {
       description: agendaDesc,
       prompt: agendaPrompt,
       priority: "high",
+      reason: "No agenda items yet",
     });
   }
 
@@ -75,9 +79,10 @@ function generateRecommendations(draft: DraftState): Recommendation[] {
       id: "agenda-expand",
       type: "agenda",
       title: "Expand agenda",
-      description: `You have ${draft.agenda.items} item${draft.agenda.items === 1 ? "" : "s"} — add more sessions for a complete program`,
-      prompt: "The current agenda is thin. Suggest additional sessions to fill it out and make it more complete.",
+      description: `${draft.agenda.items} item${draft.agenda.items === 1 ? "" : "s"} — add more for a complete program`,
+      prompt: "The current agenda is thin. Suggest additional sessions to fill it out.",
       priority: "medium",
+      reason: "Agenda has few items",
     });
   }
 
@@ -86,18 +91,142 @@ function generateRecommendations(draft: DraftState): Recommendation[] {
       id: "agenda-scale",
       type: "agenda",
       title: "Scale agenda for audience",
-      description: `With ${draft.attendees.count} attendees, consider adding parallel tracks or breakout sessions`,
-      prompt: `This event has ${draft.attendees.count} attendees but only ${draft.agenda.items} agenda items. Suggest parallel tracks or breakout sessions to improve the experience.`,
+      description: `${draft.attendees.count} attendees but only ${draft.agenda.items} sessions`,
+      prompt: `This event has ${draft.attendees.count} attendees but only ${draft.agenda.items} agenda items. Suggest parallel tracks or breakout sessions.`,
       priority: "medium",
+      reason: "Large audience, few sessions",
     });
   }
 
-  return recs;
+  // --- Media ---
+  if (draft.eventBasics.status !== "empty" && draft.media.heroCount === 0) {
+    recs.push({
+      id: "media-hero",
+      type: "media",
+      title: "Add hero image",
+      description: "Generate or upload a hero image for the event page",
+      prompt: "Generate a premium hero image for this event",
+      priority: "high",
+      reason: "No hero image set",
+    });
+  }
+
+  if (draft.media.heroCount > 0 && !draft.media.hasBanner && draft.eventBasics.status !== "empty") {
+    recs.push({
+      id: "media-banner",
+      type: "media",
+      title: "Add event banner",
+      description: "Generate a banner for social sharing and communications",
+      prompt: "Generate a banner image for this event",
+      priority: "low",
+      reason: "Hero set but no banner",
+    });
+  }
+
+  // --- Communications ---
+  if (draft.attendees.count > 0 && draft.communications.status === "empty") {
+    recs.push({
+      id: "comms-confirm",
+      type: "comms",
+      title: "Send attendance confirmation",
+      description: `${draft.attendees.count} attendees added — send confirmation requests`,
+      prompt: "Send attendance confirmation to all attendees via WhatsApp and email",
+      priority: "high",
+      reason: "Attendees added but no confirmations sent",
+    });
+  }
+
+  if (draft.communications.status === "partial" && draft.attendees.count > 10) {
+    recs.push({
+      id: "comms-reminder",
+      type: "comms",
+      title: "Send reminder to pending",
+      description: "Follow up with attendees who haven't confirmed yet",
+      prompt: "Send a reminder to all pending attendees who haven't confirmed yet",
+      priority: "high",
+      reason: "Some attendees still pending",
+    });
+  }
+
+  // --- Analytics ---
+  if (draft.attendees.count > 0 && draft.communications.status !== "empty") {
+    recs.push({
+      id: "analytics-check",
+      type: "analytics",
+      title: "Check confirmation stats",
+      description: "See RSVP rate and pending breakdown",
+      prompt: "Show me the confirmation stats for this event",
+      priority: "medium",
+      reason: "Communications sent — review results",
+    });
+  }
+
+  // --- Lifecycle / Readiness ---
+  if (draft.publishReadiness.score >= 70 && draft.publishReadiness.score < 100 && draft.eventContext.eventStatus === "draft") {
+    recs.push({
+      id: "lifecycle-readiness",
+      type: "lifecycle",
+      title: "Check publish readiness",
+      description: `${draft.publishReadiness.score}% ready — review remaining items`,
+      prompt: "Check what's still needed to publish this event",
+      priority: "medium",
+      reason: `Event is ${draft.publishReadiness.score}% ready`,
+    });
+  }
+
+  if (draft.publishReadiness.score >= 100 && draft.eventContext.eventStatus === "draft") {
+    recs.push({
+      id: "lifecycle-publish",
+      type: "lifecycle",
+      title: "Publish event",
+      description: "All checks passed — ready to go live",
+      prompt: "Publish this event",
+      priority: "high",
+      reason: "Event meets all publish requirements",
+    });
+  }
+
+  // --- Organizers ---
+  if (draft.eventBasics.status !== "empty" && draft.organizers.count === 0) {
+    recs.push({
+      id: "organizers-add",
+      type: "lifecycle",
+      title: "Add organizers",
+      description: "Add team members managing this event",
+      prompt: "Help me add organizers for this event",
+      priority: "medium",
+      reason: "No organizers added yet",
+    });
+  }
+
+  // --- Attendees ---
+  if (draft.eventBasics.status !== "empty" && draft.attendees.count === 0 && draft.agenda.items > 0) {
+    recs.push({
+      id: "attendees-add",
+      type: "lifecycle",
+      title: "Add attendees",
+      description: "Import or add attendees to this event",
+      prompt: "Help me add attendees for this event",
+      priority: "high",
+      reason: "Agenda set but no attendees yet",
+    });
+  }
+
+  // Sort by priority
+  const priorityOrder: Record<string, number> = { high: 0, medium: 1, low: 2 };
+  recs.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]);
+
+  // Limit to top 3
+  return recs.slice(0, 3);
 }
 
 const typeIcons: Record<string, typeof MapPin> = {
   venue: MapPin,
   agenda: ListOrdered,
+  comms: Send,
+  media: Image,
+  analytics: BarChart3,
+  lifecycle: Rocket,
 };
 
 const priorityColors: Record<string, string> = {
@@ -126,6 +255,9 @@ const RecommendationCard = ({ rec, onApply, onDismiss, onAlternative, disabled }
         <div className="flex-1 min-w-0">
           <p className="text-xs font-semibold text-foreground">{rec.title}</p>
           <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">{rec.description}</p>
+          {rec.reason && (
+            <p className="text-[10px] text-muted-foreground/70 mt-0.5 italic">{rec.reason}</p>
+          )}
         </div>
       </div>
       <div className="flex items-center gap-1.5 mt-2.5 ml-9">
@@ -173,10 +305,22 @@ export const AIBuilderRecommendations = ({ draft, onApply, disabled }: AIBuilder
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const [expanded, setExpanded] = useState(true);
 
+  // Check user preference
+  const autoCompleteMode = (() => {
+    try { return localStorage.getItem("titanmeet_autocomplete") || "on"; } catch { return "on"; }
+  })();
+
+  if (autoCompleteMode === "off") return null;
+
   const allRecs = generateRecommendations(draft);
   const visibleRecs = allRecs.filter((r) => !dismissed.has(r.id));
 
-  if (visibleRecs.length === 0) return null;
+  // In "reduced" mode, only show high priority
+  const filteredRecs = autoCompleteMode === "reduced"
+    ? visibleRecs.filter(r => r.priority === "high")
+    : visibleRecs;
+
+  if (filteredRecs.length === 0) return null;
 
   const handleDismiss = (id: string) => {
     setDismissed((prev) => new Set(prev).add(id));
@@ -190,15 +334,15 @@ export const AIBuilderRecommendations = ({ draft, onApply, disabled }: AIBuilder
       >
         <span className="flex items-center gap-1.5">
           <Lightbulb className="h-3.5 w-3.5 text-primary" />
-          Recommendations
-          <span className="text-[10px] font-normal text-muted-foreground/70">({visibleRecs.length})</span>
+          Suggested Next
+          <span className="text-[10px] font-normal text-muted-foreground/70">({filteredRecs.length})</span>
         </span>
         {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
       </button>
 
       {expanded && (
         <div className="px-3 pb-3 space-y-2">
-          {visibleRecs.map((rec) => (
+          {filteredRecs.map((rec) => (
             <RecommendationCard
               key={rec.id}
               rec={rec}
