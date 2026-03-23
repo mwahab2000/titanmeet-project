@@ -3921,6 +3921,26 @@ serve(async (req) => {
       metadata: { context },
     });
 
+    // ── Load user memory (preferences, patterns, context) ──
+    let memoryStr = "";
+    const { data: userMemories } = await db
+      .from("ai_user_memory")
+      .select("key, value, memory_type, confidence_score, usage_count")
+      .eq("user_id", user.id)
+      .eq("is_active", true)
+      .gte("confidence_score", 0.5)
+      .order("confidence_score", { ascending: false })
+      .limit(20);
+
+    if (userMemories?.length) {
+      const memLines = userMemories.map((m: any) => {
+        const val = typeof m.value === "object" && m.value.display ? m.value.display : JSON.stringify(m.value);
+        const strength = Number(m.confidence_score) >= 0.8 ? "strong" : "moderate";
+        return `- ${m.key.replace(/_/g, " ")}: ${val} (${strength}, used ${m.usage_count}×)`;
+      });
+      memoryStr = `\n\n════════════════════════════════════════\nUSER MEMORY (learned preferences — use to suggest defaults)\n════════════════════════════════════════\n${memLines.join("\n")}\n\nWhen memory exists for a field, suggest it as the first option (e.g. "Use New Cairo?" 1. Yes 2. Change 3. Other). Say "Using your preferred [field]" when applying. Never auto-execute critical actions from memory alone.`;
+    }
+
     // ── Load history ──
     const { data: history } = await db
       .from("ai_chat_messages")
@@ -4006,7 +4026,7 @@ serve(async (req) => {
     const ultraFastPrompt = ultraFastMode ? ULTRA_FAST_MODE_PROMPT : "";
 
     const aiMessages: Array<{ role: string; content: string }> = [
-      { role: "system", content: SYSTEM_PROMPT + voiceModePrompt + ultraFastPrompt + (contextStr ? `\n\nCurrent context:${contextStr}` : "") + confirmationInjection + optionContext },
+      { role: "system", content: SYSTEM_PROMPT + voiceModePrompt + ultraFastPrompt + memoryStr + (contextStr ? `\n\nCurrent context:${contextStr}` : "") + confirmationInjection + optionContext },
     ];
 
     for (const msg of (history || [])) {
@@ -4176,6 +4196,9 @@ serve(async (req) => {
         // Always persist state after each tool — partial progress is kept
         await db.from("ai_chat_sessions").update({ state_json: stateJson }).eq("id", session.id);
       }
+
+      // ── Memory capture: learn from successful tool executions ──
+      await captureMemoryFromActions(db, user.id, actionLog, stateJson, correlationId);
 
       // ── Persist action log to ai_action_logs table ──
       await persistActionLog(db, session.id, user.id, actionLog);
@@ -4360,6 +4383,91 @@ serve(async (req) => {
   }
 });
 
+// ─── Memory Capture ───────────────────────────────────────
+
+async function captureMemoryFromActions(
+  db: any,
+  userId: string,
+  actionLog: ActionLogEntry[],
+  stateJson: Record<string, unknown>,
+  correlationId: string,
+): Promise<void> {
+  try {
+    const memoryUpdates: Array<{ key: string; value: Record<string, unknown>; type: string }> = [];
+
+    for (const entry of actionLog) {
+      if (entry.status !== "success") continue;
+      const meta = entry.metadata || {};
+
+      // Learn preferred location
+      if (entry.action === "update_event_basics" && meta.location) {
+        memoryUpdates.push({ key: "preferred_location", value: { display: meta.location, value: meta.location }, type: "preference" });
+      }
+
+      // Learn preferred venue
+      if (entry.action === "save_selected_venue" && meta.venue_name) {
+        memoryUpdates.push({ key: "preferred_venue", value: { display: meta.venue_name, value: meta.venue_name }, type: "preference" });
+      }
+
+      // Learn preferred client
+      if (entry.action === "find_or_create_client" && meta.name) {
+        memoryUpdates.push({ key: "preferred_client", value: { display: meta.name, client_id: meta.client_id }, type: "context" });
+      }
+
+      // Learn preferred theme
+      if (entry.action === "update_event_basics" && meta.theme_id) {
+        memoryUpdates.push({ key: "preferred_theme", value: { display: meta.theme_id, value: meta.theme_id }, type: "preference" });
+      }
+
+      // Track workflow patterns
+      if (entry.action === "check_publish_readiness") {
+        memoryUpdates.push({ key: "pattern_checks_readiness", value: { display: "Checks readiness after changes", pattern: "readiness_check" }, type: "pattern" });
+      }
+    }
+
+    // Upsert memories with confidence increase
+    for (const mem of memoryUpdates) {
+      const { data: existing } = await db
+        .from("ai_user_memory")
+        .select("id, confidence_score, usage_count, value")
+        .eq("user_id", userId)
+        .eq("key", mem.key)
+        .single();
+
+      if (existing) {
+        // Same value → increase confidence; different value → decrease slightly and update
+        const sameValue = JSON.stringify(existing.value) === JSON.stringify(mem.value);
+        const newConfidence = sameValue
+          ? Math.min(1, Number(existing.confidence_score) + 0.1)
+          : Math.max(0.3, Number(existing.confidence_score) - 0.15);
+
+        await db.from("ai_user_memory").update({
+          value: sameValue ? existing.value : mem.value,
+          confidence_score: newConfidence,
+          usage_count: existing.usage_count + 1,
+          last_used_at: new Date().toISOString(),
+        }).eq("id", existing.id);
+      } else {
+        await db.from("ai_user_memory").insert({
+          user_id: userId,
+          memory_type: mem.type,
+          key: mem.key,
+          value: mem.value,
+          confidence_score: 0.5,
+          usage_count: 1,
+          source: "inferred",
+        });
+      }
+    }
+
+    if (memoryUpdates.length > 0) {
+      console.log(`[${correlationId}] Captured ${memoryUpdates.length} memory updates`);
+    }
+  } catch (err) {
+    console.warn(`[${correlationId}] Memory capture error (non-fatal):`, err);
+  }
+}
+
 // ─── Helpers ───────────────────────────────────────────────
 
 function formatToolDisplayName(toolName: string): string {
@@ -4432,7 +4540,7 @@ function resolveToolTarget(toolName: string, args: Record<string, unknown>): str
 
 function filterSafeMetadata(result: Record<string, unknown>): Record<string, unknown> {
   const safe: Record<string, unknown> = {};
-  const allowed = ["client_id", "event_id", "action", "name", "title", "slug", "added", "score", "ready", "saved_count", "updated_fields", "venue_name", "template_name", "templates", "cloned", "events", "clients", "total", "message", "found", "event", "counts", "status", "old_title", "new_title", "source_event_id", "missing", "event_count", "recent_events", "client", "recommendations", "total_recommendations", "complete", "scope", "campaign_id", "campaign_type", "channels", "audience_count", "audience_segment", "sent_email", "sent_whatsapp", "failed_email", "failed_whatsapp", "confirmation_rate", "invited", "confirmed", "pending", "segments", "campaigns"];
+  const allowed = ["client_id", "event_id", "action", "name", "title", "slug", "added", "score", "ready", "saved_count", "updated_fields", "venue_name", "template_name", "templates", "cloned", "events", "clients", "total", "message", "found", "event", "counts", "status", "old_title", "new_title", "source_event_id", "missing", "event_count", "recent_events", "client", "recommendations", "total_recommendations", "complete", "scope", "campaign_id", "campaign_type", "channels", "audience_count", "audience_segment", "sent_email", "sent_whatsapp", "failed_email", "failed_whatsapp", "confirmation_rate", "invited", "confirmed", "pending", "segments", "campaigns", "location", "theme_id"];
   for (const k of allowed) {
     if (result[k] !== undefined) safe[k] = result[k];
   }
