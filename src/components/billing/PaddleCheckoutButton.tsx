@@ -181,7 +181,7 @@ const PaddleCheckoutButton = ({
     }
 
     Paddle.Checkout.open(checkoutConfig);
-  }, [priceId, planId, user, paddleDiscountId, onSuccess, onError]);
+  }, [priceId, planId, user, paddleDiscountId, discountCodeId, billingInterval, onSuccess, onError]);
 
   if (disabled) {
     return (
