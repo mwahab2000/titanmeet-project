@@ -121,7 +121,7 @@ const PaddleCheckoutButton = ({
       return;
     }
 
-    Paddle.Checkout.open({
+    const checkoutConfig: any = {
       items: [{ priceId, quantity: 1 }],
       customData: { plan_id: planId, user_id: user?.id || "" },
       settings: {
