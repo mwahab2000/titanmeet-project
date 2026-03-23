@@ -3805,7 +3805,7 @@ serve(async (req) => {
     }
 
     const body = await req.json();
-    const { sessionId, message, context, voiceMode } = body;
+    const { sessionId, message, context, voiceMode, ultraFastMode } = body;
 
     if (!message?.trim()) {
       return new Response(
