@@ -4979,6 +4979,7 @@ function resolveActionData(
     if (entry.action === "save_selected_venue") return { venue_saved: parsed.result };
     if (entry.action === "generate_full_event_proposal") return { proposal: parsed.result.proposal };
     if (entry.action === "save_event_proposal") return { saved: parsed.result };
+    if (entry.action === "generate_event_visual_identity") return { visual_identity: parsed.result };
     return undefined;
   } catch {
     return undefined;
