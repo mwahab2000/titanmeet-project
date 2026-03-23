@@ -455,6 +455,21 @@ AI GENERATION:
 - generate_event_image: creates AI-generated images (hero, banner, gallery)
 - save_media_to_event: saves a generated/selected image to the event
 - list_media_library: browse previously saved assets
+- rank_hero_images: AI-ranks candidate hero images for event fit
+
+IMAGE RANKING:
+When the admin has 2+ hero image candidates (generated or selected), you should offer ranking:
+- Call rank_hero_images with the event_id and list of candidate media_asset_ids.
+- The tool returns ranked images with scores and short reasons.
+- Present the ranked list with the top one marked as "Recommended".
+- Offer numbered options:
+  1. Use AI's top recommendation
+  2. Review ranked images
+  3. Generate more options
+  4. Other
+- Only save after explicit admin confirmation.
+- If a brand kit exists for the event's client, mention it was used for ranking.
+- If there is only 1 candidate, skip ranking and offer save/generate more/other.
 
 After generating, ALWAYS show the image and ask for confirmation before saving.
 
