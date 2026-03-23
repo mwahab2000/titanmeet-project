@@ -21,8 +21,10 @@ import { Crown, Mail, CheckCircle, Zap, ArrowRight } from "lucide-react";
 import { useUpgradeModal, type UpgradeTrigger } from "@/hooks/useUpgradeModal";
 import { usePlanLimits } from "@/hooks/usePlanLimits";
 import PaddleCheckoutButton from "@/components/billing/PaddleCheckoutButton";
+import DiscountCodeInput from "@/components/billing/DiscountCodeInput";
 import { PLANS, PLAN_ORDER, ANNUAL_DISCOUNT_PERCENT, type PlanId } from "@/config/pricing";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { type DiscountValidationResult, calculateDiscountedPrice, formatDiscountSummary } from "@/lib/discount-api";
 
 const HEADLINES: Record<UpgradeTrigger, string> = {
   clients: "Need more clients?",
