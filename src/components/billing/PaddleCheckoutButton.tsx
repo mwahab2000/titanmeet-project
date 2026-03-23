@@ -73,6 +73,7 @@ const PaddleCheckoutButton = ({
   planId,
   type,
   disabled,
+  paddleDiscountId,
   onSuccess,
   onError,
 }: PaddleCheckoutButtonProps) => {
