@@ -27,6 +27,7 @@ import type { VisualIdentityData } from "@/components/ai-builder/AIVisualIdentit
 const AIBuilderPage = () => {
   const { messages, draft, isLoading, sendMessage, clearSession } = useAIBuilderSession();
   const heroSelection = useHeroImageSelection();
+  const onboarding = useOnboardingStatus();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showPanel, setShowPanel] = useState(true);
   const [draftSheetOpen, setDraftSheetOpen] = useState(false);
