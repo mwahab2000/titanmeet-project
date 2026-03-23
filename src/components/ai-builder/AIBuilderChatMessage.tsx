@@ -52,11 +52,14 @@ function extractGeneratedImages(actions?: AIAction[]): HeroImageCandidate[] {
   const images: HeroImageCandidate[] = [];
   for (const action of actions) {
     if (action.data?.generated_image_url) {
+      const isRefined = !!action.data.base_image_id;
       images.push({
         id: action.data.media_asset_id || crypto.randomUUID(),
         url: action.data.generated_image_url,
         storagePath: action.data.storage_path || "",
         label: action.data.label || action.label,
+        isRefined,
+        refinementInstruction: isRefined ? action.data.refinement_instruction : undefined,
       });
     }
     if (action.data?.generated_images && Array.isArray(action.data.generated_images)) {
@@ -95,6 +98,7 @@ interface AIBuilderChatMessageProps {
   onProposalApprove?: (proposal: EventProposal) => void;
   onProposalReject?: () => void;
   onHeroImageAdd?: (image: HeroImageCandidate) => void;
+  onHeroImageRefine?: (image: HeroImageCandidate) => void;
   heroSelectedIds?: Set<string>;
   isProcessing?: boolean;
 }
@@ -106,6 +110,7 @@ export const AIBuilderChatMessage = ({
   onProposalApprove,
   onProposalReject,
   onHeroImageAdd,
+  onHeroImageRefine,
   heroSelectedIds,
   isProcessing,
 }: AIBuilderChatMessageProps) => {
@@ -167,6 +172,7 @@ export const AIBuilderChatMessage = ({
             images={generatedImages}
             selectedIds={heroSelectedIds}
             onAdd={onHeroImageAdd}
+            onRefine={onHeroImageRefine}
             selectionMode={false}
             showRanking={hasRankedImages}
           />

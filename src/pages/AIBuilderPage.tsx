@@ -92,6 +92,10 @@ const AIBuilderPage = () => {
     sendMessage(`I've added this image to my hero selection. I now have ${count} image(s) selected.`);
   }, [heroSelection, sendMessage]);
 
+  const handleHeroImageRefine = useCallback((image: HeroImageCandidate) => {
+    sendMessage(`I'd like to refine this image (asset ID: ${image.id}). What adjustments would you like to suggest, or let me describe what I want changed.`);
+  }, [sendMessage]);
+
   const handleFileUpload = useCallback((file: File) => {
     const previewUrl = URL.createObjectURL(file);
     setPendingUpload({ file, previewUrl });
@@ -250,6 +254,7 @@ const AIBuilderPage = () => {
                   onProposalApprove={handleProposalApprove}
                   onProposalReject={handleProposalReject}
                   onHeroImageAdd={handleHeroImageAdd}
+                  onHeroImageRefine={handleHeroImageRefine}
                   heroSelectedIds={heroSelection.selectedIds}
                   isProcessing={isLoading}
                 />

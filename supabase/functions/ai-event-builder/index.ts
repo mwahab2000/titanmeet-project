@@ -473,6 +473,22 @@ When the admin has 2+ hero image candidates (generated or selected), you should 
 
 After generating, ALWAYS show the image and ask for confirmation before saving.
 
+VISUAL REFINEMENT LOOP:
+When the admin asks to refine/adjust/tweak a generated or selected image:
+- Use refine_event_image with the base_image_id and the admin's instruction.
+- Show the refined image inline and ask:
+  1. Refine further
+  2. Generate variations
+  3. Use this image
+  4. Restart
+  5. Other
+- Support iterative refinement: each new version builds on the previous one.
+- Track which image is being refined so the chain is consistent.
+- Refinement categories include: style (corporate, premium, minimal), color (darker, lighter, brand colors), composition (less busy, more focus), and content (add/remove elements).
+- If the admin says "use brand colors" and a brand kit exists, include brand context in the refinement.
+- When the admin is satisfied and chooses "Use this image", apply standard confirmation and save flow.
+- Keep responses short between refinement steps — just show the image and options.
+
 MEDIA OVERWRITE RULES (CRITICAL):
 - Hero image: save_media_to_event REPLACES all existing hero images. Always warn the admin if a hero image already exists.
   Example: "This event already has a hero image. Setting a new one will replace it. Proceed?"
@@ -1212,6 +1228,23 @@ const TOOL_DEFINITIONS = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "refine_event_image",
+      description: "Refine/iterate on an existing generated image using natural language instructions. Generates a new version preserving context from the original. Supports style, color, composition, and content adjustments. Returns a new image that builds on the previous one.",
+      parameters: {
+        type: "object",
+        properties: {
+          event_id: { type: "string", description: "Event UUID" },
+          base_image_id: { type: "string", description: "Media asset ID of the image to refine" },
+          refinement_instruction: { type: "string", description: "Natural language instruction for refinement (e.g. 'make it more corporate', 'darker blue tones', 'add skyline')" },
+          style: { type: "string", enum: ["business", "premium", "futuristic", "minimal", "elegant", "creative", "nature", "tech"], description: "Optional style override" },
+        },
+        required: ["event_id", "base_image_id", "refinement_instruction"],
+      },
+    },
+  },
   // ─── Phase 2: Upload, Brand Kit, Visual Pack tools ───────
   {
     type: "function",
@@ -1495,6 +1528,8 @@ async function executeTool(
         return await toolListMediaLibrary(db, userId, args as any);
       case "rank_hero_images":
         return await toolRankHeroImages(db, userId, args as any, correlationId);
+      case "refine_event_image":
+        return await toolRefineEventImage(db, userId, args as any, correlationId);
       case "register_uploaded_media":
         return await toolRegisterUploadedMedia(db, userId, args as any, correlationId);
       case "create_brand_kit":
@@ -3427,6 +3462,145 @@ Score 0-1. Reason must be concise and user-friendly.`;
   }
 }
 
+// ─── Refine Event Image ────────────────────────────────────
+
+async function toolRefineEventImage(
+  db: SupabaseClient, userId: string,
+  args: { event_id: string; base_image_id: string; refinement_instruction: string; style?: string },
+  correlationId: string,
+): Promise<ToolResult> {
+  const { allowed, event: evt } = await canManageEvent(db, userId, args.event_id);
+  if (!allowed || !evt) return { success: false, result: {}, error: "Event not found or access denied", category: "permission" };
+
+  // Fetch base image asset
+  const { data: baseAsset, error: baseErr } = await db.from("media_assets")
+    .select("id, prompt_used, style_tags, media_type, file_url, title")
+    .eq("id", args.base_image_id)
+    .single();
+
+  if (baseErr || !baseAsset) return { success: false, result: {}, error: "Base image not found", category: "validation" };
+
+  const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+  if (!OPENAI_API_KEY) return { success: false, result: {}, error: "Image generation not configured", category: "internal" };
+
+  // Fetch brand kit for context
+  let brandHint = "";
+  if (evt.client_id) {
+    const { data: bks } = await db.from("brand_kits")
+      .select("primary_color, secondary_color, accent_color, visual_mood")
+      .eq("client_id", evt.client_id).limit(1);
+    if (bks?.[0]) {
+      const bk = bks[0];
+      brandHint = ` Brand colors: primary=${bk.primary_color || "N/A"}, secondary=${bk.secondary_color || "N/A"}, accent=${bk.accent_color || "N/A"}. Visual mood: ${(bk.visual_mood || []).join(", ")}.`;
+    }
+  }
+
+  // Build refined prompt that preserves context
+  const originalPrompt = baseAsset.prompt_used || "Professional event image";
+  const styleHint = args.style ? ` Style: ${args.style}.` : "";
+  const mediaTypeHint = (baseAsset.media_type || "hero_image") === "banner" ? " This is a wide banner image." : " This is a hero/cover image.";
+
+  const refinedPrompt = `Based on this original image concept: "${originalPrompt}"
+
+Apply this refinement: "${args.refinement_instruction}"${styleHint}${brandHint}${mediaTypeHint}
+
+Keep the core subject and composition from the original. Only adjust what was requested. Professional, high quality, suitable for a corporate event platform. Event: "${evt.title}".`;
+
+  const sizeMap: Record<string, string> = {
+    "16:9": "1792x1024", "1:1": "1024x1024", "9:16": "1024x1792",
+    "4:3": "1792x1024", "3:2": "1792x1024",
+  };
+  const size = sizeMap["16:9"];
+
+  console.log(`[${correlationId}] Refining image ${args.base_image_id}: "${args.refinement_instruction.substring(0, 80)}..."`);
+
+  try {
+    const dalleRes = await fetch("https://api.openai.com/v1/images/generations", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${OPENAI_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "dall-e-3",
+        prompt: refinedPrompt,
+        n: 1,
+        size,
+        quality: "standard",
+        response_format: "b64_json",
+      }),
+    });
+
+    if (!dalleRes.ok) {
+      const errBody = await dalleRes.text();
+      console.error(`[${correlationId}] DALL-E refinement error: ${dalleRes.status} ${errBody}`);
+      return { success: false, result: {}, error: "Image refinement failed. Try a different instruction.", category: "external_api" };
+    }
+
+    const dalleData = await dalleRes.json();
+    const b64 = dalleData.data?.[0]?.b64_json;
+    const revisedPrompt = dalleData.data?.[0]?.revised_prompt;
+
+    if (!b64) return { success: false, result: {}, error: "No refined image was generated", category: "external_api" };
+
+    // Upload to media-library
+    const fileName = `${userId}/${args.event_id}/refined_${Date.now()}.png`;
+    const imageBytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+
+    const { error: uploadErr } = await db.storage
+      .from("media-library")
+      .upload(fileName, imageBytes, { contentType: "image/png", upsert: false });
+
+    if (uploadErr) {
+      console.error(`[${correlationId}] Refined image upload error:`, uploadErr);
+      return { success: false, result: {}, error: "Failed to save refined image", category: "internal" };
+    }
+
+    const { data: urlData } = await db.storage.from("media-library").createSignedUrl(fileName, 3600);
+    const previewUrl = urlData?.signedUrl || "";
+
+    // Build refinement chain metadata
+    const existingTags = Array.isArray(baseAsset.style_tags) ? baseAsset.style_tags as string[] : [];
+    const newTags = args.style ? [...new Set([...existingTags, args.style])] : existingTags;
+
+    const { data: asset, error: assetErr } = await db.from("media_assets").insert({
+      workspace_id: null,
+      client_id: evt.client_id || null,
+      event_id: args.event_id,
+      media_type: baseAsset.media_type || "hero_image",
+      source_type: "ai_generated",
+      title: `Refined: ${args.refinement_instruction.substring(0, 50)}`,
+      prompt_used: revisedPrompt || refinedPrompt,
+      style_tags: newTags,
+      file_url: fileName,
+      thumbnail_url: fileName,
+      approved: false,
+      created_by: userId,
+    }).select("id").single();
+
+    if (assetErr) console.error(`[${correlationId}] Refined asset save error:`, assetErr);
+
+    return {
+      success: true,
+      result: {
+        media_asset_id: asset?.id || "",
+        preview_url: previewUrl,
+        media_type: baseAsset.media_type || "hero_image",
+        prompt_used: revisedPrompt || refinedPrompt,
+        file_path: fileName,
+        base_image_id: args.base_image_id,
+        refinement_instruction: args.refinement_instruction,
+        iteration: 1,
+        generated_image_url: previewUrl,
+        message: `Generated a refined version based on: "${args.refinement_instruction}". Review and decide what to do next.`,
+      },
+    };
+  } catch (err) {
+    console.error(`[${correlationId}] Image refinement error:`, err);
+    return { success: false, result: {}, error: "Image refinement failed unexpectedly", category: "external_api" };
+  }
+}
+
 // ─── Phase 2 Tool Implementations ──────────────────────────
 
 async function toolRegisterUploadedMedia(
@@ -4879,6 +5053,8 @@ function formatToolLabel(toolName: string, result: Record<string, unknown>): str
       return (result.message as string) || `Listed ${(result.campaigns as any[])?.length ?? 0} campaigns`;
     case "rank_hero_images":
       return (result.message as string) || `Ranked ${(result.ranked_images as any[])?.length ?? 0} images`;
+    case "refine_event_image":
+      return (result.message as string) || "Generated refined image version";
     default:
       return toolName;
   }

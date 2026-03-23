@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CheckCircle2, Plus, Trash2, Crown, Star } from "lucide-react";
+import { CheckCircle2, Plus, Trash2, Crown, Star, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -13,6 +13,8 @@ export interface HeroImageCandidate {
   score?: number;
   reason?: string;
   isRecommended?: boolean;
+  isRefined?: boolean;
+  refinementInstruction?: string;
 }
 
 interface AIHeroImageCardProps {
@@ -21,11 +23,12 @@ interface AIHeroImageCardProps {
   isSelected?: boolean;
   onAdd?: () => void;
   onRemove?: () => void;
+  onRefine?: () => void;
   selectionMode?: boolean;
   showRanking?: boolean;
 }
 
-export const AIHeroImageCard = ({ image, index, isSelected, onAdd, onRemove, selectionMode, showRanking }: AIHeroImageCardProps) => {
+export const AIHeroImageCard = ({ image, index, isSelected, onAdd, onRemove, onRefine, selectionMode, showRanking }: AIHeroImageCardProps) => {
   const [loaded, setLoaded] = useState(false);
 
   return (
@@ -72,31 +75,49 @@ export const AIHeroImageCard = ({ image, index, isSelected, onAdd, onRemove, sel
             <span className="text-[10px] font-semibold text-foreground">{Math.round(image.score * 100)}%</span>
           </div>
         )}
+        {/* Refined badge */}
+        {image.isRefined && (
+          <div className="absolute bottom-2 left-2 flex items-center gap-1 rounded-full bg-accent/90 backdrop-blur-sm px-2 py-1 border border-border">
+            <Wand2 className="h-3 w-3 text-accent-foreground" />
+            <span className="text-[10px] font-semibold text-accent-foreground">Refined</span>
+          </div>
+        )}
         {isSelected && !showRanking && (
           <div className="absolute top-2 right-2 h-6 w-6 rounded-full bg-primary flex items-center justify-center">
             <CheckCircle2 className="h-4 w-4 text-primary-foreground" />
           </div>
         )}
       </div>
-      <div className="px-3 py-2 bg-card space-y-1">
+      <div className="px-3 py-2 bg-card space-y-1.5">
         <div className="flex items-center justify-between">
           <span className="text-xs font-medium text-foreground">
             {image.label || `Option ${index + 1}`}
           </span>
-          {selectionMode && onRemove && isSelected && (
-            <Button size="sm" variant="ghost" className="h-7 text-xs gap-1 text-destructive hover:text-destructive" onClick={onRemove}>
-              <Trash2 className="h-3 w-3" /> Remove
-            </Button>
-          )}
-          {!isSelected && onAdd && (
-            <Button size="sm" variant="ghost" className="h-7 text-xs gap-1 text-primary" onClick={onAdd}>
-              <Plus className="h-3 w-3" /> Add
-            </Button>
-          )}
+          <div className="flex items-center gap-1">
+            {onRefine && (
+              <Button size="sm" variant="ghost" className="h-7 text-xs gap-1 text-muted-foreground hover:text-primary" onClick={onRefine}>
+                <Wand2 className="h-3 w-3" /> Refine
+              </Button>
+            )}
+            {selectionMode && onRemove && isSelected && (
+              <Button size="sm" variant="ghost" className="h-7 text-xs gap-1 text-destructive hover:text-destructive" onClick={onRemove}>
+                <Trash2 className="h-3 w-3" /> Remove
+              </Button>
+            )}
+            {!isSelected && onAdd && (
+              <Button size="sm" variant="ghost" className="h-7 text-xs gap-1 text-primary" onClick={onAdd}>
+                <Plus className="h-3 w-3" /> Add
+              </Button>
+            )}
+          </div>
         </div>
         {/* Ranking reason */}
         {showRanking && image.reason && (
           <p className="text-[11px] text-muted-foreground leading-snug">{image.reason}</p>
+        )}
+        {/* Refinement instruction context */}
+        {image.isRefined && image.refinementInstruction && (
+          <p className="text-[10px] text-muted-foreground/80 italic leading-snug truncate">"{image.refinementInstruction}"</p>
         )}
       </div>
     </div>
@@ -108,11 +129,12 @@ interface AIHeroImageGridProps {
   selectedIds?: Set<string>;
   onAdd?: (image: HeroImageCandidate) => void;
   onRemove?: (imageId: string) => void;
+  onRefine?: (image: HeroImageCandidate) => void;
   selectionMode?: boolean;
   showRanking?: boolean;
 }
 
-export const AIHeroImageGrid = ({ images, selectedIds, onAdd, onRemove, selectionMode, showRanking }: AIHeroImageGridProps) => {
+export const AIHeroImageGrid = ({ images, selectedIds, onAdd, onRemove, onRefine, selectionMode, showRanking }: AIHeroImageGridProps) => {
   if (!images.length) return null;
 
   // Sort by rank if ranking is shown
@@ -133,6 +155,7 @@ export const AIHeroImageGrid = ({ images, selectedIds, onAdd, onRemove, selectio
           isSelected={selectedIds?.has(img.id)}
           onAdd={onAdd ? () => onAdd(img) : undefined}
           onRemove={onRemove ? () => onRemove(img.id) : undefined}
+          onRefine={onRefine ? () => onRefine(img) : undefined}
           selectionMode={selectionMode}
           showRanking={showRanking}
         />
