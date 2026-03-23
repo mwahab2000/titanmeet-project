@@ -132,7 +132,7 @@ const AIBuilderPage = () => {
         : `I've uploaded an image. ${uploadContext}`;
 
       handleClearUpload();
-      sendMessage(fullMessage);
+      sendMessage(fullMessage, undefined, undefined, false, ultraFastMode);
     } catch (err) {
       console.error("Upload error:", err);
       toast.error("Upload failed");
