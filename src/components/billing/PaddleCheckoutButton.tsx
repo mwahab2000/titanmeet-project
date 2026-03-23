@@ -62,6 +62,8 @@ interface PaddleCheckoutButtonProps {
   planId: string;
   type: "one_time" | "subscription";
   disabled?: boolean;
+  /** Paddle-native discount ID to apply at checkout */
+  paddleDiscountId?: string | null;
   onSuccess?: (transactionId: string) => void;
   onError?: (error: string) => void;
 }
@@ -71,6 +73,7 @@ const PaddleCheckoutButton = ({
   planId,
   type,
   disabled,
+  paddleDiscountId,
   onSuccess,
   onError,
 }: PaddleCheckoutButtonProps) => {
@@ -118,7 +121,7 @@ const PaddleCheckoutButton = ({
       return;
     }
 
-    Paddle.Checkout.open({
+    const checkoutConfig: any = {
       items: [{ priceId, quantity: 1 }],
       customData: { plan_id: planId, user_id: user?.id || "" },
       settings: {
@@ -146,8 +149,15 @@ const PaddleCheckoutButton = ({
           toast.error("Payment failed. Please try again.");
         }
       },
-    });
-  }, [priceId, planId, user, onSuccess, onError]);
+    };
+
+    // Apply Paddle-native discount if provided
+    if (paddleDiscountId) {
+      checkoutConfig.discountId = paddleDiscountId;
+    }
+
+    Paddle.Checkout.open(checkoutConfig);
+  }, [priceId, planId, user, paddleDiscountId, onSuccess, onError]);
 
   if (disabled) {
     return (

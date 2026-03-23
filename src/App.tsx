@@ -41,6 +41,7 @@ const Attendees = lazy(() => import("./pages/Attendees"));
 const DashboardSettings = lazy(() => import("./pages/DashboardSettings"));
 const BillingPage = lazy(() => import("./pages/BillingPage"));
 const AdminBillingPage = lazy(() => import("./pages/AdminBillingPage"));
+const AdminDiscountsPage = lazy(() => import("./pages/AdminDiscountsPage"));
 const SupportPage = lazy(() => import("./pages/SupportPage"));
 const SupportTicketDetail = lazy(() => import("./pages/SupportTicketDetail"));
 const AdminSupportPage = lazy(() => import("./pages/AdminSupportPage"));
@@ -120,6 +121,7 @@ const App = () => (
                       <Route path="support/:ticketId" element={<SupportTicketDetail />} />
                       <Route path="admin/billing" element={<AdminRoute><AdminBillingPage /></AdminRoute>} />
                       <Route path="admin/support" element={<AdminRoute><AdminSupportPage /></AdminRoute>} />
+                      <Route path="admin/discounts" element={<AdminRoute><AdminDiscountsPage /></AdminRoute>} />
                       <Route path="events/:id" element={<EventWorkspaceLayout />}>
                         <Route path="hero" element={<HeroSection />} />
                         <Route path="info" element={<EventInfoSection />} />
