@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { AIMemorySettings } from "@/components/ai-builder/AIMemorySettings";
 
 const DashboardSettings = () => {
   const { user } = useAuth();
@@ -35,7 +36,7 @@ const DashboardSettings = () => {
   };
 
   return (
-    <div className="max-w-2xl">
+    <div className="max-w-2xl space-y-6">
       <div className="mb-8">
         <h1 className="font-display text-3xl font-bold">Settings</h1>
         <p className="text-muted-foreground">Manage your account settings</p>
@@ -63,6 +64,8 @@ const DashboardSettings = () => {
           </Button>
         </CardContent>
       </Card>
+
+      <AIMemorySettings />
     </div>
   );
 };
