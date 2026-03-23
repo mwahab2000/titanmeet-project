@@ -45,6 +45,7 @@ const AdminDiscountsPage = () => {
   const [loadingRedemptions, setLoadingRedemptions] = useState(false);
   const [saving, setSaving] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [redemptionFilter, setRedemptionFilter] = useState<"all" | "pending" | "applied">("all");
 
   // Form state
   const [form, setForm] = useState({
@@ -413,6 +414,13 @@ const AdminDiscountsPage = () => {
               Redemptions — <span className="font-mono">{redemptionsDialog?.code}</span>
             </DialogTitle>
           </DialogHeader>
+          <div className="flex gap-2 mb-4">
+            {(["all", "pending", "applied"] as const).map((f) => (
+              <Button key={f} size="sm" variant={redemptionFilter === f ? "default" : "outline"} onClick={() => setRedemptionFilter(f)} className="capitalize text-xs">
+                {f}
+              </Button>
+            ))}
+          </div>
           {loadingRedemptions ? (
             <div className="flex justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -432,7 +440,7 @@ const AdminDiscountsPage = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {redemptions.map((r) => (
+                {redemptions.filter((r) => redemptionFilter === "all" || (r as any).status === redemptionFilter).map((r) => (
                   <TableRow key={r.id}>
                     <TableCell className="text-sm">{r.customer_email || r.user_id?.slice(0, 8) || "—"}</TableCell>
                     <TableCell><Badge variant="outline" className="capitalize text-xs">{r.plan_applied}</Badge></TableCell>

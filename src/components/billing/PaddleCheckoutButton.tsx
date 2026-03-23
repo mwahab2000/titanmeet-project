@@ -142,7 +142,12 @@ const PaddleCheckoutButton = ({
 
     const checkoutConfig: any = {
       items: [{ priceId, quantity: 1 }],
-      customData: { plan_id: planId, user_id: user?.id || "" },
+      customData: {
+        plan_id: planId,
+        user_id: user?.id || "",
+        ...(discountCodeId ? { discount_code_id: discountCodeId } : {}),
+        ...(billingInterval ? { billing_interval: billingInterval } : {}),
+      },
       settings: {
         displayMode: "overlay",
         theme: "light",
