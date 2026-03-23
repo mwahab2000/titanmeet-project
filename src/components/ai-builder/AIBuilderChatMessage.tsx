@@ -1,12 +1,13 @@
 import { useState, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
-import { Bot, User, CheckCircle2, AlertTriangle, Info, Plus, Pencil, MapPin, ImageIcon, XCircle, Clock, ChevronDown, ChevronUp, Sparkles } from "lucide-react";
+import { Bot, User, CheckCircle2, AlertTriangle, Info, Plus, Pencil, MapPin, ImageIcon, XCircle, Clock, ChevronDown, ChevronUp, Sparkles, Palette } from "lucide-react";
 import type { ChatMessage, AIAction, ActionLogEntry } from "@/hooks/useAIBuilderSession";
 import { cn } from "@/lib/utils";
 import { AIVenueSearchResults, type VenueResult } from "./AIVenueSearchResults";
 import { AIVenuePhotoBrowser, type VenuePhoto } from "./AIVenuePhotoBrowser";
 import { AIEventProposalPreview, type EventProposal } from "./AIEventProposalPreview";
 import { AIHeroImageGrid, type HeroImageCandidate } from "./AIHeroImageCard";
+import { AIVisualIdentityPreview, type VisualIdentityData } from "./AIVisualIdentityPreview";
 
 const actionIcons: Record<string, typeof CheckCircle2> = {
   created: Plus,
@@ -17,6 +18,7 @@ const actionIcons: Record<string, typeof CheckCircle2> = {
   venue_search: MapPin,
   venue_photos: ImageIcon,
   proposal: Sparkles,
+  visual_identity: Palette,
 };
 
 const actionColors: Record<string, string> = {
@@ -28,6 +30,7 @@ const actionColors: Record<string, string> = {
   venue_search: "text-primary bg-primary/10 border-primary/20",
   venue_photos: "text-primary bg-primary/10 border-primary/20",
   proposal: "text-primary bg-primary/10 border-primary/20",
+  visual_identity: "text-primary bg-primary/10 border-primary/20",
 };
 
 const logStatusConfig = {
@@ -99,6 +102,9 @@ interface AIBuilderChatMessageProps {
   onProposalReject?: () => void;
   onHeroImageAdd?: (image: HeroImageCandidate) => void;
   onHeroImageRefine?: (image: HeroImageCandidate) => void;
+  onVisualIdentityApply?: (identity: VisualIdentityData) => void;
+  onVisualIdentityRefine?: (identity: VisualIdentityData) => void;
+  onVisualIdentityRegenerate?: () => void;
   heroSelectedIds?: Set<string>;
   isProcessing?: boolean;
 }
@@ -111,6 +117,9 @@ export const AIBuilderChatMessage = ({
   onProposalReject,
   onHeroImageAdd,
   onHeroImageRefine,
+  onVisualIdentityApply,
+  onVisualIdentityRefine,
+  onVisualIdentityRegenerate,
   heroSelectedIds,
   isProcessing,
 }: AIBuilderChatMessageProps) => {
@@ -118,11 +127,13 @@ export const AIBuilderChatMessage = ({
   const [venueSelected, setVenueSelected] = useState(false);
   const [photosConfirmed, setPhotosConfirmed] = useState(false);
   const [proposalHandled, setProposalHandled] = useState(false);
+  const [identityHandled, setIdentityHandled] = useState(false);
   const [logExpanded, setLogExpanded] = useState(true);
 
   const venueSearchAction = message.actions?.find(a => a.type === "venue_search" && a.data?.venues?.length > 0);
   const venuePhotosAction = message.actions?.find(a => a.type === "venue_photos" && a.data?.photos?.length > 0);
   const proposalAction = message.actions?.find(a => a.type === "proposal" && a.data?.proposal);
+  const visualIdentityAction = message.actions?.find(a => a.type === "visual_identity" && a.data?.visual_identity);
 
   const generatedImages = useMemo(() => extractGeneratedImages(message.actions), [message.actions]);
   const hasRankedImages = generatedImages.some(img => typeof img.rank === "number");
@@ -282,11 +293,29 @@ export const AIBuilderChatMessage = ({
           </div>
         )}
 
+        {/* Visual Identity Preview */}
+        {visualIdentityAction && !identityHandled && (
+          <AIVisualIdentityPreview
+            identity={visualIdentityAction.data.visual_identity as VisualIdentityData}
+            onApplyFull={() => { setIdentityHandled(true); onVisualIdentityApply?.(visualIdentityAction.data.visual_identity); }}
+            onRefine={() => { setIdentityHandled(true); onVisualIdentityRefine?.(visualIdentityAction.data.visual_identity); }}
+            onRegenerate={() => { setIdentityHandled(true); onVisualIdentityRegenerate?.(); }}
+            disabled={isProcessing}
+          />
+        )}
+
+        {visualIdentityAction && identityHandled && (
+          <div className="flex items-center gap-2 rounded-lg border px-3 py-2 text-xs text-green-400 bg-green-400/10 border-green-400/20">
+            <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+            <span className="font-medium">Visual identity handled</span>
+          </div>
+        )}
+
         {/* Standard action badges (only when no action log — avoid duplication) */}
         {!hasActionLog && message.actions && message.actions.length > 0 && (
           <div className="flex flex-col gap-1.5 w-full">
             {message.actions
-              .filter(a => a.type !== "venue_search" && a.type !== "venue_photos" && a.type !== "proposal")
+              .filter(a => a.type !== "venue_search" && a.type !== "venue_photos" && a.type !== "proposal" && a.type !== "visual_identity")
               .filter(a => !a.data?.generated_image_url && !a.data?.generated_images)
               .map((action, i) => {
                 const Icon = actionIcons[action.type] || Info;

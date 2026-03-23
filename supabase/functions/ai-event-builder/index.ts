@@ -489,6 +489,21 @@ When the admin asks to refine/adjust/tweak a generated or selected image:
 - When the admin is satisfied and chooses "Use this image", apply standard confirmation and save flow.
 - Keep responses short between refinement steps — just show the image and options.
 
+VISUAL IDENTITY GENERATION:
+When the admin asks to "create branding", "generate visual identity", "design the event look", or similar:
+- Use generate_event_visual_identity to create a complete visual system (hero, banner, palette, typography).
+- The tool returns hero image, banner image, color palette, and typography suggestions.
+- Present everything visually and ask:
+  1. Apply full identity
+  2. Refine design
+  3. Try another style
+  4. Apply partially
+  5. Other
+- If "Apply partially", ask which part: hero only, banner only, colors only.
+- For "Apply full identity": call save_media_to_event for hero and banner, confirm before each.
+- For refinement: use refine_event_image on the specific image.
+- If context is weak, ask ONE quick style question first (corporate/modern/premium/creative/other).
+
 MEDIA OVERWRITE RULES (CRITICAL):
 - Hero image: save_media_to_event REPLACES all existing hero images. Always warn the admin if a hero image already exists.
   Example: "This event already has a hero image. Setting a new one will replace it. Proceed?"
@@ -1445,6 +1460,21 @@ const TOOL_DEFINITIONS = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "generate_event_visual_identity",
+      description: "Generate a complete, consistent visual identity for an event: hero image, banner image, color palette, and typography style. All outputs are designed to feel cohesive. Does NOT apply to event until confirmed.",
+      parameters: {
+        type: "object",
+        properties: {
+          event_id: { type: "string", description: "Event UUID" },
+          style_input: { type: "string", description: "Optional style direction from the admin (e.g. 'corporate', 'premium dark', 'tech futuristic')" },
+        },
+        required: ["event_id"],
+      },
+    },
+  },
 ];
 
 // ─── Tool Executor ─────────────────────────────────────────
@@ -1556,6 +1586,8 @@ async function executeTool(
         return await toolGetCommunicationPerformance(db, userId, args as any);
       case "list_event_campaigns":
         return await toolListEventCampaigns(db, userId, args as any);
+      case "generate_event_visual_identity":
+        return await toolGenerateEventVisualIdentity(db, userId, args as any, correlationId);
       default:
         return { success: false, result: {}, error: `Unknown tool: ${toolName}`, category: "internal" };
     }
@@ -3601,6 +3633,207 @@ Keep the core subject and composition from the original. Only adjust what was re
   }
 }
 
+// ─── Visual Identity Tool ──────────────────────────────────
+
+async function toolGenerateEventVisualIdentity(
+  db: SupabaseClient, userId: string,
+  args: { event_id: string; style_input?: string },
+  correlationId: string,
+): Promise<ToolResult> {
+  const { allowed, event: evt } = await canManageEvent(db, userId, args.event_id);
+  if (!allowed || !evt) return { success: false, result: {}, error: "Event not found or access denied", category: "permission" };
+
+  const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+  if (!OPENAI_API_KEY) return { success: false, result: {}, error: "Image generation not configured", category: "internal" };
+
+  // Gather context
+  let brandContext = "";
+  if (evt.client_id) {
+    const { data: brandKits } = await db.from("brand_kits")
+      .select("name, primary_color, secondary_color, accent_color, visual_mood, typography_preference")
+      .eq("client_id", evt.client_id).limit(1);
+    if (brandKits?.length) {
+      const bk = brandKits[0];
+      brandContext = `Brand: ${bk.name}. Colors: ${[bk.primary_color, bk.secondary_color, bk.accent_color].filter(Boolean).join(", ")}. Mood: ${(bk.visual_mood || []).join(", ")}. Typography: ${bk.typography_preference || "modern"}.`;
+    }
+  }
+
+  // Gather user memory preferences
+  let memoryContext = "";
+  const { data: memories } = await db.from("ai_user_memory")
+    .select("key, value")
+    .eq("user_id", userId)
+    .eq("is_active", true)
+    .gte("confidence_score", 0.5)
+    .in("key", ["preferred_visual_style", "preferred_color_tone", "preferred_typography"])
+    .limit(5);
+  if (memories?.length) {
+    memoryContext = memories.map(m => `${m.key}: ${JSON.stringify(m.value)}`).join(". ");
+  }
+
+  const styleHint = args.style_input || "premium corporate";
+  const eventContext = `Event: "${evt.title}". Theme: ${evt.theme_id || "corporate"}. Location: ${evt.location || evt.venue_name || "not set"}. Description: ${(evt.description || "").substring(0, 200)}.`;
+
+  // Step 1: Generate color palette and typography via GPT
+  console.log(`[${correlationId}] Generating visual identity palette for event ${args.event_id}`);
+
+  const palettePrompt = `You are a creative director designing a visual identity for an event.
+
+${eventContext}
+Style direction: ${styleHint}.
+${brandContext ? `Brand guidelines: ${brandContext}` : ""}
+${memoryContext ? `Admin preferences: ${memoryContext}` : ""}
+
+Generate a cohesive visual identity. Return ONLY valid JSON with this exact structure:
+{
+  "color_palette": [
+    { "name": "Primary", "hex": "#XXXXXX" },
+    { "name": "Secondary", "hex": "#XXXXXX" },
+    { "name": "Accent", "hex": "#XXXXXX" },
+    { "name": "Background", "hex": "#XXXXXX" },
+    { "name": "Text", "hex": "#XXXXXX" }
+  ],
+  "typography_style": "Font style name (e.g. Modern Sans-Serif, Classic Serif)",
+  "typography_tone": "Brief tone description (e.g. Clean and executive)",
+  "hero_prompt": "Detailed DALL-E prompt for a hero image that matches this identity",
+  "banner_prompt": "Detailed DALL-E prompt for a wide banner image consistent with the hero",
+  "explanation": "One sentence explaining the design direction"
+}
+
+All colors must be harmonious. Hero and banner prompts must produce visually consistent results. Keep prompts professional and specific.`;
+
+  try {
+    const paletteResp = await fetch(OPENAI_API_URL, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: Deno.env.get("AI_MODEL") || "gpt-4o-mini",
+        messages: [{ role: "user", content: palettePrompt }],
+        temperature: 0.7,
+        max_completion_tokens: 800,
+        response_format: { type: "json_object" },
+      }),
+    });
+
+    if (!paletteResp.ok) {
+      console.error(`[${correlationId}] Palette generation failed: ${paletteResp.status}`);
+      return { success: false, result: {}, error: "Failed to generate visual identity. Try again.", category: "external_api" };
+    }
+
+    const paletteData = await paletteResp.json();
+    const identityJson = JSON.parse(paletteData.choices?.[0]?.message?.content || "{}");
+
+    if (!identityJson.hero_prompt || !identityJson.color_palette) {
+      return { success: false, result: {}, error: "Identity generation returned incomplete results", category: "external_api" };
+    }
+
+    // Step 2: Generate hero image
+    console.log(`[${correlationId}] Generating hero image for visual identity`);
+    const heroResult = await generateIdentityImage(
+      db, OPENAI_API_KEY, userId, args.event_id, evt,
+      identityJson.hero_prompt, "hero_image", "1792x1024", correlationId
+    );
+
+    // Step 3: Generate banner image
+    console.log(`[${correlationId}] Generating banner image for visual identity`);
+    const bannerResult = await generateIdentityImage(
+      db, OPENAI_API_KEY, userId, args.event_id, evt,
+      identityJson.banner_prompt, "banner", "1792x1024", correlationId
+    );
+
+    return {
+      success: true,
+      result: {
+        hero_image_url: heroResult?.previewUrl || "",
+        hero_asset_id: heroResult?.assetId || "",
+        banner_image_url: bannerResult?.previewUrl || "",
+        banner_asset_id: bannerResult?.assetId || "",
+        color_palette: identityJson.color_palette,
+        typography_style: identityJson.typography_style,
+        typography_tone: identityJson.typography_tone,
+        explanation: identityJson.explanation,
+        style_used: styleHint,
+        brand_kit_used: brandContext ? true : false,
+        message: "Generated a complete visual identity for your event. Review it below and choose how to proceed.",
+      },
+    };
+  } catch (err) {
+    console.error(`[${correlationId}] Visual identity error:`, err);
+    return { success: false, result: {}, error: "Visual identity generation failed unexpectedly", category: "external_api" };
+  }
+}
+
+async function generateIdentityImage(
+  db: SupabaseClient,
+  apiKey: string,
+  userId: string,
+  eventId: string,
+  evt: any,
+  prompt: string,
+  mediaType: string,
+  size: string,
+  correlationId: string,
+): Promise<{ previewUrl: string; assetId: string } | null> {
+  try {
+    const dalleRes = await fetch("https://api.openai.com/v1/images/generations", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "dall-e-3",
+        prompt: `${prompt} Professional, high quality, suitable for a premium event platform.`,
+        n: 1,
+        size,
+        quality: "standard",
+        response_format: "b64_json",
+      }),
+    });
+
+    if (!dalleRes.ok) {
+      console.error(`[${correlationId}] DALL-E identity image error: ${dalleRes.status}`);
+      return null;
+    }
+
+    const dalleData = await dalleRes.json();
+    const b64 = dalleData.data?.[0]?.b64_json;
+    if (!b64) return null;
+
+    const fileName = `${userId}/${eventId}/${mediaType}_identity_${Date.now()}.png`;
+    const imageBytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+
+    const { error: uploadErr } = await db.storage
+      .from("media-library")
+      .upload(fileName, imageBytes, { contentType: "image/png", upsert: false });
+
+    if (uploadErr) {
+      console.error(`[${correlationId}] Upload error for identity image:`, uploadErr);
+      return null;
+    }
+
+    const { data: urlData } = await db.storage.from("media-library").createSignedUrl(fileName, 3600);
+    const previewUrl = urlData?.signedUrl || "";
+
+    const { data: asset } = await db.from("media_assets").insert({
+      workspace_id: null,
+      client_id: evt.client_id || null,
+      event_id: eventId,
+      media_type: mediaType,
+      source_type: "ai_generated",
+      title: `Visual Identity ${mediaType} for ${evt.title}`,
+      prompt_used: prompt,
+      style_tags: ["visual_identity"],
+      file_url: fileName,
+      thumbnail_url: fileName,
+      approved: false,
+      created_by: userId,
+    }).select("id").single();
+
+    return { previewUrl, assetId: asset?.id || "" };
+  } catch (err) {
+    console.error(`[${correlationId}] Identity image generation error:`, err);
+    return null;
+  }
+}
+
 // ─── Phase 2 Tool Implementations ──────────────────────────
 
 async function toolRegisterUploadedMedia(
@@ -4599,6 +4832,7 @@ serve(async (req) => {
             : entry.action === "search_venue_on_maps" ? "venue_search" as const
             : entry.action === "get_venue_photos" ? "venue_photos" as const
             : entry.action === "generate_full_event_proposal" ? "proposal" as const
+            : entry.action === "generate_event_visual_identity" ? "visual_identity" as const
             : entry.action.startsWith("check") ? "info" as const
             : "created" as const,
         label: entry.message,
@@ -4961,6 +5195,7 @@ function resolveActionData(
     if (entry.action === "save_selected_venue") return { venue_saved: parsed.result };
     if (entry.action === "generate_full_event_proposal") return { proposal: parsed.result.proposal };
     if (entry.action === "save_event_proposal") return { saved: parsed.result };
+    if (entry.action === "generate_event_visual_identity") return { visual_identity: parsed.result };
     return undefined;
   } catch {
     return undefined;
@@ -5055,6 +5290,8 @@ function formatToolLabel(toolName: string, result: Record<string, unknown>): str
       return (result.message as string) || `Ranked ${(result.ranked_images as any[])?.length ?? 0} images`;
     case "refine_event_image":
       return (result.message as string) || "Generated refined image version";
+    case "generate_event_visual_identity":
+      return (result.message as string) || "Generated full visual identity";
     default:
       return toolName;
   }
