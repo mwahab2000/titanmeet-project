@@ -1212,6 +1212,23 @@ const TOOL_DEFINITIONS = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "refine_event_image",
+      description: "Refine/iterate on an existing generated image using natural language instructions. Generates a new version preserving context from the original. Supports style, color, composition, and content adjustments. Returns a new image that builds on the previous one.",
+      parameters: {
+        type: "object",
+        properties: {
+          event_id: { type: "string", description: "Event UUID" },
+          base_image_id: { type: "string", description: "Media asset ID of the image to refine" },
+          refinement_instruction: { type: "string", description: "Natural language instruction for refinement (e.g. 'make it more corporate', 'darker blue tones', 'add skyline')" },
+          style: { type: "string", enum: ["business", "premium", "futuristic", "minimal", "elegant", "creative", "nature", "tech"], description: "Optional style override" },
+        },
+        required: ["event_id", "base_image_id", "refinement_instruction"],
+      },
+    },
+  },
   // ─── Phase 2: Upload, Brand Kit, Visual Pack tools ───────
   {
     type: "function",
