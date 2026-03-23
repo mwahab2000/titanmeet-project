@@ -327,6 +327,51 @@ export type Database = {
           },
         ]
       }
+      ai_user_memory: {
+        Row: {
+          confidence_score: number
+          created_at: string
+          id: string
+          is_active: boolean
+          key: string
+          last_used_at: string
+          memory_type: string
+          source: string
+          updated_at: string
+          usage_count: number
+          user_id: string
+          value: Json
+        }
+        Insert: {
+          confidence_score?: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          key: string
+          last_used_at?: string
+          memory_type?: string
+          source?: string
+          updated_at?: string
+          usage_count?: number
+          user_id: string
+          value?: Json
+        }
+        Update: {
+          confidence_score?: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          key?: string
+          last_used_at?: string
+          memory_type?: string
+          source?: string
+          updated_at?: string
+          usage_count?: number
+          user_id?: string
+          value?: Json
+        }
+        Relationships: []
+      }
       announcements: {
         Row: {
           end_date: string | null
