@@ -254,6 +254,7 @@ const AIBuilderPage = () => {
                   onProposalApprove={handleProposalApprove}
                   onProposalReject={handleProposalReject}
                   onHeroImageAdd={handleHeroImageAdd}
+                  onHeroImageRefine={handleHeroImageRefine}
                   heroSelectedIds={heroSelection.selectedIds}
                   isProcessing={isLoading}
                 />
