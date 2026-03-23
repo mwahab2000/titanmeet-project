@@ -38,10 +38,18 @@ const AIBuilderPage = () => {
   }, [messages]);
 
   const voiceMode = useVoiceMode({
-    onTranscript: (text) => sendMessage(text, undefined, undefined, true),
+    onTranscript: (text) => sendMessage(text, undefined, undefined, true, ultraFastMode),
     isAiLoading: isLoading,
     lastAssistantMessage,
   });
+
+  const toggleUltraFast = useCallback(() => {
+    setUltraFastMode(prev => {
+      const next = !prev;
+      try { localStorage.setItem("titanmeet_ultra_fast", String(next)); } catch {}
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     if (scrollRef.current) {
