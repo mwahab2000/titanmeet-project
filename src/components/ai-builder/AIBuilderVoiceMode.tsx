@@ -1,4 +1,4 @@
-import { Mic, MicOff, Pause, Play, X, Check, RotatCcw } from "lucide-react";
+import { Mic, Pause, Play, X, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { VoiceModeState } from "@/hooks/useVoiceMode";
 import { cn } from "@/lib/utils";
