@@ -64,6 +64,10 @@ interface PaddleCheckoutButtonProps {
   disabled?: boolean;
   /** Paddle-native discount ID to apply at checkout */
   paddleDiscountId?: string | null;
+  /** TitanMeet discount code ID for redemption tracking */
+  discountCodeId?: string | null;
+  /** Selected billing interval */
+  billingInterval?: "monthly" | "annual";
   onSuccess?: (transactionId: string) => void;
   onError?: (error: string) => void;
 }
