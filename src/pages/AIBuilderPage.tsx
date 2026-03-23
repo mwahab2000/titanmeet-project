@@ -12,6 +12,7 @@ import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/s
 import { RotateCcw, Bot, PanelRightClose, PanelRightOpen, ClipboardList } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { AIBuilderUsageBanner } from "@/components/ai-builder/AIBuilderUsageBanner";
+import { AIBuilderExamplesTrigger } from "@/components/ai-builder/AIBuilderExamplesTrigger";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useVoiceMode } from "@/hooks/useVoiceMode";
@@ -259,6 +260,11 @@ const AIBuilderPage = () => {
 
         {/* Usage warning */}
         <AIBuilderUsageBanner />
+
+        {/* Persistent examples trigger (visible when conversation exists) */}
+        {messages.length > 0 && (
+          <AIBuilderExamplesTrigger onSelectPrompt={(p) => sendMessage(p)} />
+        )}
 
         {/* Messages */}
         <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 sm:px-4">
