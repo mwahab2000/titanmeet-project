@@ -274,6 +274,7 @@ const AIBuilderPage = () => {
                   onPhotosConfirm={handlePhotosConfirm}
                   onProposalApprove={handleProposalApprove}
                   onProposalReject={handleProposalReject}
+                  onPartialApply={handlePartialApply}
                   onHeroImageAdd={handleHeroImageAdd}
                   onHeroImageRefine={handleHeroImageRefine}
                   onVisualIdentityApply={handleVisualIdentityApply}
