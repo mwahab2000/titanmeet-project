@@ -4197,6 +4197,9 @@ serve(async (req) => {
         await db.from("ai_chat_sessions").update({ state_json: stateJson }).eq("id", session.id);
       }
 
+      // ── Memory capture: learn from successful tool executions ──
+      await captureMemoryFromActions(db, user.id, actionLog, stateJson, correlationId);
+
       // ── Persist action log to ai_action_logs table ──
       await persistActionLog(db, session.id, user.id, actionLog);
 
