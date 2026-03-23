@@ -129,11 +129,12 @@ interface AIHeroImageGridProps {
   selectedIds?: Set<string>;
   onAdd?: (image: HeroImageCandidate) => void;
   onRemove?: (imageId: string) => void;
+  onRefine?: (image: HeroImageCandidate) => void;
   selectionMode?: boolean;
   showRanking?: boolean;
 }
 
-export const AIHeroImageGrid = ({ images, selectedIds, onAdd, onRemove, selectionMode, showRanking }: AIHeroImageGridProps) => {
+export const AIHeroImageGrid = ({ images, selectedIds, onAdd, onRemove, onRefine, selectionMode, showRanking }: AIHeroImageGridProps) => {
   if (!images.length) return null;
 
   // Sort by rank if ranking is shown
@@ -154,6 +155,7 @@ export const AIHeroImageGrid = ({ images, selectedIds, onAdd, onRemove, selectio
           isSelected={selectedIds?.has(img.id)}
           onAdd={onAdd ? () => onAdd(img) : undefined}
           onRemove={onRemove ? () => onRemove(img.id) : undefined}
+          onRefine={onRefine ? () => onRefine(img) : undefined}
           selectionMode={selectionMode}
           showRanking={showRanking}
         />
