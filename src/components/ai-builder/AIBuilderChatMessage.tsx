@@ -116,6 +116,7 @@ export const AIBuilderChatMessage = ({
   onPhotosConfirm,
   onProposalApprove,
   onProposalReject,
+  onPartialApply,
   onHeroImageAdd,
   onHeroImageRefine,
   onVisualIdentityApply,
