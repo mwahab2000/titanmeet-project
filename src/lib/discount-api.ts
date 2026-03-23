@@ -53,6 +53,7 @@ export interface DiscountValidationResult {
   error_code: DiscountErrorCode | null;
   error_message: string | null;
   discount: {
+    id: string;
     code: string;
     discount_type: string;
     discount_value: number;
