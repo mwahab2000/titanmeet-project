@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CheckCircle2, Plus, Trash2, Crown, Star } from "lucide-react";
+import { CheckCircle2, Plus, Trash2, Crown, Star, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -13,6 +13,8 @@ export interface HeroImageCandidate {
   score?: number;
   reason?: string;
   isRecommended?: boolean;
+  isRefined?: boolean;
+  refinementInstruction?: string;
 }
 
 interface AIHeroImageCardProps {
