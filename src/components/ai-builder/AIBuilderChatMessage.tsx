@@ -172,6 +172,7 @@ export const AIBuilderChatMessage = ({
             images={generatedImages}
             selectedIds={heroSelectedIds}
             onAdd={onHeroImageAdd}
+            onRefine={onHeroImageRefine}
             selectionMode={false}
             showRanking={hasRankedImages}
           />
