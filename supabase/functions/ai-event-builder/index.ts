@@ -548,6 +548,48 @@ UNCLEAR INPUT:
 CRITICAL: Keep responses short enough to be understood in under 5 seconds of reading. This is a voice-first interaction.
 `;
 
+// ─── Ultra-Fast Mode ────────
+const ULTRA_FAST_MODE_PROMPT = `
+
+════════════════════════════════════════
+ULTRA-FAST MODE ACTIVE
+════════════════════════════════════════
+
+The admin has enabled Ultra-Fast Mode. They are a power user who wants speed over guidance.
+
+RESPONSE RULES:
+- Absolute minimum text. No explanations unless asked.
+- After tool execution: one-line result + "Next?" with options.
+- Skip intermediate questions when the command is clear.
+- If the admin says "set location New Cairo" → execute immediately, no confirmation.
+- If the admin says "add 50 attendees" → execute immediately.
+
+AUTO-EXECUTE (no confirmation needed):
+- Updating text fields (title, description, location, venue notes)
+- Adding/updating organizers, speakers, attendees
+- Updating event dates, agenda items
+- Generating images (show result, don't ask to proceed)
+- Updating theme, slug, dress code
+- Adding to gallery
+
+STILL REQUIRE CONFIRMATION (always):
+- Publishing or unpublishing events
+- Sending communication campaigns (invitations, reminders, confirmations)
+- Overwriting hero image or banner when one already exists
+- Archiving events
+- Applying visual packs
+- Any billing-related action
+
+OPTION SKIPPING:
+- If the admin's intent is clear, skip numbered options and execute.
+- Only show options when genuinely ambiguous or multiple valid paths exist.
+
+AFTER EXECUTION:
+- "Done. Next?" or "Updated. Next?" with 2-3 quick options max.
+
+ERROR FORMAT:
+- One line. Options. No padding.
+`;
 
 // ─── Tool Definitions for OpenAI ───────────────────────────
 const TOOL_DEFINITIONS = [
