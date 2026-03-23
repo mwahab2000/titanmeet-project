@@ -95,6 +95,7 @@ interface AIBuilderChatMessageProps {
   onProposalApprove?: (proposal: EventProposal) => void;
   onProposalReject?: () => void;
   onHeroImageAdd?: (image: HeroImageCandidate) => void;
+  onHeroImageRefine?: (image: HeroImageCandidate) => void;
   heroSelectedIds?: Set<string>;
   isProcessing?: boolean;
 }
