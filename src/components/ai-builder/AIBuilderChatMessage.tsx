@@ -5,7 +5,7 @@ import type { ChatMessage, AIAction, ActionLogEntry } from "@/hooks/useAIBuilder
 import { cn } from "@/lib/utils";
 import { AIVenueSearchResults, type VenueResult } from "./AIVenueSearchResults";
 import { AIVenuePhotoBrowser, type VenuePhoto } from "./AIVenuePhotoBrowser";
-import { AIEventProposalPreview, type EventProposal } from "./AIEventProposalPreview";
+import { AIEventProposalPreview, type EventProposal, type ProposalSection } from "./AIEventProposalPreview";
 import { AIHeroImageGrid, type HeroImageCandidate } from "./AIHeroImageCard";
 import { AIVisualIdentityPreview, type VisualIdentityData } from "./AIVisualIdentityPreview";
 
@@ -100,6 +100,7 @@ interface AIBuilderChatMessageProps {
   onPhotosConfirm?: (photos: VenuePhoto[]) => void;
   onProposalApprove?: (proposal: EventProposal) => void;
   onProposalReject?: () => void;
+  onPartialApply?: (sections: ProposalSection[]) => void;
   onHeroImageAdd?: (image: HeroImageCandidate) => void;
   onHeroImageRefine?: (image: HeroImageCandidate) => void;
   onVisualIdentityApply?: (identity: VisualIdentityData) => void;
@@ -115,6 +116,7 @@ export const AIBuilderChatMessage = ({
   onPhotosConfirm,
   onProposalApprove,
   onProposalReject,
+  onPartialApply,
   onHeroImageAdd,
   onHeroImageRefine,
   onVisualIdentityApply,
@@ -282,6 +284,7 @@ export const AIBuilderChatMessage = ({
             proposal={proposalAction.data.proposal}
             onApprove={() => { setProposalHandled(true); onProposalApprove?.(proposalAction.data.proposal); }}
             onReject={() => { setProposalHandled(true); onProposalReject?.(); }}
+            onPartialApply={(sections) => { setProposalHandled(true); onPartialApply?.(sections); }}
             disabled={isProcessing}
           />
         )}

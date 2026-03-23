@@ -324,6 +324,48 @@ User says "generate event / build complete event" → call generate_full_event_p
 User says "send invitations / send confirmation / send reminder / who confirmed / confirmation rate / communication stats / campaign" → call communication tools (prepare_communication_campaign, send_communication_campaign, get_event_confirmation_stats, list_confirmation_segments, get_communication_performance, list_event_campaigns)
 
 ════════════════════════════════════════
+1-COMMAND EVENT CREATION (CRITICAL)
+════════════════════════════════════════
+
+Detect "1-command event creation" intent when the admin describes a complete event in a single message. Triggers include:
+- "Create a leadership summit in Cairo for 150 attendees"
+- "Set up a two-day digital transformation event for Titan Cement in New Cairo"
+- "Create a board meeting for 40 executives with confirmations via WhatsApp and email"
+- "Build a full tech conference event with visuals"
+
+Any message that includes an event type/name + audience OR location OR duration should trigger this flow.
+
+When detected:
+1. Call generate_full_event_proposal with all extracted context (description, client_name, event_type, expected_attendees, duration_days).
+2. Extract as much structured meaning as possible from the command: client name, event type, audience size, city/location, dates, tone/style, communication intent.
+3. If some info is missing, still generate the strongest draft possible — do NOT stop and ask first.
+4. Present the full proposal with a brief summary of each section.
+5. ALWAYS present these options:
+   1. Apply full draft
+   2. Review section by section
+   3. Edit before applying
+   4. Cancel
+   5. Other
+
+PARTIAL APPLY:
+If admin chooses "Review section by section", present sections one at a time:
+1. Client
+2. Event basics
+3. Agenda
+4. Communications
+5. Visuals
+6. Apply all remaining
+7. Other
+
+If admin chooses "Edit before applying", ask which section to modify.
+If admin says "apply basics only" or "just the agenda" — use save_event_proposal with a partial flag or call individual tools for just those sections.
+
+After saving (full or partial), immediately:
+- Run get_missing_fields to show readiness
+- Suggest next actions (venue search, hero image generation, visual identity, attendees)
+- Offer to generate visual identity if not included
+
+════════════════════════════════════════
 COMMUNICATION RULES (CRITICAL)
 ════════════════════════════════════════
 
@@ -2114,6 +2156,45 @@ async function toolGenerateFullEventProposal(
   const model = Deno.env.get("AI_MODEL") || "gpt-4o-mini";
   const durationDays = args.duration_days || 1;
 
+  // Gather memory preferences for smarter defaults
+  let memoryHints = "";
+  const { data: memories } = await db.from("ai_user_memory")
+    .select("key, value")
+    .eq("user_id", userId)
+    .eq("is_active", true)
+    .gte("confidence_score", 0.5)
+    .in("key", ["preferred_location", "preferred_visual_style", "preferred_event_duration", "preferred_communication_channels", "preferred_venue_type"])
+    .limit(10);
+  if (memories?.length) {
+    memoryHints = "\nAdmin preferences (use as soft defaults, do not override explicit input):\n" +
+      memories.map(m => `- ${m.key}: ${JSON.stringify(m.value)}`).join("\n");
+  }
+
+  // Check if client exists
+  let clientHint = "";
+  if (args.client_name) {
+    const { data: existingClient } = await db.from("clients")
+      .select("id, name, slug")
+      .ilike("name", `%${args.client_name}%`)
+      .limit(1)
+      .single();
+    if (existingClient) {
+      clientHint = `\nNote: Client "${existingClient.name}" already exists (slug: ${existingClient.slug}). Use this client in the proposal.`;
+    }
+  }
+
+  // Check for brand kit
+  let brandHint = "";
+  if (args.client_name) {
+    const { data: brandKits } = await db.from("brand_kits")
+      .select("name, primary_color, secondary_color, accent_color, visual_mood, typography_preference")
+      .limit(1);
+    if (brandKits?.length) {
+      const bk = brandKits[0];
+      brandHint = `\nBrand kit available: ${bk.name}. Colors: ${[bk.primary_color, bk.secondary_color, bk.accent_color].filter(Boolean).join(", ")}. Style: ${(bk.visual_mood || []).join(", ")}.`;
+    }
+  }
+
   const generationPrompt = `Generate a complete event proposal as JSON. The event should be professional and realistic.
 
 Input:
@@ -2122,6 +2203,7 @@ ${args.client_name ? `- Client: ${args.client_name}` : ""}
 ${args.event_type ? `- Type: ${args.event_type}` : ""}
 ${args.expected_attendees ? `- Expected attendees: ${args.expected_attendees}` : ""}
 - Duration: ${durationDays} day(s)
+${clientHint}${brandHint}${memoryHints}
 
 Return ONLY a JSON object with this exact structure:
 {
@@ -2149,17 +2231,24 @@ Return ONLY a JSON object with this exact structure:
     "invitation_subject": "string",
     "invitation_body": "short invitation text",
     "reminder_subject": "string",
-    "reminder_body": "short reminder text"
+    "reminder_body": "short reminder text",
+    "recommended_channels": ["email", "whatsapp"]
   },
   "branding": {
     "theme_id": "same as event.theme_id",
     "color_mood": "description of color palette mood",
-    "tagline": "short catchy tagline for the event"
+    "tagline": "short catchy tagline for the event",
+    "visual_style": "short style direction for hero/banner image generation (e.g. 'premium corporate with Cairo skyline')"
+  },
+  "readiness_summary": {
+    "completed": ["list of items this proposal covers"],
+    "still_needed": ["list of items still needed after applying this proposal"],
+    "next_actions": ["prioritized list of recommended next actions"]
   },
   "publish_guidance": ["list of things needed before publishing"]
 }
 
-Create a realistic, well-paced agenda with appropriate breaks for ${durationDays} day(s). Set dates starting 30 days from now.`;
+Create a realistic, well-paced agenda with appropriate breaks for ${durationDays} day(s). Set dates starting 30 days from now. Include practical next actions in readiness_summary.`;
 
   try {
     const resp = await fetch(OPENAI_API_URL, {
@@ -2199,7 +2288,10 @@ Create a realistic, well-paced agenda with appropriate breaks for ${durationDays
       result: {
         proposal,
         action: "proposal_generated",
-        message: "Event proposal generated — awaiting admin review before saving.",
+        memory_used: (memories?.length ?? 0) > 0,
+        existing_client_matched: !!clientHint,
+        brand_kit_used: !!brandHint,
+        message: "Event proposal generated — review the full draft below before applying.",
       },
     };
   } catch (err) {

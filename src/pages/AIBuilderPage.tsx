@@ -1,6 +1,7 @@
 import { useRef, useEffect, useState, useCallback, useMemo } from "react";
 import { Zap } from "lucide-react";
 import { useAIBuilderSession } from "@/hooks/useAIBuilderSession";
+import type { ProposalSection } from "@/components/ai-builder/AIEventProposalPreview";
 import { AIBuilderChatMessage } from "@/components/ai-builder/AIBuilderChatMessage";
 import { AIBuilderComposer } from "@/components/ai-builder/AIBuilderComposer";
 import { AIBuilderDraftPanel } from "@/components/ai-builder/AIBuilderDraftPanel";
@@ -85,6 +86,10 @@ const AIBuilderPage = () => {
   const handleProposalReject = () => {
     sendMessage("I'd like to make some changes to the proposal before saving. What would you like to adjust?");
   };
+
+  const handlePartialApply = useCallback((sections: ProposalSection[]) => {
+    sendMessage(`I want to apply only these sections from the proposal: ${sections.join(", ")}. Please save only those parts and skip the rest.`);
+  }, [sendMessage]);
 
   const handleHeroImageAdd = useCallback((image: HeroImageCandidate) => {
     heroSelection.addCandidate(image);
@@ -269,6 +274,7 @@ const AIBuilderPage = () => {
                   onPhotosConfirm={handlePhotosConfirm}
                   onProposalApprove={handleProposalApprove}
                   onProposalReject={handleProposalReject}
+                  onPartialApply={handlePartialApply}
                   onHeroImageAdd={handleHeroImageAdd}
                   onHeroImageRefine={handleHeroImageRefine}
                   onVisualIdentityApply={handleVisualIdentityApply}
