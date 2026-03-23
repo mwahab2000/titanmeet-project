@@ -41,6 +41,7 @@ const Attendees = lazy(() => import("./pages/Attendees"));
 const DashboardSettings = lazy(() => import("./pages/DashboardSettings"));
 const BillingPage = lazy(() => import("./pages/BillingPage"));
 const AdminBillingPage = lazy(() => import("./pages/AdminBillingPage"));
+const AdminDiscountsPage = lazy(() => import("./pages/AdminDiscountsPage"));
 const SupportPage = lazy(() => import("./pages/SupportPage"));
 const SupportTicketDetail = lazy(() => import("./pages/SupportTicketDetail"));
 const AdminSupportPage = lazy(() => import("./pages/AdminSupportPage"));
