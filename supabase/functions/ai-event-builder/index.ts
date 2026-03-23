@@ -455,6 +455,21 @@ AI GENERATION:
 - generate_event_image: creates AI-generated images (hero, banner, gallery)
 - save_media_to_event: saves a generated/selected image to the event
 - list_media_library: browse previously saved assets
+- rank_hero_images: AI-ranks candidate hero images for event fit
+
+IMAGE RANKING:
+When the admin has 2+ hero image candidates (generated or selected), you should offer ranking:
+- Call rank_hero_images with the event_id and list of candidate media_asset_ids.
+- The tool returns ranked images with scores and short reasons.
+- Present the ranked list with the top one marked as "Recommended".
+- Offer numbered options:
+  1. Use AI's top recommendation
+  2. Review ranked images
+  3. Generate more options
+  4. Other
+- Only save after explicit admin confirmation.
+- If a brand kit exists for the event's client, mention it was used for ranking.
+- If there is only 1 candidate, skip ranking and offer save/generate more/other.
 
 After generating, ALWAYS show the image and ask for confirmation before saving.
 
@@ -1178,6 +1193,25 @@ const TOOL_DEFINITIONS = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "rank_hero_images",
+      description: "AI-rank a set of candidate hero images for suitability to the current event. Uses event context, theme, audience, and optional brand kit to score and rank images. Returns ranked list with scores and explanations. Requires 2+ candidate images.",
+      parameters: {
+        type: "object",
+        properties: {
+          event_id: { type: "string", description: "Event UUID for context" },
+          candidate_ids: {
+            type: "array",
+            items: { type: "string" },
+            description: "Array of media_asset IDs to rank",
+          },
+        },
+        required: ["event_id", "candidate_ids"],
+      },
+    },
+  },
   // ─── Phase 2: Upload, Brand Kit, Visual Pack tools ───────
   {
     type: "function",
@@ -1459,6 +1493,8 @@ async function executeTool(
         return await toolSaveMediaToEvent(db, userId, args as any, correlationId);
       case "list_media_library":
         return await toolListMediaLibrary(db, userId, args as any);
+      case "rank_hero_images":
+        return await toolRankHeroImages(db, userId, args as any, correlationId);
       case "register_uploaded_media":
         return await toolRegisterUploadedMedia(db, userId, args as any, correlationId);
       case "create_brand_kit":
@@ -3251,6 +3287,146 @@ async function toolListMediaLibrary(
   };
 }
 
+async function toolRankHeroImages(
+  db: SupabaseClient, userId: string,
+  args: { event_id: string; candidate_ids: string[] },
+  correlationId: string,
+): Promise<ToolResult> {
+  if (!args.candidate_ids || args.candidate_ids.length < 2) {
+    return { success: false, result: {}, error: "At least 2 candidate images are required for ranking", category: "validation" };
+  }
+
+  const { allowed, event: evt } = await canManageEvent(db, userId, args.event_id);
+  if (!allowed || !evt) return { success: false, result: {}, error: "Event not found or access denied", category: "permission" };
+
+  // Fetch candidate assets
+  const { data: assets, error: assetsErr } = await db.from("media_assets")
+    .select("id, title, prompt_used, style_tags, source_type, media_type, file_url")
+    .in("id", args.candidate_ids);
+
+  if (assetsErr || !assets || assets.length < 2) {
+    return { success: false, result: {}, error: "Could not find enough candidate images", category: "validation" };
+  }
+
+  // Fetch brand kit if client exists
+  let brandContext = "";
+  if (evt.client_id) {
+    const { data: brandKits } = await db.from("brand_kits")
+      .select("name, primary_color, secondary_color, accent_color, visual_mood, typography_preference")
+      .eq("client_id", evt.client_id)
+      .limit(1);
+    if (brandKits && brandKits.length > 0) {
+      const bk = brandKits[0];
+      brandContext = `\nBrand Kit "${bk.name}": primary=${bk.primary_color || "N/A"}, secondary=${bk.secondary_color || "N/A"}, accent=${bk.accent_color || "N/A"}, mood=${(bk.visual_mood || []).join(", ")}, typography=${bk.typography_preference || "N/A"}.`;
+    }
+  }
+
+  // Fetch user memory preferences for ranking signal
+  let memoryContext = "";
+  const { data: memories } = await db.from("ai_user_memory")
+    .select("key, value")
+    .eq("user_id", userId)
+    .eq("memory_type", "preference")
+    .eq("is_active", true)
+    .gte("confidence_score", 0.5)
+    .limit(5);
+  if (memories && memories.length > 0) {
+    const prefs = memories.map(m => `${m.key}: ${JSON.stringify(m.value)}`).join("; ");
+    memoryContext = `\nAdmin preferences: ${prefs}`;
+  }
+
+  // Build ranking prompt
+  const candidateDescriptions = assets.map((a, i) => {
+    const tags = Array.isArray(a.style_tags) ? (a.style_tags as string[]).join(", ") : "";
+    return `Image ${i + 1} (ID: ${a.id}): source=${a.source_type}, prompt="${a.prompt_used || "N/A"}", style_tags=[${tags}], title="${a.title || "Untitled"}"`;
+  }).join("\n");
+
+  const rankingPrompt = `You are an expert visual strategist for events. Rank these candidate hero images for an event.
+
+Event context:
+- Title: "${evt.title}"
+- Theme: ${evt.theme_id || "corporate"}
+- Location: ${evt.location || evt.venue_name || "Not set"}
+- Description: ${evt.description || "Not provided"}${brandContext}${memoryContext}
+
+Candidates:
+${candidateDescriptions}
+
+Return ONLY a JSON array sorted best-to-worst:
+[
+  { "id": "asset_id", "rank": 1, "score": 0.95, "reason": "Short 1-sentence explanation" },
+  ...
+]
+Score 0-1. Reason must be concise and user-friendly.`;
+
+  const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+  if (!OPENAI_API_KEY) return { success: false, result: {}, error: "AI service not configured", category: "internal" };
+
+  try {
+    const response = await fetch(OPENAI_API_URL, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: Deno.env.get("AI_MODEL") || "gpt-4o-mini",
+        messages: [{ role: "user", content: rankingPrompt }],
+        temperature: 0.2,
+        max_completion_tokens: 1000,
+      }),
+    });
+
+    if (!response.ok) {
+      console.error(`[${correlationId}] Ranking API error: ${response.status}`);
+      return { success: false, result: {}, error: "Image ranking failed. Please try again.", category: "external_api" };
+    }
+
+    const aiResult = await response.json();
+    const rawContent = aiResult.choices?.[0]?.message?.content || "";
+
+    let rankings: Array<{ id: string; rank: number; score: number; reason: string }>;
+    try {
+      const jsonMatch = rawContent.match(/```(?:json)?\s*([\s\S]*?)```/);
+      const jsonStr = jsonMatch ? jsonMatch[1].trim() : rawContent.trim();
+      rankings = JSON.parse(jsonStr);
+    } catch {
+      console.error(`[${correlationId}] Failed to parse ranking JSON:`, rawContent);
+      return { success: false, result: {}, error: "Could not parse ranking results. Please try again.", category: "parsing" };
+    }
+
+    // Generate signed URLs for ranked images
+    const rankedWithUrls = await Promise.all(rankings.map(async (r) => {
+      const asset = assets.find(a => a.id === r.id);
+      let previewUrl = "";
+      if (asset?.file_url) {
+        const { data: urlData } = await db.storage.from("media-library").createSignedUrl(asset.file_url, 3600);
+        previewUrl = urlData?.signedUrl || "";
+      }
+      return {
+        ...r,
+        title: asset?.title || "Untitled",
+        source_type: asset?.source_type || "unknown",
+        preview_url: previewUrl,
+        is_recommended: r.rank === 1,
+      };
+    }));
+
+    const usedBrandKit = brandContext.length > 0;
+
+    return {
+      success: true,
+      result: {
+        ranked_images: rankedWithUrls,
+        total: rankedWithUrls.length,
+        recommended_id: rankedWithUrls[0]?.id || null,
+        used_brand_kit: usedBrandKit,
+        message: `Ranked ${rankedWithUrls.length} images. Top recommendation: "${rankedWithUrls[0]?.title}"${usedBrandKit ? " (used brand kit for ranking)" : ""}.`,
+      },
+    };
+  } catch (err) {
+    console.error(`[${correlationId}] Ranking error:`, err);
+    return { success: false, result: {}, error: "Image ranking failed unexpectedly", category: "external_api" };
+  }
+}
+
 // ─── Phase 2 Tool Implementations ──────────────────────────
 
 async function toolRegisterUploadedMedia(
@@ -4701,6 +4877,8 @@ function formatToolLabel(toolName: string, result: Record<string, unknown>): str
       return (result.message as string) || `Communication performance retrieved`;
     case "list_event_campaigns":
       return (result.message as string) || `Listed ${(result.campaigns as any[])?.length ?? 0} campaigns`;
+    case "rank_hero_images":
+      return (result.message as string) || `Ranked ${(result.ranked_images as any[])?.length ?? 0} images`;
     default:
       return toolName;
   }
