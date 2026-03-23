@@ -4877,6 +4877,8 @@ function formatToolLabel(toolName: string, result: Record<string, unknown>): str
       return (result.message as string) || `Communication performance retrieved`;
     case "list_event_campaigns":
       return (result.message as string) || `Listed ${(result.campaigns as any[])?.length ?? 0} campaigns`;
+    case "rank_hero_images":
+      return (result.message as string) || `Ranked ${(result.ranked_images as any[])?.length ?? 0} images`;
     default:
       return toolName;
   }
