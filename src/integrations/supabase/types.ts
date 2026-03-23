@@ -886,6 +886,119 @@ export type Database = {
           },
         ]
       }
+      discount_code_redemptions: {
+        Row: {
+          billing_interval: string
+          customer_email: string | null
+          discount_code_id: string
+          id: string
+          metadata: Json | null
+          paddle_customer_id: string | null
+          paddle_transaction_id: string | null
+          plan_applied: string
+          redeemed_at: string
+          subscription_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          billing_interval?: string
+          customer_email?: string | null
+          discount_code_id: string
+          id?: string
+          metadata?: Json | null
+          paddle_customer_id?: string | null
+          paddle_transaction_id?: string | null
+          plan_applied: string
+          redeemed_at?: string
+          subscription_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          billing_interval?: string
+          customer_email?: string | null
+          discount_code_id?: string
+          id?: string
+          metadata?: Json | null
+          paddle_customer_id?: string | null
+          paddle_transaction_id?: string | null
+          plan_applied?: string
+          redeemed_at?: string
+          subscription_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "discount_code_redemptions_discount_code_id_fkey"
+            columns: ["discount_code_id"]
+            isOneToOne: false
+            referencedRelation: "discount_codes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      discount_codes: {
+        Row: {
+          applicable_intervals: Json
+          applicable_plans: Json
+          code: string
+          created_at: string
+          created_by: string
+          description: string | null
+          discount_type: string
+          discount_value: number
+          duration_cycles: number | null
+          duration_type: string
+          expires_at: string | null
+          id: string
+          is_active: boolean
+          max_redemptions: number | null
+          max_redemptions_per_customer: number | null
+          paddle_discount_id: string | null
+          starts_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          applicable_intervals?: Json
+          applicable_plans?: Json
+          code: string
+          created_at?: string
+          created_by: string
+          description?: string | null
+          discount_type?: string
+          discount_value?: number
+          duration_cycles?: number | null
+          duration_type?: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          max_redemptions?: number | null
+          max_redemptions_per_customer?: number | null
+          paddle_discount_id?: string | null
+          starts_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          applicable_intervals?: Json
+          applicable_plans?: Json
+          code?: string
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          discount_type?: string
+          discount_value?: number
+          duration_cycles?: number | null
+          duration_type?: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          max_redemptions?: number | null
+          max_redemptions_per_customer?: number | null
+          paddle_discount_id?: string | null
+          starts_at?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       dress_codes: {
         Row: {
           created_at: string
