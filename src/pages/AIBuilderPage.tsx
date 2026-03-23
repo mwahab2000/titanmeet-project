@@ -282,7 +282,7 @@ const AIBuilderPage = () => {
         {/* Messages */}
         <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 sm:px-4">
           {messages.length === 0 ? (
-            <AIBuilderEmptyState onSelectPrompt={(p) => sendMessage(p)} />
+            <AIBuilderEmptyState onSelectPrompt={handleSelectPrompt} isNewUser={onboarding.isNewUser} />
           ) : (
             <div className="max-w-3xl mx-auto py-3 sm:py-4">
               {messages.map((msg) => (
