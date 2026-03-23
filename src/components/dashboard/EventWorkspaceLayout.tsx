@@ -11,7 +11,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { PUBLISH_CHECKS, getPublishStatus } from "@/lib/publishChecks";
 import { SaveAsTemplateDialog } from "@/components/templates/SaveAsTemplateDialog";
-import AiChatWidget from "@/components/ai/AiChatWidget";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 const sectionLabels: Record<string, string> = {
@@ -108,7 +107,7 @@ export const EventWorkspaceLayout: React.FC = () => {
         <div className="flex-1 overflow-auto p-3 sm:p-6">
           <Outlet />
         </div>
-        <AiChatWidget />
+        
       </div>
     </EventWorkspaceProvider>
   );
