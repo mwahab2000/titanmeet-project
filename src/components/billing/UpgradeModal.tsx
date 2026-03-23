@@ -119,6 +119,7 @@ function ModalBody() {
   const planLimits = usePlanLimits();
   const navigate = useNavigate();
   const [isAnnual, setIsAnnual] = useState(false);
+  const [appliedDiscount, setAppliedDiscount] = useState<DiscountValidationResult | null>(null);
 
   const handleSuccess = useCallback(
     (_txId: string) => {
