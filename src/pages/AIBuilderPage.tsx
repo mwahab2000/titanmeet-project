@@ -192,7 +192,7 @@ const AIBuilderPage = () => {
               />
             )}
             {messages.length > 0 && (
-              <Button variant="ghost" size="sm" className="h-8 text-xs gap-1.5" onClick={() => { voiceMode.stopVoiceMode(); clearSession(); }}>
+              <Button variant="ghost" size="sm" className="h-8 text-xs gap-1.5" onClick={() => { voiceMode.stopVoiceMode(); heroSelection.reset(); clearSession(); }}>
                 <RotateCcw className="h-3 w-3" />
                 <span className="hidden sm:inline">New Session</span>
               </Button>
