@@ -271,6 +271,9 @@ const AIBuilderPage = () => {
                   onProposalReject={handleProposalReject}
                   onHeroImageAdd={handleHeroImageAdd}
                   onHeroImageRefine={handleHeroImageRefine}
+                  onVisualIdentityApply={handleVisualIdentityApply}
+                  onVisualIdentityRefine={handleVisualIdentityRefine}
+                  onVisualIdentityRegenerate={handleVisualIdentityRegenerate}
                   heroSelectedIds={heroSelection.selectedIds}
                   isProcessing={isLoading}
                 />
