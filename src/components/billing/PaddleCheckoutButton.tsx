@@ -144,12 +144,17 @@ const PaddleCheckoutButton = ({
           const transactionId = event.data?.transaction_id || event.data?.id || "";
           onSuccess?.(transactionId);
           toast.success("Payment confirmed! Your access will update in a moment.");
-          // Refresh to pick up webhook-updated subscription
+          // Webhook will finalize discount redemption — no need to track here
           setTimeout(() => window.location.reload(), 5000);
           setTimeout(() => window.location.reload(), 10000);
         }
         if (event.name === "checkout.closed") {
-          // User closed the overlay
+          // Abandon pending discount redemption if checkout was closed without completing
+          if (discountCodeId && user?.id) {
+            supabase.functions.invoke("validate-discount", {
+              body: { action: "abandon_pending", discountCodeId, userId: user.id },
+            }).catch(() => {});
+          }
         }
         if (event.name === "checkout.error") {
           const errMsg = event.data?.error?.message || "Checkout error";
