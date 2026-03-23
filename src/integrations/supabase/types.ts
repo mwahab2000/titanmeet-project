@@ -897,6 +897,7 @@ export type Database = {
           paddle_transaction_id: string | null
           plan_applied: string
           redeemed_at: string
+          status: string
           subscription_id: string | null
           user_id: string | null
         }
@@ -910,6 +911,7 @@ export type Database = {
           paddle_transaction_id?: string | null
           plan_applied: string
           redeemed_at?: string
+          status?: string
           subscription_id?: string | null
           user_id?: string | null
         }
@@ -923,6 +925,7 @@ export type Database = {
           paddle_transaction_id?: string | null
           plan_applied?: string
           redeemed_at?: string
+          status?: string
           subscription_id?: string | null
           user_id?: string | null
         }

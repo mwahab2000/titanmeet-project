@@ -291,6 +291,8 @@ function ModalBody() {
               planId={nextPlanId!}
               type="subscription"
               paddleDiscountId={appliedDiscount?.discount?.paddle_discount_id}
+              discountCodeId={appliedDiscount?.discount ? (appliedDiscount.discount as any).id : null}
+              billingInterval={isAnnual ? "annual" : "monthly"}
               onSuccess={handleSuccess}
             />
           ) : (

@@ -3,6 +3,8 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { CreditCard, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { createPendingRedemption } from "@/lib/discount-api";
+import { supabase } from "@/integrations/supabase/client";
 
 const PADDLE_CLIENT_TOKEN = import.meta.env.VITE_PADDLE_CLIENT_TOKEN || "";
 const PADDLE_ENV = import.meta.env.VITE_PADDLE_ENV || "sandbox";
@@ -64,6 +66,10 @@ interface PaddleCheckoutButtonProps {
   disabled?: boolean;
   /** Paddle-native discount ID to apply at checkout */
   paddleDiscountId?: string | null;
+  /** TitanMeet discount code ID for redemption tracking */
+  discountCodeId?: string | null;
+  /** Selected billing interval */
+  billingInterval?: "monthly" | "annual";
   onSuccess?: (transactionId: string) => void;
   onError?: (error: string) => void;
 }
@@ -74,6 +80,8 @@ const PaddleCheckoutButton = ({
   type,
   disabled,
   paddleDiscountId,
+  discountCodeId,
+  billingInterval,
   onSuccess,
   onError,
 }: PaddleCheckoutButtonProps) => {
@@ -108,7 +116,7 @@ const PaddleCheckoutButton = ({
     };
   }, []);
 
-  const handleClick = useCallback(() => {
+  const handleClick = useCallback(async () => {
     const Paddle = (window as any).Paddle;
     if (!Paddle?.Checkout) {
       toast.error("Payment system not ready. Please refresh.");
@@ -119,6 +127,17 @@ const PaddleCheckoutButton = ({
       console.warn(`[PaddleCheckout] No priceId for plan "${planId}". Check VITE_PADDLE_PRICE_* env vars.`);
       toast.error("Price not configured for this plan.");
       return;
+    }
+
+    // Create pending redemption before opening checkout
+    if (discountCodeId && user?.id) {
+      await createPendingRedemption({
+        discountCodeId,
+        userId: user.id,
+        customerEmail: user.email || undefined,
+        planApplied: planId,
+        billingInterval: billingInterval || "monthly",
+      }).catch(() => {});
     }
 
     const checkoutConfig: any = {
@@ -136,12 +155,17 @@ const PaddleCheckoutButton = ({
           const transactionId = event.data?.transaction_id || event.data?.id || "";
           onSuccess?.(transactionId);
           toast.success("Payment confirmed! Your access will update in a moment.");
-          // Refresh to pick up webhook-updated subscription
+          // Webhook will finalize discount redemption — no need to track here
           setTimeout(() => window.location.reload(), 5000);
           setTimeout(() => window.location.reload(), 10000);
         }
         if (event.name === "checkout.closed") {
-          // User closed the overlay
+          // Abandon pending discount redemption if checkout was closed without completing
+          if (discountCodeId && user?.id) {
+            supabase.functions.invoke("validate-discount", {
+              body: { action: "abandon_pending", discountCodeId, userId: user.id },
+            }).catch(() => {});
+          }
         }
         if (event.name === "checkout.error") {
           const errMsg = event.data?.error?.message || "Checkout error";
@@ -157,7 +181,7 @@ const PaddleCheckoutButton = ({
     }
 
     Paddle.Checkout.open(checkoutConfig);
-  }, [priceId, planId, user, paddleDiscountId, onSuccess, onError]);
+  }, [priceId, planId, user, paddleDiscountId, discountCodeId, billingInterval, onSuccess, onError]);
 
   if (disabled) {
     return (

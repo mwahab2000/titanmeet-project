@@ -22,6 +22,8 @@ export interface DiscountCode {
   updated_at: string;
 }
 
+export type RedemptionStatus = "pending" | "applied" | "failed" | "abandoned";
+
 export interface DiscountRedemption {
   id: string;
   discount_code_id: string;
@@ -33,6 +35,7 @@ export interface DiscountRedemption {
   plan_applied: string;
   billing_interval: string;
   redeemed_at: string;
+  status: RedemptionStatus;
   metadata: Record<string, unknown>;
 }
 
@@ -50,6 +53,7 @@ export interface DiscountValidationResult {
   error_code: DiscountErrorCode | null;
   error_message: string | null;
   discount: {
+    id: string;
     code: string;
     discount_type: string;
     discount_value: number;
@@ -117,24 +121,26 @@ export async function validateDiscountCode(
     return { valid: false, error_code: "DISCOUNT_CODE_NOT_VALID_FOR_INTERVAL", error_message: ERROR_MESSAGES.DISCOUNT_CODE_NOT_VALID_FOR_INTERVAL, discount: null };
   }
 
-  // Check global redemption limit
+  // Check global redemption limit (only count applied redemptions)
   if (d.max_redemptions != null) {
     const { count } = await supabase
       .from("discount_code_redemptions" as any)
       .select("id", { count: "exact", head: true })
-      .eq("discount_code_id", d.id);
+      .eq("discount_code_id", d.id)
+      .eq("status", "applied");
     if ((count ?? 0) >= d.max_redemptions) {
       return { valid: false, error_code: "DISCOUNT_CODE_REDEMPTION_LIMIT_REACHED", error_message: ERROR_MESSAGES.DISCOUNT_CODE_REDEMPTION_LIMIT_REACHED, discount: null };
     }
   }
 
-  // Check per-customer limit
+  // Check per-customer limit (only count applied redemptions)
   if (d.max_redemptions_per_customer != null && userId) {
     const { count } = await supabase
       .from("discount_code_redemptions" as any)
       .select("id", { count: "exact", head: true })
       .eq("discount_code_id", d.id)
-      .eq("user_id", userId);
+      .eq("user_id", userId)
+      .eq("status", "applied");
     if ((count ?? 0) >= d.max_redemptions_per_customer) {
       return { valid: false, error_code: "DISCOUNT_CODE_PER_CUSTOMER_LIMIT_REACHED", error_message: ERROR_MESSAGES.DISCOUNT_CODE_PER_CUSTOMER_LIMIT_REACHED, discount: null };
     }
@@ -145,6 +151,7 @@ export async function validateDiscountCode(
     error_code: null,
     error_message: null,
     discount: {
+      id: d.id,
       code: d.code,
       discount_type: d.discount_type,
       discount_value: d.discount_value,
@@ -157,6 +164,22 @@ export async function validateDiscountCode(
 }
 
 // ── Redemption tracking ────────────────────────────────────────
+// Create a pending redemption before checkout opens (will be finalized by webhook)
+export async function createPendingRedemption(params: {
+  discountCodeId: string;
+  userId?: string;
+  customerEmail?: string;
+  planApplied: string;
+  billingInterval: string;
+}) {
+  const { data, error } = await supabase.functions.invoke("validate-discount", {
+    body: { action: "record_redemption", ...params, status: "pending" },
+  });
+  return { data, error };
+}
+
+// Finalize redemption after successful checkout (called by paddle webhook)
+// This is NOT called from frontend — it's handled server-side
 export async function recordRedemption(params: {
   discountCodeId: string;
   userId?: string;
@@ -167,9 +190,8 @@ export async function recordRedemption(params: {
   planApplied: string;
   billingInterval: string;
 }) {
-  // Use edge function to insert with service role since users can't insert
   const { error } = await supabase.functions.invoke("validate-discount", {
-    body: { action: "record_redemption", ...params },
+    body: { action: "record_redemption", ...params, status: "applied" },
   });
   return { error };
 }

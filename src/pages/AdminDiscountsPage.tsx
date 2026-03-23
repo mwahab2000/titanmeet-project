@@ -426,6 +426,8 @@ const AdminDiscountsPage = () => {
                   <TableHead>Email</TableHead>
                   <TableHead>Plan</TableHead>
                   <TableHead>Interval</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Transaction</TableHead>
                   <TableHead>Date</TableHead>
                 </TableRow>
               </TableHeader>
@@ -435,6 +437,18 @@ const AdminDiscountsPage = () => {
                     <TableCell className="text-sm">{r.customer_email || r.user_id?.slice(0, 8) || "—"}</TableCell>
                     <TableCell><Badge variant="outline" className="capitalize text-xs">{r.plan_applied}</Badge></TableCell>
                     <TableCell className="text-sm capitalize">{r.billing_interval}</TableCell>
+                    <TableCell>
+                      <Badge variant={
+                        (r as any).status === "applied" ? "default" :
+                        (r as any).status === "pending" ? "secondary" :
+                        "destructive"
+                      } className="text-[10px]">
+                        {(r as any).status || "pending"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-xs font-mono text-muted-foreground">
+                      {r.paddle_transaction_id?.slice(0, 12) || "—"}
+                    </TableCell>
                     <TableCell className="text-xs text-muted-foreground">{new Date(r.redeemed_at).toLocaleString()}</TableCell>
                   </TableRow>
                 ))}

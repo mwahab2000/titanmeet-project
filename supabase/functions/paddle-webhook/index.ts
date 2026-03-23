@@ -326,6 +326,64 @@ Deno.serve(async (req) => {
         // Audit log
         await logPaymentEvent(serviceClient, { paymentIntentId: pi.id, providerEventId: eventId, eventType, rawPayload: event });
 
+        // ── Finalize discount redemption if discount was applied ──
+        try {
+          const discountData = eventData.discount as Record<string, unknown> | undefined;
+          const paddleDiscountId = discountData?.id as string | undefined;
+          if (paddleDiscountId && userId) {
+            // Look up discount code by paddle_discount_id
+            const { data: dc } = await serviceClient
+              .from("discount_codes")
+              .select("id")
+              .eq("paddle_discount_id", paddleDiscountId)
+              .maybeSingle();
+
+            if (dc) {
+              // Determine billing interval from price
+              const billingCycle = (items?.[0]?.price as Record<string, unknown>)?.billing_cycle as Record<string, unknown> | undefined;
+              const billingInterval = billingCycle?.interval === "year" ? "annual" : "monthly";
+
+              // Try to finalize existing pending redemption
+              const { data: pendingRedemption } = await serviceClient
+                .from("discount_code_redemptions")
+                .select("id")
+                .eq("discount_code_id", dc.id)
+                .eq("user_id", userId)
+                .eq("status", "pending")
+                .order("redeemed_at", { ascending: false })
+                .limit(1)
+                .maybeSingle();
+
+              if (pendingRedemption) {
+                await serviceClient.from("discount_code_redemptions").update({
+                  status: "applied",
+                  subscription_id: subscriptionId || null,
+                  paddle_customer_id: (eventData.customer_id as string) || null,
+                  paddle_transaction_id: transactionId,
+                }).eq("id", pendingRedemption.id);
+                console.log(`[paddle-webhook] finalized discount redemption ${pendingRedemption.id}`);
+              } else {
+                // No pending record — create applied directly (webhook-only path)
+                await serviceClient.from("discount_code_redemptions").insert({
+                  discount_code_id: dc.id,
+                  user_id: userId,
+                  plan_applied: planSlug,
+                  billing_interval: billingInterval,
+                  subscription_id: subscriptionId || null,
+                  paddle_customer_id: (eventData.customer_id as string) || null,
+                  paddle_transaction_id: transactionId,
+                  status: "applied",
+                  metadata: { source: "webhook_direct" },
+                });
+                console.log(`[paddle-webhook] created applied discount redemption for code ${dc.id}`);
+              }
+            }
+          }
+        } catch (discountErr) {
+          // Best-effort — don't fail the whole webhook for discount tracking
+          console.error("[paddle-webhook] discount redemption tracking error:", discountErr);
+        }
+
         // Notification (best-effort)
         try {
           await serviceClient.rpc("create_notification", {
