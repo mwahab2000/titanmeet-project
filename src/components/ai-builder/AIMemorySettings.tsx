@@ -124,6 +124,26 @@ export function AIMemorySettings() {
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Auto-complete suggestions preference */}
+        <div className="flex items-center justify-between rounded-lg border border-border bg-card p-3">
+          <div>
+            <p className="text-sm font-medium">Auto-complete suggestions</p>
+            <p className="text-xs text-muted-foreground">Proactive next-action suggestions in AI Builder</p>
+          </div>
+          <select
+            className="text-xs border border-border rounded-md px-2 py-1.5 bg-background"
+            value={(() => { try { return localStorage.getItem("titanmeet_autocomplete") || "on"; } catch { return "on"; } })()}
+            onChange={(e) => {
+              try { localStorage.setItem("titanmeet_autocomplete", e.target.value); } catch {}
+              toast.success(`Auto-complete: ${e.target.value}`);
+            }}
+          >
+            <option value="on">On</option>
+            <option value="reduced">Reduced (high priority only)</option>
+            <option value="off">Off</option>
+          </select>
+        </div>
+
         {!memoryEnabled && (
           <div className="rounded-lg border border-border bg-muted/50 p-4 text-sm text-muted-foreground">
             AI memory is disabled. AI Builder will not learn from your interactions or suggest personalized defaults.
