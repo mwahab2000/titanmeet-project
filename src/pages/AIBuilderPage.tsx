@@ -22,6 +22,7 @@ import type { EventProposal } from "@/components/ai-builder/AIEventProposalPrevi
 
 const AIBuilderPage = () => {
   const { messages, draft, isLoading, sendMessage, clearSession } = useAIBuilderSession();
+  const heroSelection = useHeroImageSelection();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showPanel, setShowPanel] = useState(true);
   const [draftSheetOpen, setDraftSheetOpen] = useState(false);
