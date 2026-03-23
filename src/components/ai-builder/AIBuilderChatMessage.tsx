@@ -18,6 +18,7 @@ const actionIcons: Record<string, typeof CheckCircle2> = {
   venue_search: MapPin,
   venue_photos: ImageIcon,
   proposal: Sparkles,
+  visual_identity: Palette,
 };
 
 const actionColors: Record<string, string> = {
