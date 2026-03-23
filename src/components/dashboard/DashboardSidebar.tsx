@@ -314,7 +314,10 @@ export const DashboardSidebar = () => {
   const bottomLinks = [
     { to: "/dashboard/billing", icon: CreditCard, label: "Billing", active: isActive("/dashboard/billing"), badge: currentPlan?.name },
     { to: "/dashboard/support", icon: LifeBuoy, label: "Support", active: location.pathname.startsWith("/dashboard/support") },
-    ...(isAdmin ? [{ to: "/dashboard/admin/support", icon: Shield, label: "Manage Tickets", active: isActive("/dashboard/admin/support") }] : []),
+    ...(isAdmin ? [
+      { to: "/dashboard/admin/support", icon: Shield, label: "Manage Tickets", active: isActive("/dashboard/admin/support") },
+      { to: "/dashboard/admin/discounts", icon: Tag, label: "Discount Codes", active: isActive("/dashboard/admin/discounts") },
+    ] : []),
     { to: "/dashboard/settings", icon: Settings, label: "Settings", active: isActive("/dashboard/settings") },
   ];
 
