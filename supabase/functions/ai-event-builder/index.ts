@@ -5074,6 +5074,8 @@ function formatToolLabel(toolName: string, result: Record<string, unknown>): str
       return (result.message as string) || `Ranked ${(result.ranked_images as any[])?.length ?? 0} images`;
     case "refine_event_image":
       return (result.message as string) || "Generated refined image version";
+    case "generate_event_visual_identity":
+      return (result.message as string) || "Generated full visual identity";
     default:
       return toolName;
   }
