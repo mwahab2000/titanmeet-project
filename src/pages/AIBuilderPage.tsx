@@ -86,6 +86,10 @@ const AIBuilderPage = () => {
     sendMessage("I'd like to make some changes to the proposal before saving. What would you like to adjust?");
   };
 
+  const handlePartialApply = useCallback((sections: ProposalSection[]) => {
+    sendMessage(`I want to apply only these sections from the proposal: ${sections.join(", ")}. Please save only those parts and skip the rest.`);
+  }, [sendMessage]);
+
   const handleHeroImageAdd = useCallback((image: HeroImageCandidate) => {
     heroSelection.addCandidate(image);
     heroSelection.selectImage(image.id);
