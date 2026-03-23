@@ -26,6 +26,19 @@ const AIBuilderPage = () => {
   const [isUploading, setIsUploading] = useState(false);
   const isMobile = useIsMobile();
 
+  const lastAssistantMessage = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === "assistant") return messages[i].content;
+    }
+    return undefined;
+  }, [messages]);
+
+  const voiceMode = useVoiceMode({
+    onTranscript: (text) => sendMessage(text),
+    isAiLoading: isLoading,
+    lastAssistantMessage,
+  });
+
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
