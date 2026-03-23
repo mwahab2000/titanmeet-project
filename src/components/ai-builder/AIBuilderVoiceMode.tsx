@@ -1,4 +1,4 @@
-import { Mic, MicOff, Pause, Play, X } from "lucide-react";
+import { Mic, Pause, Play, X, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { VoiceModeState } from "@/hooks/useVoiceMode";
 import { cn } from "@/lib/utils";
@@ -9,9 +9,12 @@ interface Props {
   error: string | null;
   isSupported: boolean;
   isActive: boolean;
+  pendingConfirmation: string | null;
   onStart: () => void;
   onStop: () => void;
   onResume: () => void;
+  onConfirmTranscript: () => void;
+  onRetryTranscript: () => void;
 }
 
 const stateLabels: Record<VoiceModeState, string> = {
@@ -32,9 +35,12 @@ export const AIBuilderVoiceMode = ({
   error,
   isSupported,
   isActive,
+  pendingConfirmation,
   onStart,
   onStop,
   onResume,
+  onConfirmTranscript,
+  onRetryTranscript,
 }: Props) => {
   if (!isSupported) return null;
 
@@ -78,16 +84,35 @@ export const AIBuilderVoiceMode = ({
 
       {/* Status text */}
       <div className="flex-1 min-w-0">
-        <p className={cn(
-          "text-xs font-medium truncate",
-          state === "listening" ? "text-primary" : "text-muted-foreground"
-        )}>
-          {error || stateLabels[state]}
-        </p>
-        {state === "listening" && interimTranscript && (
-          <p className="text-xs text-foreground/70 truncate mt-0.5">
-            "{interimTranscript}"
-          </p>
+        {pendingConfirmation ? (
+          <div>
+            <p className="text-xs font-medium text-foreground truncate">
+              I heard: "{pendingConfirmation}"
+            </p>
+            <div className="flex items-center gap-1.5 mt-1">
+              <Button size="sm" variant="default" className="h-6 text-[10px] gap-1 px-2" onClick={onConfirmTranscript}>
+                <Check className="h-3 w-3" />
+                Send
+              </Button>
+              <Button size="sm" variant="outline" className="h-6 text-[10px] gap-1 px-2" onClick={onRetryTranscript}>
+                Retry
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <p className={cn(
+              "text-xs font-medium truncate",
+              state === "listening" ? "text-primary" : "text-muted-foreground"
+            )}>
+              {error || stateLabels[state]}
+            </p>
+            {state === "listening" && interimTranscript && (
+              <p className="text-xs text-foreground/70 truncate mt-0.5">
+                "{interimTranscript}"
+              </p>
+            )}
+          </>
         )}
       </div>
 
