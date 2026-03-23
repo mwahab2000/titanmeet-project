@@ -4795,9 +4795,10 @@ serve(async (req) => {
 
     const voiceModePrompt = voiceMode ? VOICE_MODE_PROMPT : "";
     const ultraFastPrompt = ultraFastMode ? ULTRA_FAST_MODE_PROMPT : "";
+    const onboardingPrompt = isNewUser ? ONBOARDING_PROMPT : "";
 
     const aiMessages: Array<{ role: string; content: string }> = [
-      { role: "system", content: SYSTEM_PROMPT + voiceModePrompt + ultraFastPrompt + memoryStr + (contextStr ? `\n\nCurrent context:${contextStr}` : "") + confirmationInjection + optionContext },
+      { role: "system", content: SYSTEM_PROMPT + voiceModePrompt + ultraFastPrompt + onboardingPrompt + memoryStr + (contextStr ? `\n\nCurrent context:${contextStr}` : "") + confirmationInjection + optionContext },
     ];
 
     for (const msg of (history || [])) {
