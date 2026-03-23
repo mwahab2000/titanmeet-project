@@ -65,6 +65,16 @@ const AIBuilderPage = () => {
     }
   }, [messages, isLoading]);
 
+  // Notify voice mode that response is rendered in the DOM
+  useEffect(() => {
+    if (!isLoading && messages.length > 0 && messages[messages.length - 1].role === "assistant") {
+      // Small RAF delay to ensure DOM has painted
+      requestAnimationFrame(() => {
+        voiceMode.notifyResponseRendered();
+      });
+    }
+  }, [messages, isLoading]);
+
   const handleVenueSelect = (venue: VenueResult) => {
     sendMessage(
       `I'd like to use "${venue.name}" at ${venue.address} as the venue. Place ID: ${venue.place_id}, coordinates: ${venue.lat}, ${venue.lng}, map: ${venue.map_url}`
