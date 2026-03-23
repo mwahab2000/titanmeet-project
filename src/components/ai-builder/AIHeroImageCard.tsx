@@ -23,6 +23,7 @@ interface AIHeroImageCardProps {
   isSelected?: boolean;
   onAdd?: () => void;
   onRemove?: () => void;
+  onRefine?: () => void;
   selectionMode?: boolean;
   showRanking?: boolean;
 }
