@@ -25,6 +25,9 @@ const AIBuilderPage = () => {
   const [draftSheetOpen, setDraftSheetOpen] = useState(false);
   const [pendingUpload, setPendingUpload] = useState<{ file: File; previewUrl: string } | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [ultraFastMode, setUltraFastMode] = useState(() => {
+    try { return localStorage.getItem("titanmeet_ultra_fast") === "true"; } catch { return false; }
+  });
   const isMobile = useIsMobile();
 
   const lastAssistantMessage = useMemo(() => {
