@@ -19,6 +19,7 @@ import type { HeroImageCandidate } from "@/components/ai-builder/AIHeroImageCard
 import type { VenueResult } from "@/components/ai-builder/AIVenueSearchResults";
 import type { VenuePhoto } from "@/components/ai-builder/AIVenuePhotoBrowser";
 import type { EventProposal } from "@/components/ai-builder/AIEventProposalPreview";
+import type { VisualIdentityData } from "@/components/ai-builder/AIVisualIdentityPreview";
 
 const AIBuilderPage = () => {
   const { messages, draft, isLoading, sendMessage, clearSession } = useAIBuilderSession();
