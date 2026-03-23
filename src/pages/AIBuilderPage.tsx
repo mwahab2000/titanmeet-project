@@ -133,12 +133,14 @@ const AIBuilderPage = () => {
   }, [pendingUpload]);
 
   const handleSelectPrompt = useCallback((prompt: string) => {
+    const newUser = onboarding.isNewUser;
+    if (newUser) onboarding.completeOnboarding();
     if (prompt === "__ONBOARDING_START__") {
-      sendMessage("I'm new here — help me create my first event step by step", undefined, undefined, false, ultraFastMode);
+      sendMessage("I'm new here — help me create my first event step by step", undefined, undefined, false, ultraFastMode, true);
       return;
     }
-    sendMessage(prompt, undefined, undefined, false, ultraFastMode);
-  }, [sendMessage, ultraFastMode]);
+    sendMessage(prompt, undefined, undefined, false, ultraFastMode, newUser);
+  }, [sendMessage, ultraFastMode, onboarding]);
 
   const handleSendWithUpload = useCallback(async (message: string) => {
     // Mark onboarding complete on first real interaction
