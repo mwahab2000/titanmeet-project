@@ -440,7 +440,7 @@ const AdminDiscountsPage = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {redemptions.map((r) => (
+                {redemptions.filter((r) => redemptionFilter === "all" || (r as any).status === redemptionFilter).map((r) => (
                   <TableRow key={r.id}>
                     <TableCell className="text-sm">{r.customer_email || r.user_id?.slice(0, 8) || "—"}</TableCell>
                     <TableCell><Badge variant="outline" className="capitalize text-xs">{r.plan_applied}</Badge></TableCell>

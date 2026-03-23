@@ -330,57 +330,111 @@ Deno.serve(async (req) => {
         try {
           const discountData = eventData.discount as Record<string, unknown> | undefined;
           const paddleDiscountId = discountData?.id as string | undefined;
+          const billingCycle = (items?.[0]?.price as Record<string, unknown>)?.billing_cycle as Record<string, unknown> | undefined;
+          const billingInterval = billingCycle?.interval === "year" ? "annual" : "monthly";
+          const customDiscountCodeId = customData?.discount_code_id as string | undefined;
+
+          // Helper to finalize a pending redemption or create applied directly
+          const finalizeRedemption = async (discountCodeDbId: string, source: string) => {
+            const { data: pendingRedemption } = await serviceClient
+              .from("discount_code_redemptions")
+              .select("id")
+              .eq("discount_code_id", discountCodeDbId)
+              .eq("user_id", userId)
+              .eq("status", "pending")
+              .order("redeemed_at", { ascending: false })
+              .limit(1)
+              .maybeSingle();
+
+            if (pendingRedemption) {
+              await serviceClient.from("discount_code_redemptions").update({
+                status: "applied",
+                subscription_id: subscriptionId || null,
+                paddle_customer_id: (eventData.customer_id as string) || null,
+                paddle_transaction_id: transactionId,
+                metadata: { source, reconciled_at: new Date().toISOString() },
+              }).eq("id", pendingRedemption.id);
+              console.log(`[paddle-webhook] finalized discount redemption ${pendingRedemption.id} via ${source}`);
+              return true;
+            } else {
+              // No pending record — create applied directly
+              await serviceClient.from("discount_code_redemptions").insert({
+                discount_code_id: discountCodeDbId,
+                user_id: userId,
+                plan_applied: planSlug,
+                billing_interval: billingInterval,
+                subscription_id: subscriptionId || null,
+                paddle_customer_id: (eventData.customer_id as string) || null,
+                paddle_transaction_id: transactionId,
+                status: "applied",
+                metadata: { source },
+              });
+              console.log(`[paddle-webhook] created applied discount redemption via ${source}`);
+              return true;
+            }
+          };
+
+          let reconciled = false;
+
+          // Path A: Paddle webhook includes discount object — highest confidence
           if (paddleDiscountId && userId) {
-            // Look up discount code by paddle_discount_id
             const { data: dc } = await serviceClient
               .from("discount_codes")
               .select("id")
               .eq("paddle_discount_id", paddleDiscountId)
               .maybeSingle();
-
             if (dc) {
-              // Determine billing interval from price
-              const billingCycle = (items?.[0]?.price as Record<string, unknown>)?.billing_cycle as Record<string, unknown> | undefined;
-              const billingInterval = billingCycle?.interval === "year" ? "annual" : "monthly";
-
-              // Try to finalize existing pending redemption
-              const { data: pendingRedemption } = await serviceClient
-                .from("discount_code_redemptions")
-                .select("id")
-                .eq("discount_code_id", dc.id)
-                .eq("user_id", userId)
-                .eq("status", "pending")
-                .order("redeemed_at", { ascending: false })
-                .limit(1)
-                .maybeSingle();
-
-              if (pendingRedemption) {
-                await serviceClient.from("discount_code_redemptions").update({
-                  status: "applied",
-                  subscription_id: subscriptionId || null,
-                  paddle_customer_id: (eventData.customer_id as string) || null,
-                  paddle_transaction_id: transactionId,
-                }).eq("id", pendingRedemption.id);
-                console.log(`[paddle-webhook] finalized discount redemption ${pendingRedemption.id}`);
-              } else {
-                // No pending record — create applied directly (webhook-only path)
-                await serviceClient.from("discount_code_redemptions").insert({
-                  discount_code_id: dc.id,
-                  user_id: userId,
-                  plan_applied: planSlug,
-                  billing_interval: billingInterval,
-                  subscription_id: subscriptionId || null,
-                  paddle_customer_id: (eventData.customer_id as string) || null,
-                  paddle_transaction_id: transactionId,
-                  status: "applied",
-                  metadata: { source: "webhook_direct" },
-                });
-                console.log(`[paddle-webhook] created applied discount redemption for code ${dc.id}`);
-              }
+              reconciled = await finalizeRedemption(dc.id, "webhook_paddle_discount");
             }
           }
+
+          // Path B: Fallback — checkout passed discount_code_id in customData
+          if (!reconciled && customDiscountCodeId && userId) {
+            // Verify the discount code exists
+            const { data: dc } = await serviceClient
+              .from("discount_codes")
+              .select("id")
+              .eq("id", customDiscountCodeId)
+              .maybeSingle();
+            if (dc) {
+              reconciled = await finalizeRedemption(dc.id, "webhook_custom_data_fallback");
+              console.log(`[paddle-webhook] discount reconciled via customData fallback for code ${dc.id}`);
+            } else {
+              console.warn(`[paddle-webhook] customData discount_code_id ${customDiscountCodeId} not found in discount_codes`);
+            }
+          }
+
+          // Path C: Last resort — find any recent pending redemption for this user (within 30 min)
+          if (!reconciled && userId) {
+            const thirtyMinAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+            const { data: recentPending } = await serviceClient
+              .from("discount_code_redemptions")
+              .select("id, discount_code_id")
+              .eq("user_id", userId)
+              .eq("status", "pending")
+              .eq("plan_applied", planSlug)
+              .gte("redeemed_at", thirtyMinAgo)
+              .order("redeemed_at", { ascending: false })
+              .limit(1)
+              .maybeSingle();
+
+            if (recentPending) {
+              await serviceClient.from("discount_code_redemptions").update({
+                status: "applied",
+                subscription_id: subscriptionId || null,
+                paddle_customer_id: (eventData.customer_id as string) || null,
+                paddle_transaction_id: transactionId,
+                metadata: { source: "webhook_time_based_fallback", reconciled_at: new Date().toISOString() },
+              }).eq("id", recentPending.id);
+              console.log(`[paddle-webhook] finalized discount redemption ${recentPending.id} via time-based fallback`);
+              reconciled = true;
+            }
+          }
+
+          if (!reconciled && (paddleDiscountId || customDiscountCodeId)) {
+            console.warn(`[paddle-webhook] discount reconciliation failed for tx=${transactionId} user=${userId} paddleDiscount=${paddleDiscountId} customCodeId=${customDiscountCodeId}`);
+          }
         } catch (discountErr) {
-          // Best-effort — don't fail the whole webhook for discount tracking
           console.error("[paddle-webhook] discount redemption tracking error:", discountErr);
         }
 
