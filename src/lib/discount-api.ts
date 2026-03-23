@@ -22,6 +22,8 @@ export interface DiscountCode {
   updated_at: string;
 }
 
+export type RedemptionStatus = "pending" | "applied" | "failed" | "abandoned";
+
 export interface DiscountRedemption {
   id: string;
   discount_code_id: string;
@@ -33,6 +35,7 @@ export interface DiscountRedemption {
   plan_applied: string;
   billing_interval: string;
   redeemed_at: string;
+  status: RedemptionStatus;
   metadata: Record<string, unknown>;
 }
 
