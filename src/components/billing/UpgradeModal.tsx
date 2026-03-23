@@ -275,12 +275,21 @@ function ModalBody() {
             </div>
           )}
 
+          {/* Discount code */}
+          <DiscountCodeInput
+            planId={nextPlanId!}
+            interval={isAnnual ? "annual" : "monthly"}
+            onApplied={(r) => setAppliedDiscount(r)}
+            onCleared={() => setAppliedDiscount(null)}
+          />
+
           {/* CTA */}
           {priceId ? (
             <PaddleCheckoutButton
               priceId={priceId}
               planId={nextPlanId!}
               type="subscription"
+              paddleDiscountId={appliedDiscount?.discount?.paddle_discount_id}
               onSuccess={handleSuccess}
             />
           ) : (
