@@ -1,4 +1,5 @@
 import { useRef, useEffect, useState, useCallback, useMemo } from "react";
+import { Zap } from "lucide-react";
 import { useAIBuilderSession } from "@/hooks/useAIBuilderSession";
 import { AIBuilderChatMessage } from "@/components/ai-builder/AIBuilderChatMessage";
 import { AIBuilderComposer } from "@/components/ai-builder/AIBuilderComposer";
