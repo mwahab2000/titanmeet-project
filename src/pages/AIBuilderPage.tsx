@@ -14,6 +14,8 @@ import { AIBuilderUsageBanner } from "@/components/ai-builder/AIBuilderUsageBann
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useVoiceMode } from "@/hooks/useVoiceMode";
+import { useHeroImageSelection } from "@/hooks/useHeroImageSelection";
+import type { HeroImageCandidate } from "@/components/ai-builder/AIHeroImageCard";
 import type { VenueResult } from "@/components/ai-builder/AIVenueSearchResults";
 import type { VenuePhoto } from "@/components/ai-builder/AIVenuePhotoBrowser";
 import type { EventProposal } from "@/components/ai-builder/AIEventProposalPreview";

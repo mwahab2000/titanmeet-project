@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import { Bot, User, CheckCircle2, AlertTriangle, Info, Plus, Pencil, MapPin, ImageIcon, XCircle, Clock, ChevronDown, ChevronUp, Sparkles } from "lucide-react";
 import type { ChatMessage, AIAction, ActionLogEntry } from "@/hooks/useAIBuilderSession";
@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { AIVenueSearchResults, type VenueResult } from "./AIVenueSearchResults";
 import { AIVenuePhotoBrowser, type VenuePhoto } from "./AIVenuePhotoBrowser";
 import { AIEventProposalPreview, type EventProposal } from "./AIEventProposalPreview";
+import { AIHeroImageGrid, type HeroImageCandidate } from "./AIHeroImageCard";
 
 const actionIcons: Record<string, typeof CheckCircle2> = {
   created: Plus,
@@ -45,16 +46,54 @@ const failureCategoryLabels: Record<string, string> = {
   internal: "System error",
 };
 
+/** Extract image URLs from action data for inline display */
+function extractGeneratedImages(actions?: AIAction[]): HeroImageCandidate[] {
+  if (!actions) return [];
+  const images: HeroImageCandidate[] = [];
+  for (const action of actions) {
+    if (action.data?.generated_image_url) {
+      images.push({
+        id: action.data.media_asset_id || crypto.randomUUID(),
+        url: action.data.generated_image_url,
+        storagePath: action.data.storage_path || "",
+        label: action.data.label || action.label,
+      });
+    }
+    if (action.data?.generated_images && Array.isArray(action.data.generated_images)) {
+      for (const img of action.data.generated_images) {
+        images.push({
+          id: img.media_asset_id || crypto.randomUUID(),
+          url: img.url,
+          storagePath: img.storage_path || "",
+          label: img.label,
+        });
+      }
+    }
+  }
+  return images;
+}
+
 interface AIBuilderChatMessageProps {
   message: ChatMessage;
   onVenueSelect?: (venue: VenueResult) => void;
   onPhotosConfirm?: (photos: VenuePhoto[]) => void;
   onProposalApprove?: (proposal: EventProposal) => void;
   onProposalReject?: () => void;
+  onHeroImageAdd?: (image: HeroImageCandidate) => void;
+  heroSelectedIds?: Set<string>;
   isProcessing?: boolean;
 }
 
-export const AIBuilderChatMessage = ({ message, onVenueSelect, onPhotosConfirm, onProposalApprove, onProposalReject, isProcessing }: AIBuilderChatMessageProps) => {
+export const AIBuilderChatMessage = ({
+  message,
+  onVenueSelect,
+  onPhotosConfirm,
+  onProposalApprove,
+  onProposalReject,
+  onHeroImageAdd,
+  heroSelectedIds,
+  isProcessing,
+}: AIBuilderChatMessageProps) => {
   const isUser = message.role === "user";
   const [venueSelected, setVenueSelected] = useState(false);
   const [photosConfirmed, setPhotosConfirmed] = useState(false);
@@ -64,6 +103,8 @@ export const AIBuilderChatMessage = ({ message, onVenueSelect, onPhotosConfirm, 
   const venueSearchAction = message.actions?.find(a => a.type === "venue_search" && a.data?.venues?.length > 0);
   const venuePhotosAction = message.actions?.find(a => a.type === "venue_photos" && a.data?.photos?.length > 0);
   const proposalAction = message.actions?.find(a => a.type === "proposal" && a.data?.proposal);
+
+  const generatedImages = useMemo(() => extractGeneratedImages(message.actions), [message.actions]);
 
   const actionLog = message.actionLog;
   const hasActionLog = actionLog && actionLog.length > 0;
@@ -104,6 +145,16 @@ export const AIBuilderChatMessage = ({ message, onVenueSelect, onPhotosConfirm, 
             </div>
           )}
         </div>
+
+        {/* ── Generated Images (inline preview) ── */}
+        {generatedImages.length > 0 && (
+          <AIHeroImageGrid
+            images={generatedImages}
+            selectedIds={heroSelectedIds}
+            onAdd={onHeroImageAdd}
+            selectionMode={false}
+          />
+        )}
 
         {/* ── Structured Action Log ── */}
         {hasActionLog && (
@@ -214,6 +265,7 @@ export const AIBuilderChatMessage = ({ message, onVenueSelect, onPhotosConfirm, 
           <div className="flex flex-col gap-1.5 w-full">
             {message.actions
               .filter(a => a.type !== "venue_search" && a.type !== "venue_photos" && a.type !== "proposal")
+              .filter(a => !a.data?.generated_image_url && !a.data?.generated_images)
               .map((action, i) => {
                 const Icon = actionIcons[action.type] || Info;
                 return (
