@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, invokeEdgeFunction } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { usePlanLimits } from "@/hooks/usePlanLimits";
@@ -31,9 +31,7 @@ const CreateClient = () => {
     if (!user) return;
 
     // Server-side limit check
-    const { data: limitCheck } = await supabase.functions.invoke("check-plan-limits", {
-      body: { resource: "clients" },
-    });
+    const { data: limitCheck } = await invokeEdgeFunction("check-plan-limits", { resource: "clients" });
     if (limitCheck && !limitCheck.allowed) {
       toast.error(limitCheck.reason || "Client limit reached. Please upgrade your plan.");
       return;

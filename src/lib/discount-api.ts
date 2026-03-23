@@ -1,4 +1,4 @@
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, invokeEdgeFunction } from "@/integrations/supabase/client";
 
 // ── Types ──────────────────────────────────────────────────────
 export interface DiscountCode {
@@ -172,9 +172,7 @@ export async function createPendingRedemption(params: {
   planApplied: string;
   billingInterval: string;
 }) {
-  const { data, error } = await supabase.functions.invoke("validate-discount", {
-    body: { action: "record_redemption", ...params, status: "pending" },
-  });
+  const { data, error } = await invokeEdgeFunction("validate-discount", { action: "record_redemption", ...params, status: "pending" });
   return { data, error };
 }
 
@@ -190,9 +188,7 @@ export async function recordRedemption(params: {
   planApplied: string;
   billingInterval: string;
 }) {
-  const { error } = await supabase.functions.invoke("validate-discount", {
-    body: { action: "record_redemption", ...params, status: "applied" },
-  });
+  const { error } = await invokeEdgeFunction("validate-discount", { action: "record_redemption", ...params, status: "applied" });
   return { error };
 }
 

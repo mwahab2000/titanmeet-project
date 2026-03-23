@@ -1,4 +1,4 @@
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, invokeEdgeFunction } from "@/integrations/supabase/client";
 
 export interface EventInvite {
   id: string;
@@ -111,14 +111,12 @@ export async function sendEventInvitations(
   results?: any[];
 }> {
   const baseUrl = window.location.origin;
-  const { data, error } = await supabase.functions.invoke("send-event-invitations", {
-    body: {
-      event_id: eventId,
-      attendee_ids: attendeeIds,
-      base_url: baseUrl,
-      channels,
-      is_reminder: options?.is_reminder ?? false,
-    },
+  const { data, error } = await invokeEdgeFunction("send-event-invitations", {
+    event_id: eventId,
+    attendee_ids: attendeeIds,
+    base_url: baseUrl,
+    channels,
+    is_reminder: options?.is_reminder ?? false,
   });
   if (error) throw error;
   return data as any;

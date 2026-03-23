@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, invokeEdgeFunction } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { ArrowLeft } from "lucide-react";
@@ -35,9 +35,7 @@ const CreateEvent = () => {
     if (!user) return;
 
     // Server-side limit check
-    const { data: limitCheck } = await supabase.functions.invoke("check-plan-limits", {
-      body: { resource: "active_events" },
-    });
+    const { data: limitCheck } = await invokeEdgeFunction("check-plan-limits", { resource: "active_events" });
     if (limitCheck && !limitCheck.allowed) {
       toast.error(limitCheck.reason || "Event limit reached. Please upgrade your plan.");
       return;

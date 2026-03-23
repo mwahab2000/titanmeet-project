@@ -1,4 +1,4 @@
-import { supabase } from "@/integrations/supabase/client";
+import { invokeEdgeFunction } from "@/integrations/supabase/client";
 
 export type AiAction =
   | "event_builder"
@@ -23,9 +23,7 @@ interface AiResponse<T = unknown> {
 }
 
 export async function callAi<T = unknown>(request: AiRequest): Promise<T> {
-  const { data, error } = await supabase.functions.invoke("ai-assistant", {
-    body: request,
-  });
+  const { data, error } = await invokeEdgeFunction("ai-assistant", request as unknown as Record<string, unknown>);
 
   if (error) {
     throw new Error(error.message || "AI request failed");

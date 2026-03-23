@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useEventWorkspace } from "@/contexts/EventWorkspaceContext";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, invokeEdgeFunction } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
   Trash2, Upload, Mail, Bell, Users2, Download, FileDown,
@@ -586,13 +586,11 @@ const AttendeesSection = () => {
     if (!event) return;
     setSendingId(attendee.id);
     try {
-      const { data, error } = await supabase.functions.invoke("send-event-invitations", {
-        body: {
+      const { data, error } = await invokeEdgeFunction("send-event-invitations", {
           event_id: event.id,
           attendee_ids: [attendee.id],
           channels: getChannels(),
-          base_url: window.location.origin,
-        },
+          base_url: window.location.origin
       });
       if (error) throw error;
       await processSendResponse((data || {}) as SendResponse);
@@ -615,14 +613,12 @@ const AttendeesSection = () => {
     try {
       const channelLabel = getInviteChannelLabel(attendee.invite) || inviteChannel;
       const channels = channelLabel === "both" ? ["email", "whatsapp"] : [channelLabel];
-      const { data, error } = await supabase.functions.invoke("send-event-invitations", {
-        body: {
+      const { data, error } = await invokeEdgeFunction("send-event-invitations", {
           event_id: event.id,
           attendee_ids: [attendee.id],
           channels,
           base_url: window.location.origin,
-          is_reminder: true,
-        },
+          is_reminder: true
       });
       if (error) throw error;
       await processSendResponse((data || {}) as SendResponse);
@@ -645,13 +641,11 @@ const AttendeesSection = () => {
     if (targets.length === 0) { toast.info("No eligible attendees to invite via the selected channel(s)"); return; }
     setBulkSending(true);
     try {
-      const { data, error } = await supabase.functions.invoke("send-event-invitations", {
-        body: {
+      const { data, error } = await invokeEdgeFunction("send-event-invitations", {
           event_id: event.id,
           attendee_ids: targets.map(a => a.id),
           channels,
-          base_url: window.location.origin,
-        },
+          base_url: window.location.origin
       });
       if (error) throw error;
       await processSendResponse((data || {}) as SendResponse);
@@ -664,13 +658,11 @@ const AttendeesSection = () => {
     if (!event || !sendSummary || sendSummary.failedIds.length === 0) return;
     setRetryingSending(true);
     try {
-      const { data, error } = await supabase.functions.invoke("send-event-invitations", {
-        body: {
+      const { data, error } = await invokeEdgeFunction("send-event-invitations", {
           event_id: event.id,
           attendee_ids: sendSummary.failedIds,
           channels: getChannels(),
-          base_url: window.location.origin,
-        },
+          base_url: window.location.origin
       });
       if (error) throw error;
       await processSendResponse((data || {}) as SendResponse);
@@ -695,14 +687,12 @@ const AttendeesSection = () => {
       try {
         const channelLabel = getInviteChannelLabel(attendee.invite) || inviteChannel;
         const channels = channelLabel === "both" ? ["email", "whatsapp"] : [channelLabel];
-        const { data } = await supabase.functions.invoke("send-event-invitations", {
-          body: {
-            event_id: event.id,
-            attendee_ids: [attendee.id],
-            channels,
-            base_url: window.location.origin,
-            is_reminder: true,
-          },
+        const { data } = await invokeEdgeFunction("send-event-invitations", {
+          event_id: event.id,
+          attendee_ids: [attendee.id],
+          channels,
+          base_url: window.location.origin,
+          is_reminder: true,
         });
         const res = data as SendResponse;
         const sentIds = getSuccessfullySentIds(res);

@@ -3,7 +3,7 @@ import { MessageCircle, X, Send, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { supabase } from "@/integrations/supabase/client";
+import { invokeEdgeFunction } from "@/integrations/supabase/client";
 
 interface ConciergeMsg {
   role: "user" | "assistant";
@@ -46,13 +46,11 @@ export const EventConciergeChat: React.FC<Props> = ({ eventId, eventTitle }) => 
     setLoading(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke("event-concierge", {
-        body: {
-          event_id: eventId,
-          session_id: sessionId,
-          message: msg,
-          channel: "web",
-        },
+      const { data, error } = await invokeEdgeFunction("event-concierge", {
+        event_id: eventId,
+        session_id: sessionId,
+        message: msg,
+        channel: "web",
       });
 
       if (error) throw error;
