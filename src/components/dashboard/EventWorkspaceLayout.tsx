@@ -107,7 +107,7 @@ export const EventWorkspaceLayout: React.FC = () => {
         <div className="flex-1 overflow-auto p-3 sm:p-6">
           <Outlet />
         </div>
-        <AiChatWidget />
+        
       </div>
     </EventWorkspaceProvider>
   );
