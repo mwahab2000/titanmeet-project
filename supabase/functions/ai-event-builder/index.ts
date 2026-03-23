@@ -4616,6 +4616,7 @@ serve(async (req) => {
             : entry.action === "search_venue_on_maps" ? "venue_search" as const
             : entry.action === "get_venue_photos" ? "venue_photos" as const
             : entry.action === "generate_full_event_proposal" ? "proposal" as const
+            : entry.action === "generate_event_visual_identity" ? "visual_identity" as const
             : entry.action.startsWith("check") ? "info" as const
             : "created" as const,
         label: entry.message,
