@@ -159,6 +159,16 @@ const AIBuilderPage = () => {
             </div>
           </div>
           <div className="flex items-center gap-1">
+            <Button
+              variant={ultraFastMode ? "default" : "outline"}
+              size="sm"
+              className={`h-8 text-xs gap-1 ${ultraFastMode ? "bg-amber-500 hover:bg-amber-600 text-white border-0" : ""}`}
+              onClick={toggleUltraFast}
+              title={ultraFastMode ? "Ultra-Fast Mode ON" : "Enable Ultra-Fast Mode"}
+            >
+              <Zap className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">{ultraFastMode ? "Ultra-Fast" : "Fast"}</span>
+            </Button>
             {!voiceMode.isActive && (
               <AIBuilderVoiceMode
                 state={voiceMode.state}
