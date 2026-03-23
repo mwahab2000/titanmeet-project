@@ -120,7 +120,7 @@ export const AIBuilderChatMessage = ({
   const proposalAction = message.actions?.find(a => a.type === "proposal" && a.data?.proposal);
 
   const generatedImages = useMemo(() => extractGeneratedImages(message.actions), [message.actions]);
-
+  const hasRankedImages = generatedImages.some(img => typeof img.rank === "number");
   const actionLog = message.actionLog;
   const hasActionLog = actionLog && actionLog.length > 0;
   const hasFailures = actionLog?.some(e => e.status === "failed");
