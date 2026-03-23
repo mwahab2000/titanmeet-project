@@ -3921,6 +3921,26 @@ serve(async (req) => {
       metadata: { context },
     });
 
+    // ── Load user memory (preferences, patterns, context) ──
+    let memoryStr = "";
+    const { data: userMemories } = await db
+      .from("ai_user_memory")
+      .select("key, value, memory_type, confidence_score, usage_count")
+      .eq("user_id", user.id)
+      .eq("is_active", true)
+      .gte("confidence_score", 0.5)
+      .order("confidence_score", { ascending: false })
+      .limit(20);
+
+    if (userMemories?.length) {
+      const memLines = userMemories.map((m: any) => {
+        const val = typeof m.value === "object" && m.value.display ? m.value.display : JSON.stringify(m.value);
+        const strength = Number(m.confidence_score) >= 0.8 ? "strong" : "moderate";
+        return `- ${m.key.replace(/_/g, " ")}: ${val} (${strength}, used ${m.usage_count}×)`;
+      });
+      memoryStr = `\n\n════════════════════════════════════════\nUSER MEMORY (learned preferences — use to suggest defaults)\n════════════════════════════════════════\n${memLines.join("\n")}\n\nWhen memory exists for a field, suggest it as the first option (e.g. "Use New Cairo?" 1. Yes 2. Change 3. Other). Say "Using your preferred [field]" when applying. Never auto-execute critical actions from memory alone.`;
+    }
+
     // ── Load history ──
     const { data: history } = await db
       .from("ai_chat_messages")
