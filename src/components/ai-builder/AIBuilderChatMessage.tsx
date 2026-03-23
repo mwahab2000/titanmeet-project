@@ -293,11 +293,29 @@ export const AIBuilderChatMessage = ({
           </div>
         )}
 
+        {/* Visual Identity Preview */}
+        {visualIdentityAction && !identityHandled && (
+          <AIVisualIdentityPreview
+            identity={visualIdentityAction.data.visual_identity as VisualIdentityData}
+            onApplyFull={() => { setIdentityHandled(true); onVisualIdentityApply?.(visualIdentityAction.data.visual_identity); }}
+            onRefine={() => { setIdentityHandled(true); onVisualIdentityRefine?.(visualIdentityAction.data.visual_identity); }}
+            onRegenerate={() => { setIdentityHandled(true); onVisualIdentityRegenerate?.(); }}
+            disabled={isProcessing}
+          />
+        )}
+
+        {visualIdentityAction && identityHandled && (
+          <div className="flex items-center gap-2 rounded-lg border px-3 py-2 text-xs text-green-400 bg-green-400/10 border-green-400/20">
+            <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+            <span className="font-medium">Visual identity handled</span>
+          </div>
+        )}
+
         {/* Standard action badges (only when no action log — avoid duplication) */}
         {!hasActionLog && message.actions && message.actions.length > 0 && (
           <div className="flex flex-col gap-1.5 w-full">
             {message.actions
-              .filter(a => a.type !== "venue_search" && a.type !== "venue_photos" && a.type !== "proposal")
+              .filter(a => a.type !== "venue_search" && a.type !== "venue_photos" && a.type !== "proposal" && a.type !== "visual_identity")
               .filter(a => !a.data?.generated_image_url && !a.data?.generated_images)
               .map((action, i) => {
                 const Icon = actionIcons[action.type] || Info;
