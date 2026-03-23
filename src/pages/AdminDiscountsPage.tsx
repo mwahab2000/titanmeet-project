@@ -414,6 +414,13 @@ const AdminDiscountsPage = () => {
               Redemptions — <span className="font-mono">{redemptionsDialog?.code}</span>
             </DialogTitle>
           </DialogHeader>
+          <div className="flex gap-2 mb-4">
+            {(["all", "pending", "applied"] as const).map((f) => (
+              <Button key={f} size="sm" variant={redemptionFilter === f ? "default" : "outline"} onClick={() => setRedemptionFilter(f)} className="capitalize text-xs">
+                {f}
+              </Button>
+            ))}
+          </div>
           {loadingRedemptions ? (
             <div className="flex justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
