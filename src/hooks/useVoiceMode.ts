@@ -3,13 +3,18 @@ import { useState, useRef, useCallback, useEffect } from "react";
 export type VoiceModeState =
   | "idle"
   | "listening"
+  | "silence_detected"
+  | "transcribing"
+  | "auto_submitting"
   | "processing"
   | "responding"
   | "waiting_for_reply"
   | "paused_due_to_inactivity";
 
+const SILENCE_THRESHOLD_MS = 1_000;
 const INACTIVITY_TIMEOUT_MS = 15_000;
 const RELISTEN_DELAY_MS = 1_200;
+const SILENCE_CHECK_INTERVAL_MS = 200;
 
 /** Map spoken words to option numbers */
 const SPOKEN_NUMBER_MAP: Record<string, number> = {
@@ -22,7 +27,7 @@ const SPOKEN_NUMBER_MAP: Record<string, number> = {
   other: -1, "something else": -1,
 };
 
-/** Detect if assistant message contains numbered options (e.g. "1. Confirm") */
+/** Detect if assistant message contains numbered options */
 export function hasNumberedOptions(text: string): boolean {
   const lines = text.split("\n");
   let numberedCount = 0;
@@ -40,7 +45,6 @@ export function parseSpokenReply(spoken: string): { optionNumber: number | null;
       return { optionNumber: val, text: spoken.trim() };
     }
   }
-  // Check if starts with a digit
   const digitMatch = cleaned.match(/^(\d+)/);
   if (digitMatch) {
     return { optionNumber: parseInt(digitMatch[1], 10), text: spoken.trim() };
@@ -62,8 +66,14 @@ export function useVoiceMode({ onTranscript, isAiLoading, lastAssistantMessage }
   const recognitionRef = useRef<any>(null);
   const inactivityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const relistenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const silenceTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const stateRef = useRef(state);
   stateRef.current = state;
+
+  // Track speech activity for silence detection
+  const lastSpeechAtRef = useRef<number>(0);
+  const hasSpeechRef = useRef(false);
+  const accumulatedTranscriptRef = useRef("");
 
   const isSupported = typeof window !== "undefined" &&
     !!((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
@@ -71,46 +81,91 @@ export function useVoiceMode({ onTranscript, isAiLoading, lastAssistantMessage }
   const clearTimers = useCallback(() => {
     if (inactivityTimerRef.current) { clearTimeout(inactivityTimerRef.current); inactivityTimerRef.current = null; }
     if (relistenTimerRef.current) { clearTimeout(relistenTimerRef.current); relistenTimerRef.current = null; }
+    if (silenceTimerRef.current) { clearInterval(silenceTimerRef.current); silenceTimerRef.current = null; }
   }, []);
 
   const stopRecognition = useCallback(() => {
+    if (silenceTimerRef.current) { clearInterval(silenceTimerRef.current); silenceTimerRef.current = null; }
     if (recognitionRef.current) {
       try { recognitionRef.current.stop(); } catch {}
       recognitionRef.current = null;
     }
   }, []);
 
+  const submitTranscript = useCallback((text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed || trimmed.length < 2) {
+      // Too short / empty — don't submit junk
+      console.log("[VoiceMode] Empty or too-short transcript, skipping");
+      setError("I didn't catch that. Try again.");
+      setInterimTranscript("");
+      // Resume listening after a brief pause
+      setTimeout(() => {
+        if (stateRef.current !== "idle") {
+          setError(null);
+          setState("waiting_for_reply");
+        }
+      }, 1500);
+      return;
+    }
+    console.log("[VoiceMode] Auto-submitting transcript:", trimmed);
+    setState("auto_submitting");
+    setInterimTranscript("");
+    onTranscript(trimmed);
+  }, [onTranscript]);
+
   const startListening = useCallback(() => {
     if (!isSupported) { setError("Voice input not supported in this browser."); return; }
 
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     const recognition = new SpeechRecognition();
-    recognition.continuous = false;
+    recognition.continuous = true;
     recognition.interimResults = true;
     recognition.lang = "en-US";
 
-    let finalResult = "";
+    // Reset speech tracking
+    lastSpeechAtRef.current = 0;
+    hasSpeechRef.current = false;
+    accumulatedTranscriptRef.current = "";
 
     recognition.onresult = (event: any) => {
-      let interim = "";
-      for (let i = event.resultIndex; i < event.results.length; i++) {
+      let finalText = "";
+      let interimText = "";
+      for (let i = 0; i < event.results.length; i++) {
         if (event.results[i].isFinal) {
-          finalResult += event.results[i][0].transcript + " ";
+          finalText += event.results[i][0].transcript + " ";
         } else {
-          interim += event.results[i][0].transcript;
+          interimText += event.results[i][0].transcript;
         }
       }
-      setInterimTranscript((finalResult + interim).trim());
+
+      const combined = (finalText + interimText).trim();
+      if (combined) {
+        lastSpeechAtRef.current = Date.now();
+        hasSpeechRef.current = true;
+        accumulatedTranscriptRef.current = finalText.trim();
+      }
+      setInterimTranscript(combined);
     };
 
     recognition.onend = () => {
-      const trimmed = finalResult.trim();
-      if (trimmed && stateRef.current === "listening") {
-        setState("processing");
-        setInterimTranscript("");
-        onTranscript(trimmed);
-      } else if (stateRef.current === "listening") {
-        // No speech detected — start inactivity timer
+      // Recognition ended (browser-initiated or our stop call)
+      if (silenceTimerRef.current) { clearInterval(silenceTimerRef.current); silenceTimerRef.current = null; }
+
+      const currentState = stateRef.current;
+      // If we're in silence_detected or transcribing, the submit is already handled
+      if (currentState === "silence_detected" || currentState === "transcribing") {
+        const transcript = accumulatedTranscriptRef.current.trim();
+        setState("transcribing");
+        // Small delay to show "transcribing" state visually
+        setTimeout(() => {
+          submitTranscript(transcript);
+        }, 100);
+        return;
+      }
+
+      // If still in listening and no speech was detected
+      if (currentState === "listening" && !hasSpeechRef.current) {
         setState("paused_due_to_inactivity");
         setInterimTranscript("");
       }
@@ -137,31 +192,44 @@ export function useVoiceMode({ onTranscript, isAiLoading, lastAssistantMessage }
     setError(null);
     setState("listening");
 
-    // Start inactivity timer
-    clearTimers();
+    // Inactivity timer — pause if no speech at all for 15s
+    if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
     inactivityTimerRef.current = setTimeout(() => {
-      if (stateRef.current === "listening") {
+      if (stateRef.current === "listening" && !hasSpeechRef.current) {
         stopRecognition();
         setState("paused_due_to_inactivity");
         setInterimTranscript("");
       }
     }, INACTIVITY_TIMEOUT_MS);
 
+    // Silence detection — poll for 1s of silence after speech started
+    if (silenceTimerRef.current) clearInterval(silenceTimerRef.current);
+    silenceTimerRef.current = setInterval(() => {
+      if (!hasSpeechRef.current) return; // No speech yet, let inactivity timer handle it
+      const elapsed = Date.now() - lastSpeechAtRef.current;
+      if (elapsed >= SILENCE_THRESHOLD_MS && stateRef.current === "listening") {
+        console.log("[VoiceMode] 1s silence detected, stopping recognition");
+        setState("silence_detected");
+        // Clear inactivity timer since we're handling it
+        if (inactivityTimerRef.current) { clearTimeout(inactivityTimerRef.current); inactivityTimerRef.current = null; }
+        stopRecognition(); // This triggers onend which handles submit
+      }
+    }, SILENCE_CHECK_INTERVAL_MS);
+
     try {
       recognition.start();
+      console.log("[VoiceMode] Started listening (continuous, 1s silence threshold)");
     } catch {
       setError("Could not start voice input.");
       setState("idle");
     }
-  }, [isSupported, onTranscript, clearTimers, stopRecognition]);
+  }, [isSupported, clearTimers, stopRecognition, submitTranscript]);
 
-  // Start voice mode
   const startVoiceMode = useCallback(() => {
     setError(null);
     startListening();
   }, [startListening]);
 
-  // Stop/exit voice mode
   const stopVoiceMode = useCallback(() => {
     clearTimers();
     stopRecognition();
@@ -170,7 +238,6 @@ export function useVoiceMode({ onTranscript, isAiLoading, lastAssistantMessage }
     setError(null);
   }, [clearTimers, stopRecognition]);
 
-  // Resume from paused
   const resumeVoiceMode = useCallback(() => {
     setError(null);
     startListening();
@@ -180,31 +247,20 @@ export function useVoiceMode({ onTranscript, isAiLoading, lastAssistantMessage }
   useEffect(() => {
     if (state === "idle") return;
 
-    if (isAiLoading && (state === "processing" || state === "listening")) {
+    if (isAiLoading && (state === "processing" || state === "auto_submitting" || state === "listening" || state === "silence_detected" || state === "transcribing")) {
       setState("responding");
     }
 
     if (!isAiLoading && state === "responding") {
-      // AI finished responding — check if we should re-listen
-      const shouldRelisten = lastAssistantMessage && hasNumberedOptions(lastAssistantMessage);
-      if (shouldRelisten) {
-        setState("waiting_for_reply");
-        clearTimers();
-        relistenTimerRef.current = setTimeout(() => {
-          if (stateRef.current === "waiting_for_reply") {
-            startListening();
-          }
-        }, RELISTEN_DELAY_MS);
-      } else {
-        // Still relisten but with a slightly longer delay
-        setState("waiting_for_reply");
-        clearTimers();
-        relistenTimerRef.current = setTimeout(() => {
-          if (stateRef.current === "waiting_for_reply") {
-            startListening();
-          }
-        }, RELISTEN_DELAY_MS * 1.5);
-      }
+      // AI finished — re-listen after delay
+      const hasOptions = lastAssistantMessage && hasNumberedOptions(lastAssistantMessage);
+      setState("waiting_for_reply");
+      clearTimers();
+      relistenTimerRef.current = setTimeout(() => {
+        if (stateRef.current === "waiting_for_reply") {
+          startListening();
+        }
+      }, hasOptions ? RELISTEN_DELAY_MS : RELISTEN_DELAY_MS * 1.5);
     }
   }, [isAiLoading, state, lastAssistantMessage, startListening, clearTimers]);
 
