@@ -97,6 +97,21 @@ const AIBuilderPage = () => {
     sendMessage(`I'd like to refine this image (asset ID: ${image.id}). What adjustments would you like to suggest, or let me describe what I want changed.`);
   }, [sendMessage]);
 
+  const handleVisualIdentityApply = useCallback((identity: VisualIdentityData) => {
+    const parts: string[] = [];
+    if (identity.hero_asset_id) parts.push(`hero (asset: ${identity.hero_asset_id})`);
+    if (identity.banner_asset_id) parts.push(`banner (asset: ${identity.banner_asset_id})`);
+    sendMessage(`I approve this visual identity. Please apply the full identity: ${parts.join(" and ")}. Save both images to the event.`);
+  }, [sendMessage]);
+
+  const handleVisualIdentityRefine = useCallback((identity: VisualIdentityData) => {
+    sendMessage("I'd like to refine this visual identity. What adjustments can we make?");
+  }, [sendMessage]);
+
+  const handleVisualIdentityRegenerate = useCallback(() => {
+    sendMessage("Generate another visual identity with a different style direction.");
+  }, [sendMessage]);
+
   const handleFileUpload = useCallback((file: File) => {
     const previewUrl = URL.createObjectURL(file);
     setPendingUpload({ file, previewUrl });
