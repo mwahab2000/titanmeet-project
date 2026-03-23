@@ -26,46 +26,14 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
 
 // ── Edge Function helpers ──────────────────────────────────────
 
-// Functions ported to the local Express server
-const LOCAL_FUNCTIONS = new Set([
-  "check-plan-limits",
-  "send-event-invitations",
-  "validate-discount",
-  "ai-assistant",
-  "event-concierge",
-]);
-
-async function getAuthHeader(): Promise<string | undefined> {
-  const { data: { session } } = await supabase.auth.getSession();
-  return session?.access_token ? `Bearer ${session.access_token}` : undefined;
-}
-
 /**
- * Invoke an Edge Function — either via the local Express server (for ported
- * functions) or directly through Supabase (for remaining edge functions).
+ * Invoke a Supabase Edge Function with the current user's JWT.
+ * Use this for authenticated calls (most dashboard actions).
  */
 export async function invokeEdgeFunction<T = unknown>(
   name: string,
   payload?: Record<string, unknown>,
 ): Promise<{ data: T | null; error: Error | null }> {
-  if (LOCAL_FUNCTIONS.has(name)) {
-    try {
-      const authHeader = await getAuthHeader();
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (authHeader) headers["Authorization"] = authHeader;
-      const res = await fetch(`/api/functions/${name}`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(payload ?? {}),
-      });
-      const data = await res.json();
-      if (!res.ok) return { data: null, error: new Error(data?.error || `HTTP ${res.status}`) };
-      return { data: data as T, error: null };
-    } catch (err: any) {
-      return { data: null, error: err };
-    }
-  }
-
   const { data, error } = await supabase.functions.invoke(name, {
     body: payload ?? {},
   });
