@@ -1,9 +1,10 @@
-import { useRef, useEffect, useState, useCallback } from "react";
+import { useRef, useEffect, useState, useCallback, useMemo } from "react";
 import { useAIBuilderSession } from "@/hooks/useAIBuilderSession";
 import { AIBuilderChatMessage } from "@/components/ai-builder/AIBuilderChatMessage";
 import { AIBuilderComposer } from "@/components/ai-builder/AIBuilderComposer";
 import { AIBuilderDraftPanel } from "@/components/ai-builder/AIBuilderDraftPanel";
 import { AIBuilderEmptyState } from "@/components/ai-builder/AIBuilderEmptyState";
+import { AIBuilderVoiceMode } from "@/components/ai-builder/AIBuilderVoiceMode";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { RotateCcw, Bot, PanelRightClose, PanelRightOpen, ClipboardList } from "lucide-react";
@@ -11,6 +12,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { AIBuilderUsageBanner } from "@/components/ai-builder/AIBuilderUsageBanner";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useVoiceMode } from "@/hooks/useVoiceMode";
 import type { VenueResult } from "@/components/ai-builder/AIVenueSearchResults";
 import type { VenuePhoto } from "@/components/ai-builder/AIVenuePhotoBrowser";
 import type { EventProposal } from "@/components/ai-builder/AIEventProposalPreview";
@@ -23,6 +25,19 @@ const AIBuilderPage = () => {
   const [pendingUpload, setPendingUpload] = useState<{ file: File; previewUrl: string } | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const isMobile = useIsMobile();
+
+  const lastAssistantMessage = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === "assistant") return messages[i].content;
+    }
+    return undefined;
+  }, [messages]);
+
+  const voiceMode = useVoiceMode({
+    onTranscript: (text) => sendMessage(text),
+    isAiLoading: isLoading,
+    lastAssistantMessage,
+  });
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -132,8 +147,20 @@ const AIBuilderPage = () => {
             </div>
           </div>
           <div className="flex items-center gap-1">
+            {!voiceMode.isActive && (
+              <AIBuilderVoiceMode
+                state={voiceMode.state}
+                interimTranscript={voiceMode.interimTranscript}
+                error={voiceMode.error}
+                isSupported={voiceMode.isSupported}
+                isActive={voiceMode.isActive}
+                onStart={voiceMode.startVoiceMode}
+                onStop={voiceMode.stopVoiceMode}
+                onResume={voiceMode.resumeVoiceMode}
+              />
+            )}
             {messages.length > 0 && (
-              <Button variant="ghost" size="sm" className="h-8 text-xs gap-1.5" onClick={clearSession}>
+              <Button variant="ghost" size="sm" className="h-8 text-xs gap-1.5" onClick={() => { voiceMode.stopVoiceMode(); clearSession(); }}>
                 <RotateCcw className="h-3 w-3" />
                 <span className="hidden sm:inline">New Session</span>
               </Button>
@@ -158,6 +185,20 @@ const AIBuilderPage = () => {
             )}
           </div>
         </div>
+
+        {/* Voice mode active strip */}
+        {voiceMode.isActive && (
+          <AIBuilderVoiceMode
+            state={voiceMode.state}
+            interimTranscript={voiceMode.interimTranscript}
+            error={voiceMode.error}
+            isSupported={voiceMode.isSupported}
+            isActive={voiceMode.isActive}
+            onStart={voiceMode.startVoiceMode}
+            onStop={voiceMode.stopVoiceMode}
+            onResume={voiceMode.resumeVoiceMode}
+          />
+        )}
 
         {/* Usage warning */}
         <AIBuilderUsageBanner />
