@@ -1,4 +1,4 @@
-import { Bot, Sparkles, Rocket, Building2, Palette, ImagePlus, Users, ClipboardCheck, BarChart3, MessageSquare, LayoutList, Lightbulb } from "lucide-react";
+import { Bot, Sparkles, Rocket, Building2, Palette, ImagePlus, Users, ClipboardCheck, BarChart3, MessageSquare, LayoutList, Lightbulb, GraduationCap } from "lucide-react";
 
 const demoPrompts = [
   {
@@ -75,9 +75,10 @@ const demoPrompts = [
 
 interface AIBuilderEmptyStateProps {
   onSelectPrompt: (prompt: string) => void;
+  isNewUser?: boolean;
 }
 
-export const AIBuilderEmptyState = ({ onSelectPrompt }: AIBuilderEmptyStateProps) => (
+export const AIBuilderEmptyState = ({ onSelectPrompt, isNewUser }: AIBuilderEmptyStateProps) => (
   <div className="flex flex-1 flex-col items-center justify-center px-4 sm:px-6 py-8 sm:py-12">
     {/* Header */}
     <div className="relative mb-5 sm:mb-6">
@@ -91,8 +92,26 @@ export const AIBuilderEmptyState = ({ onSelectPrompt }: AIBuilderEmptyStateProps
 
     <h2 className="text-lg sm:text-xl font-display font-bold text-foreground mb-1">AI Event Builder</h2>
     <p className="text-xs sm:text-sm text-muted-foreground text-center max-w-md mb-6 sm:mb-8 leading-relaxed">
-      Describe what you need and I'll handle the rest. Try one of these to get started:
+      {isNewUser
+        ? "Welcome! I'll help you create your first event in a few guided steps."
+        : "Describe what you need and I'll handle the rest. Try one of these to get started:"}
     </p>
+
+    {/* Guided onboarding CTA for new users */}
+    {isNewUser && (
+      <button
+        onClick={() => onSelectPrompt("__ONBOARDING_START__")}
+        className="group flex items-center gap-3 rounded-xl border-2 border-primary/30 bg-primary/5 px-5 py-4 mb-5 hover:bg-primary/10 hover:border-primary/50 transition-all duration-200 active:scale-[0.98] w-full max-w-md"
+      >
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+          <GraduationCap className="h-5 w-5" />
+        </div>
+        <div className="text-left">
+          <span className="block text-sm font-semibold text-foreground">Start guided setup</span>
+          <span className="block text-xs text-muted-foreground">Create your first event in under 3 minutes</span>
+        </div>
+      </button>
+    )}
 
     {/* Demo prompts grid */}
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full max-w-2xl">

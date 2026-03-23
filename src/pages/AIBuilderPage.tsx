@@ -13,6 +13,7 @@ import { RotateCcw, Bot, PanelRightClose, PanelRightOpen, ClipboardList } from "
 import { useIsMobile } from "@/hooks/use-mobile";
 import { AIBuilderUsageBanner } from "@/components/ai-builder/AIBuilderUsageBanner";
 import { AIBuilderExamplesTrigger } from "@/components/ai-builder/AIBuilderExamplesTrigger";
+import { useOnboardingStatus } from "@/hooks/useOnboardingStatus";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useVoiceMode } from "@/hooks/useVoiceMode";
@@ -26,6 +27,7 @@ import type { VisualIdentityData } from "@/components/ai-builder/AIVisualIdentit
 const AIBuilderPage = () => {
   const { messages, draft, isLoading, sendMessage, clearSession } = useAIBuilderSession();
   const heroSelection = useHeroImageSelection();
+  const onboarding = useOnboardingStatus();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showPanel, setShowPanel] = useState(true);
   const [draftSheetOpen, setDraftSheetOpen] = useState(false);
@@ -130,7 +132,20 @@ const AIBuilderPage = () => {
     setPendingUpload(null);
   }, [pendingUpload]);
 
+  const handleSelectPrompt = useCallback((prompt: string) => {
+    const newUser = onboarding.isNewUser;
+    if (newUser) onboarding.completeOnboarding();
+    if (prompt === "__ONBOARDING_START__") {
+      sendMessage("I'm new here — help me create my first event step by step", undefined, undefined, false, ultraFastMode, true);
+      return;
+    }
+    sendMessage(prompt, undefined, undefined, false, ultraFastMode, newUser);
+  }, [sendMessage, ultraFastMode, onboarding]);
+
   const handleSendWithUpload = useCallback(async (message: string) => {
+    // Mark onboarding complete on first real interaction
+    if (onboarding.isNewUser) onboarding.completeOnboarding();
+
     if (!pendingUpload) {
       sendMessage(message, undefined, undefined, false, ultraFastMode);
       return;
@@ -269,7 +284,7 @@ const AIBuilderPage = () => {
         {/* Messages */}
         <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 sm:px-4">
           {messages.length === 0 ? (
-            <AIBuilderEmptyState onSelectPrompt={(p) => sendMessage(p)} />
+            <AIBuilderEmptyState onSelectPrompt={handleSelectPrompt} isNewUser={onboarding.isNewUser} />
           ) : (
             <div className="max-w-3xl mx-auto py-3 sm:py-4">
               {messages.map((msg) => (
