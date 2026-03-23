@@ -30,6 +30,7 @@ const actionColors: Record<string, string> = {
   venue_search: "text-primary bg-primary/10 border-primary/20",
   venue_photos: "text-primary bg-primary/10 border-primary/20",
   proposal: "text-primary bg-primary/10 border-primary/20",
+  visual_identity: "text-primary bg-primary/10 border-primary/20",
 };
 
 const logStatusConfig = {
