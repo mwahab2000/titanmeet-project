@@ -149,8 +149,15 @@ const PaddleCheckoutButton = ({
           toast.error("Payment failed. Please try again.");
         }
       },
-    });
-  }, [priceId, planId, user, onSuccess, onError]);
+    };
+
+    // Apply Paddle-native discount if provided
+    if (paddleDiscountId) {
+      checkoutConfig.discountId = paddleDiscountId;
+    }
+
+    Paddle.Checkout.open(checkoutConfig);
+  }, [priceId, planId, user, paddleDiscountId, onSuccess, onError]);
 
   if (disabled) {
     return (

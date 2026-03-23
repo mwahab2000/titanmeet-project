@@ -121,6 +121,7 @@ const App = () => (
                       <Route path="support/:ticketId" element={<SupportTicketDetail />} />
                       <Route path="admin/billing" element={<AdminRoute><AdminBillingPage /></AdminRoute>} />
                       <Route path="admin/support" element={<AdminRoute><AdminSupportPage /></AdminRoute>} />
+                      <Route path="admin/discounts" element={<AdminRoute><AdminDiscountsPage /></AdminRoute>} />
                       <Route path="events/:id" element={<EventWorkspaceLayout />}>
                         <Route path="hero" element={<HeroSection />} />
                         <Route path="info" element={<EventInfoSection />} />
