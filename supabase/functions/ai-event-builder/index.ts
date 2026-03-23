@@ -4026,7 +4026,7 @@ serve(async (req) => {
     const ultraFastPrompt = ultraFastMode ? ULTRA_FAST_MODE_PROMPT : "";
 
     const aiMessages: Array<{ role: string; content: string }> = [
-      { role: "system", content: SYSTEM_PROMPT + voiceModePrompt + ultraFastPrompt + (contextStr ? `\n\nCurrent context:${contextStr}` : "") + confirmationInjection + optionContext },
+      { role: "system", content: SYSTEM_PROMPT + voiceModePrompt + ultraFastPrompt + memoryStr + (contextStr ? `\n\nCurrent context:${contextStr}` : "") + confirmationInjection + optionContext },
     ];
 
     for (const msg of (history || [])) {
