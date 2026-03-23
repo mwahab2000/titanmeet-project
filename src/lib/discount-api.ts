@@ -132,13 +132,14 @@ export async function validateDiscountCode(
     }
   }
 
-  // Check per-customer limit
+  // Check per-customer limit (only count applied redemptions)
   if (d.max_redemptions_per_customer != null && userId) {
     const { count } = await supabase
       .from("discount_code_redemptions" as any)
       .select("id", { count: "exact", head: true })
       .eq("discount_code_id", d.id)
-      .eq("user_id", userId);
+      .eq("user_id", userId)
+      .eq("status", "applied");
     if ((count ?? 0) >= d.max_redemptions_per_customer) {
       return { valid: false, error_code: "DISCOUNT_CODE_PER_CUSTOMER_LIMIT_REACHED", error_message: ERROR_MESSAGES.DISCOUNT_CODE_PER_CUSTOMER_LIMIT_REACHED, discount: null };
     }
