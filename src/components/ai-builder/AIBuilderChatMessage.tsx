@@ -127,11 +127,13 @@ export const AIBuilderChatMessage = ({
   const [venueSelected, setVenueSelected] = useState(false);
   const [photosConfirmed, setPhotosConfirmed] = useState(false);
   const [proposalHandled, setProposalHandled] = useState(false);
+  const [identityHandled, setIdentityHandled] = useState(false);
   const [logExpanded, setLogExpanded] = useState(true);
 
   const venueSearchAction = message.actions?.find(a => a.type === "venue_search" && a.data?.venues?.length > 0);
   const venuePhotosAction = message.actions?.find(a => a.type === "venue_photos" && a.data?.photos?.length > 0);
   const proposalAction = message.actions?.find(a => a.type === "proposal" && a.data?.proposal);
+  const visualIdentityAction = message.actions?.find(a => a.type === "visual_identity" && a.data?.visual_identity);
 
   const generatedImages = useMemo(() => extractGeneratedImages(message.actions), [message.actions]);
   const hasRankedImages = generatedImages.some(img => typeof img.rank === "number");
