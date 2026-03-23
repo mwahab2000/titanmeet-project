@@ -69,6 +69,21 @@ function extractGeneratedImages(actions?: AIAction[]): HeroImageCandidate[] {
         });
       }
     }
+    // Handle ranked images from rank_hero_images tool
+    if (action.data?.ranked_images && Array.isArray(action.data.ranked_images)) {
+      for (const ranked of action.data.ranked_images) {
+        images.push({
+          id: ranked.id,
+          url: ranked.preview_url || "",
+          storagePath: "",
+          label: ranked.title || `Rank #${ranked.rank}`,
+          rank: ranked.rank,
+          score: ranked.score,
+          reason: ranked.reason,
+          isRecommended: ranked.is_recommended || ranked.rank === 1,
+        });
+      }
+    }
   }
   return images;
 }
