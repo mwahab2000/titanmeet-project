@@ -117,7 +117,7 @@ export function useAIBuilderSession() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  const sendMessage = useCallback(async (content: string, eventId?: string, clientId?: string, voiceMode?: boolean) => {
+  const sendMessage = useCallback(async (content: string, eventId?: string, clientId?: string, voiceMode?: boolean, ultraFastMode?: boolean) => {
     const userMsg: ChatMessage = {
       id: crypto.randomUUID(),
       role: "user",
@@ -137,6 +137,7 @@ export function useAIBuilderSession() {
           message: content,
           context: { eventId, clientId },
           voiceMode: voiceMode || false,
+          ultraFastMode: ultraFastMode || false,
         },
       });
 
