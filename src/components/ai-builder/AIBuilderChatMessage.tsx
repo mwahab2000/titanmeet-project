@@ -102,6 +102,9 @@ interface AIBuilderChatMessageProps {
   onProposalReject?: () => void;
   onHeroImageAdd?: (image: HeroImageCandidate) => void;
   onHeroImageRefine?: (image: HeroImageCandidate) => void;
+  onVisualIdentityApply?: (identity: VisualIdentityData) => void;
+  onVisualIdentityRefine?: (identity: VisualIdentityData) => void;
+  onVisualIdentityRegenerate?: () => void;
   heroSelectedIds?: Set<string>;
   isProcessing?: boolean;
 }
