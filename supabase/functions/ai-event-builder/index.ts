@@ -1571,6 +1571,8 @@ async function executeTool(
         return await toolGetCommunicationPerformance(db, userId, args as any);
       case "list_event_campaigns":
         return await toolListEventCampaigns(db, userId, args as any);
+      case "generate_event_visual_identity":
+        return await toolGenerateEventVisualIdentity(db, userId, args as any, correlationId);
       default:
         return { success: false, result: {}, error: `Unknown tool: ${toolName}`, category: "internal" };
     }
