@@ -356,19 +356,30 @@ export const LandingAIShowcase = () => {
                 transition={{ duration: reducedMotion ? 0.2 : 0.7, ease: "easeOut" }}
                 className="rounded-xl overflow-hidden border border-[hsl(var(--landing-border)/0.2)]"
               >
-                <div className="aspect-[16/7] bg-gradient-to-br from-[hsl(var(--titan-green)/0.15)] via-[hsl(var(--titan-blue)/0.1)] to-[hsl(var(--landing-fg)/0.04)] flex items-center justify-center relative">
-                  <Image
-                    className={`h-8 w-8 transition-colors duration-500 ${
-                      preview.heroVisible
-                        ? "text-[hsl(var(--titan-green)/0.6)]"
-                        : "text-[hsl(var(--landing-fg)/0.15)]"
+                <div className="aspect-[16/7] relative overflow-hidden">
+                  {/* Blurred placeholder shown while heroVisible is false */}
+                  <img
+                    src="https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&h=350&fit=crop&q=80"
+                    alt="Leadership Summit hero"
+                    className="w-full h-full object-cover"
+                  />
+                  {/* Dark overlay when not yet "generated" */}
+                  <div
+                    className={`absolute inset-0 bg-[hsl(var(--landing-bg))] transition-opacity duration-700 ${
+                      preview.heroVisible ? "opacity-0" : "opacity-80"
                     }`}
                   />
+                  {/* Centered icon shown in the blurred/dark state */}
+                  {!preview.heroVisible && (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <Image className="h-8 w-8 text-[hsl(var(--landing-fg)/0.15)]" />
+                    </div>
+                  )}
                   {preview.heroVisible && (
                     <motion.div
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
-                      className="absolute bottom-2 right-2 text-[9px] px-2 py-0.5 rounded-full bg-[hsl(var(--titan-green)/0.2)] text-[hsl(var(--titan-green))] font-medium"
+                      className="absolute bottom-2 right-2 text-[9px] px-2 py-0.5 rounded-full bg-[hsl(var(--titan-green)/0.2)] text-[hsl(var(--titan-green))] font-medium backdrop-blur-sm"
                     >
                       AI Generated
                     </motion.div>
