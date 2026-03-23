@@ -13,6 +13,7 @@ import { RotateCcw, Bot, PanelRightClose, PanelRightOpen, ClipboardList } from "
 import { useIsMobile } from "@/hooks/use-mobile";
 import { AIBuilderUsageBanner } from "@/components/ai-builder/AIBuilderUsageBanner";
 import { AIBuilderExamplesTrigger } from "@/components/ai-builder/AIBuilderExamplesTrigger";
+import { useOnboardingStatus } from "@/hooks/useOnboardingStatus";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useVoiceMode } from "@/hooks/useVoiceMode";
