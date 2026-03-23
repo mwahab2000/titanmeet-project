@@ -162,6 +162,22 @@ export async function validateDiscountCode(
 }
 
 // ── Redemption tracking ────────────────────────────────────────
+// Create a pending redemption before checkout opens (will be finalized by webhook)
+export async function createPendingRedemption(params: {
+  discountCodeId: string;
+  userId?: string;
+  customerEmail?: string;
+  planApplied: string;
+  billingInterval: string;
+}) {
+  const { data, error } = await supabase.functions.invoke("validate-discount", {
+    body: { action: "record_redemption", ...params, status: "pending" },
+  });
+  return { data, error };
+}
+
+// Finalize redemption after successful checkout (called by paddle webhook)
+// This is NOT called from frontend — it's handled server-side
 export async function recordRedemption(params: {
   discountCodeId: string;
   userId?: string;
@@ -172,9 +188,8 @@ export async function recordRedemption(params: {
   planApplied: string;
   billingInterval: string;
 }) {
-  // Use edge function to insert with service role since users can't insert
   const { error } = await supabase.functions.invoke("validate-discount", {
-    body: { action: "record_redemption", ...params },
+    body: { action: "record_redemption", ...params, status: "applied" },
   });
   return { error };
 }
