@@ -62,6 +62,8 @@ interface PaddleCheckoutButtonProps {
   planId: string;
   type: "one_time" | "subscription";
   disabled?: boolean;
+  /** Paddle-native discount ID to apply at checkout */
+  paddleDiscountId?: string | null;
   onSuccess?: (transactionId: string) => void;
   onError?: (error: string) => void;
 }
