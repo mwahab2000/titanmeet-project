@@ -3729,7 +3729,7 @@ serve(async (req) => {
     }
 
     const body = await req.json();
-    const { sessionId, message, context } = body;
+    const { sessionId, message, context, voiceMode } = body;
 
     if (!message?.trim()) {
       return new Response(
