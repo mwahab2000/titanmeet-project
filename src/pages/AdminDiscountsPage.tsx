@@ -45,6 +45,7 @@ const AdminDiscountsPage = () => {
   const [loadingRedemptions, setLoadingRedemptions] = useState(false);
   const [saving, setSaving] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [redemptionFilter, setRedemptionFilter] = useState<"all" | "pending" | "applied">("all");
 
   // Form state
   const [form, setForm] = useState({
