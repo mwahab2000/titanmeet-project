@@ -96,7 +96,7 @@ const AIBuilderPage = () => {
 
   const handleSendWithUpload = useCallback(async (message: string) => {
     if (!pendingUpload) {
-      sendMessage(message);
+      sendMessage(message, undefined, undefined, false, ultraFastMode);
       return;
     }
 
