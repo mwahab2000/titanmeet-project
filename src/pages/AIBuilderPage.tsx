@@ -147,8 +147,20 @@ const AIBuilderPage = () => {
             </div>
           </div>
           <div className="flex items-center gap-1">
+            {!voiceMode.isActive && (
+              <AIBuilderVoiceMode
+                state={voiceMode.state}
+                interimTranscript={voiceMode.interimTranscript}
+                error={voiceMode.error}
+                isSupported={voiceMode.isSupported}
+                isActive={voiceMode.isActive}
+                onStart={voiceMode.startVoiceMode}
+                onStop={voiceMode.stopVoiceMode}
+                onResume={voiceMode.resumeVoiceMode}
+              />
+            )}
             {messages.length > 0 && (
-              <Button variant="ghost" size="sm" className="h-8 text-xs gap-1.5" onClick={clearSession}>
+              <Button variant="ghost" size="sm" className="h-8 text-xs gap-1.5" onClick={() => { voiceMode.stopVoiceMode(); clearSession(); }}>
                 <RotateCcw className="h-3 w-3" />
                 <span className="hidden sm:inline">New Session</span>
               </Button>
@@ -173,6 +185,20 @@ const AIBuilderPage = () => {
             )}
           </div>
         </div>
+
+        {/* Voice mode active strip */}
+        {voiceMode.isActive && (
+          <AIBuilderVoiceMode
+            state={voiceMode.state}
+            interimTranscript={voiceMode.interimTranscript}
+            error={voiceMode.error}
+            isSupported={voiceMode.isSupported}
+            isActive={voiceMode.isActive}
+            onStart={voiceMode.startVoiceMode}
+            onStop={voiceMode.stopVoiceMode}
+            onResume={voiceMode.resumeVoiceMode}
+          />
+        )}
 
         {/* Usage warning */}
         <AIBuilderUsageBanner />
