@@ -3884,8 +3884,10 @@ serve(async (req) => {
       ? `\n\n[The user selected option: "${resolvedMessage}" (originally typed: "${message}")]`
       : "";
 
+    const voiceModePrompt = voiceMode ? VOICE_MODE_PROMPT : "";
+
     const aiMessages: Array<{ role: string; content: string }> = [
-      { role: "system", content: SYSTEM_PROMPT + (contextStr ? `\n\nCurrent context:${contextStr}` : "") + confirmationInjection + optionContext },
+      { role: "system", content: SYSTEM_PROMPT + voiceModePrompt + (contextStr ? `\n\nCurrent context:${contextStr}` : "") + confirmationInjection + optionContext },
     ];
 
     for (const msg of (history || [])) {
