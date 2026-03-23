@@ -1493,6 +1493,8 @@ async function executeTool(
         return await toolSaveMediaToEvent(db, userId, args as any, correlationId);
       case "list_media_library":
         return await toolListMediaLibrary(db, userId, args as any);
+      case "rank_hero_images":
+        return await toolRankHeroImages(db, userId, args as any, correlationId);
       case "register_uploaded_media":
         return await toolRegisterUploadedMedia(db, userId, args as any, correlationId);
       case "create_brand_kit":
