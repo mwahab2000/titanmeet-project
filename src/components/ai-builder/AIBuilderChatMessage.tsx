@@ -117,6 +117,9 @@ export const AIBuilderChatMessage = ({
   onProposalReject,
   onHeroImageAdd,
   onHeroImageRefine,
+  onVisualIdentityApply,
+  onVisualIdentityRefine,
+  onVisualIdentityRegenerate,
   heroSelectedIds,
   isProcessing,
 }: AIBuilderChatMessageProps) => {
