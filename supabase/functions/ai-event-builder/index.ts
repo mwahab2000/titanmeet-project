@@ -1445,6 +1445,21 @@ const TOOL_DEFINITIONS = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "generate_event_visual_identity",
+      description: "Generate a complete, consistent visual identity for an event: hero image, banner image, color palette, and typography style. All outputs are designed to feel cohesive. Does NOT apply to event until confirmed.",
+      parameters: {
+        type: "object",
+        properties: {
+          event_id: { type: "string", description: "Event UUID" },
+          style_input: { type: "string", description: "Optional style direction from the admin (e.g. 'corporate', 'premium dark', 'tech futuristic')" },
+        },
+        required: ["event_id"],
+      },
+    },
+  },
 ];
 
 // ─── Tool Executor ─────────────────────────────────────────
