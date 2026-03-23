@@ -3,6 +3,8 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { CreditCard, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { createPendingRedemption } from "@/lib/discount-api";
+import { supabase } from "@/integrations/supabase/client";
 
 const PADDLE_CLIENT_TOKEN = import.meta.env.VITE_PADDLE_CLIENT_TOKEN || "";
 const PADDLE_ENV = import.meta.env.VITE_PADDLE_ENV || "sandbox";
