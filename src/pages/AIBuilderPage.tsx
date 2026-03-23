@@ -34,7 +34,7 @@ const AIBuilderPage = () => {
   }, [messages]);
 
   const voiceMode = useVoiceMode({
-    onTranscript: (text) => sendMessage(text),
+    onTranscript: (text) => sendMessage(text, undefined, undefined, true),
     isAiLoading: isLoading,
     lastAssistantMessage,
   });
