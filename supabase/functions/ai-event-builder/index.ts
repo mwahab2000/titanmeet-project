@@ -4383,6 +4383,91 @@ serve(async (req) => {
   }
 });
 
+// ─── Memory Capture ───────────────────────────────────────
+
+async function captureMemoryFromActions(
+  db: any,
+  userId: string,
+  actionLog: ActionLogEntry[],
+  stateJson: Record<string, unknown>,
+  correlationId: string,
+): Promise<void> {
+  try {
+    const memoryUpdates: Array<{ key: string; value: Record<string, unknown>; type: string }> = [];
+
+    for (const entry of actionLog) {
+      if (entry.status !== "success") continue;
+      const meta = entry.metadata || {};
+
+      // Learn preferred location
+      if (entry.action === "update_event_basics" && meta.location) {
+        memoryUpdates.push({ key: "preferred_location", value: { display: meta.location, value: meta.location }, type: "preference" });
+      }
+
+      // Learn preferred venue
+      if (entry.action === "save_selected_venue" && meta.venue_name) {
+        memoryUpdates.push({ key: "preferred_venue", value: { display: meta.venue_name, value: meta.venue_name }, type: "preference" });
+      }
+
+      // Learn preferred client
+      if (entry.action === "find_or_create_client" && meta.name) {
+        memoryUpdates.push({ key: "preferred_client", value: { display: meta.name, client_id: meta.client_id }, type: "context" });
+      }
+
+      // Learn preferred theme
+      if (entry.action === "update_event_basics" && meta.theme_id) {
+        memoryUpdates.push({ key: "preferred_theme", value: { display: meta.theme_id, value: meta.theme_id }, type: "preference" });
+      }
+
+      // Track workflow patterns
+      if (entry.action === "check_publish_readiness") {
+        memoryUpdates.push({ key: "pattern_checks_readiness", value: { display: "Checks readiness after changes", pattern: "readiness_check" }, type: "pattern" });
+      }
+    }
+
+    // Upsert memories with confidence increase
+    for (const mem of memoryUpdates) {
+      const { data: existing } = await db
+        .from("ai_user_memory")
+        .select("id, confidence_score, usage_count, value")
+        .eq("user_id", userId)
+        .eq("key", mem.key)
+        .single();
+
+      if (existing) {
+        // Same value → increase confidence; different value → decrease slightly and update
+        const sameValue = JSON.stringify(existing.value) === JSON.stringify(mem.value);
+        const newConfidence = sameValue
+          ? Math.min(1, Number(existing.confidence_score) + 0.1)
+          : Math.max(0.3, Number(existing.confidence_score) - 0.15);
+
+        await db.from("ai_user_memory").update({
+          value: sameValue ? existing.value : mem.value,
+          confidence_score: newConfidence,
+          usage_count: existing.usage_count + 1,
+          last_used_at: new Date().toISOString(),
+        }).eq("id", existing.id);
+      } else {
+        await db.from("ai_user_memory").insert({
+          user_id: userId,
+          memory_type: mem.type,
+          key: mem.key,
+          value: mem.value,
+          confidence_score: 0.5,
+          usage_count: 1,
+          source: "inferred",
+        });
+      }
+    }
+
+    if (memoryUpdates.length > 0) {
+      console.log(`[${correlationId}] Captured ${memoryUpdates.length} memory updates`);
+    }
+  } catch (err) {
+    console.warn(`[${correlationId}] Memory capture error (non-fatal):`, err);
+  }
+}
+
 // ─── Helpers ───────────────────────────────────────────────
 
 function formatToolDisplayName(toolName: string): string {
