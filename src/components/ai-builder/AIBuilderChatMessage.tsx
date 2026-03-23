@@ -284,6 +284,7 @@ export const AIBuilderChatMessage = ({
             proposal={proposalAction.data.proposal}
             onApprove={() => { setProposalHandled(true); onProposalApprove?.(proposalAction.data.proposal); }}
             onReject={() => { setProposalHandled(true); onProposalReject?.(); }}
+            onPartialApply={(sections) => { setProposalHandled(true); onPartialApply?.(sections); }}
             disabled={isProcessing}
           />
         )}
