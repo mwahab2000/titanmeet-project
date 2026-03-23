@@ -5,7 +5,7 @@ import type { ChatMessage, AIAction, ActionLogEntry } from "@/hooks/useAIBuilder
 import { cn } from "@/lib/utils";
 import { AIVenueSearchResults, type VenueResult } from "./AIVenueSearchResults";
 import { AIVenuePhotoBrowser, type VenuePhoto } from "./AIVenuePhotoBrowser";
-import { AIEventProposalPreview, type EventProposal } from "./AIEventProposalPreview";
+import { AIEventProposalPreview, type EventProposal, type ProposalSection } from "./AIEventProposalPreview";
 import { AIHeroImageGrid, type HeroImageCandidate } from "./AIHeroImageCard";
 import { AIVisualIdentityPreview, type VisualIdentityData } from "./AIVisualIdentityPreview";
 
