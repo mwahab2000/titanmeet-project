@@ -227,9 +227,12 @@ const AIBuilderPage = () => {
                 error={voiceMode.error}
                 isSupported={voiceMode.isSupported}
                 isActive={voiceMode.isActive}
+                pendingConfirmation={voiceMode.pendingConfirmation}
                 onStart={voiceMode.startVoiceMode}
                 onStop={voiceMode.stopVoiceMode}
                 onResume={voiceMode.resumeVoiceMode}
+                onConfirmTranscript={voiceMode.confirmPendingTranscript}
+                onRetryTranscript={voiceMode.retryPendingTranscript}
               />
             )}
             {messages.length > 0 && (
